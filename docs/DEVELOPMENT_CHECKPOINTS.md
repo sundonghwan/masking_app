@@ -327,9 +327,9 @@ Implementation notes:
 
 Acceptance criteria:
 
-- [ ] submitted image can enter an explicit edit/rework mode
-- [ ] post-submission edits are recorded in review/history metadata
-- [ ] export excludes or labels records whose submitted mask is being reworked
+- [x] submitted image can enter an explicit edit/rework mode
+- [x] post-submission edits are recorded in review/history metadata
+- [x] export excludes or labels records whose submitted mask is being reworked
 - [ ] zoomed canvas supports pan without changing mask pixels
 - [ ] pan state resets or persists by a defined rule when switching images
 - [ ] magic-click action previews or applies a local mask region deterministically

@@ -254,6 +254,20 @@ export function createApiRouter({ storage, logger = null }) {
         status: body.status || image.status,
         updated_at: new Date().toISOString(),
       };
+      const revisionEvent = normalizeRevisionEvent(body.revision_event, {
+        fromStatus: image.status,
+        toStatus: updated.status,
+        actorId: session.userId,
+        now: updated.updated_at,
+      });
+      if (revisionEvent) {
+        updated.review_events = [
+          ...(Array.isArray(image.review_events) ? image.review_events : []),
+          revisionEvent,
+        ];
+        updated.revision_started_at = revisionEvent.created_at;
+        updated.revision_source_status = revisionEvent.from_status;
+      }
       manifest.images = manifest.images.map((item) => item.id === imageId ? updated : item);
       manifest.updated_at = updated.updated_at;
       await storage.writeProjectManifest(projectId, manifest);
@@ -507,6 +521,19 @@ export function createApiRouter({ storage, logger = null }) {
 
   function uploadValidationStatusCode(validation) {
     return validation.reasons.includes(UPLOAD_REASONS.FILE_TOO_LARGE) ? 413 : 400;
+  }
+
+  function normalizeRevisionEvent(event, context = {}) {
+    if (!event || typeof event !== "object") return null;
+    if (event.action !== "revision_start") return null;
+    return {
+      action: "revision_start",
+      reviewer_id: normalizeActorId(context.actorId || event.reviewer_id || event.reviewerId),
+      reason: String(event.reason || "mask_revision").slice(0, 240),
+      from_status: String(event.from_status || event.fromStatus || context.fromStatus || ""),
+      to_status: String(event.to_status || event.toStatus || context.toStatus || "in_progress"),
+      created_at: event.created_at || event.createdAt || context.now || new Date().toISOString(),
+    };
   }
 
   async function exportProject(response, projectId, context, options = {}) {

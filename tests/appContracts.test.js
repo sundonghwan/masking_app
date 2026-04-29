@@ -100,6 +100,7 @@ test("workbench actions are role-marked and shortcut gated to workbench", () => 
 
   assert.match(html, /id="uploadDropzone"[^>]+data-role-panel="admin worker"/);
   assert.match(html, /id="downloadMaskButton"[^>]+data-role-panel="admin worker"/);
+  assert.match(html, /id="reviseButton"[^>]+data-role-panel="admin worker"/);
   assert.match(html, /id="submitButton"[^>]+data-role-panel="admin worker"/);
   assert.match(html, /id="exportButton"[^>]+data-role-panel="admin reviewer"/);
   assert.match(app, /currentScreen\(\) !== SCREENS\.WORKBENCH/);
@@ -117,6 +118,19 @@ test("assignment queue controls expose per-user task lists", () => {
   assert.match(app, /filterImagesForQueue/);
   assert.match(app, /summarizeAssignmentQueue/);
   assert.match(app, /queueMode: QUEUE_MODES\.ALL/);
+});
+
+test("submitted revision flow records audit and removes exportable status", () => {
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const api = fs.readFileSync(new URL("../src/api/client.js", import.meta.url), "utf8");
+  const server = fs.readFileSync(new URL("../src/server/api.js", import.meta.url), "utf8");
+
+  assert.match(app, /function startRevisionMode\(/);
+  assert.match(app, /action: "revision_start"/);
+  assert.match(app, /status = "in_progress"/);
+  assert.match(app, /pending_revision_event/);
+  assert.match(api, /revision_event/);
+  assert.match(server, /function normalizeRevisionEvent/);
 });
 
 test("project creation replaces default project entry path", () => {

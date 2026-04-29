@@ -531,3 +531,24 @@ chains in `harness/tasks/`; keep this file short.
 [GIT] commit=0e43fc5 message="Add assignment queue filters"
 [GIT] commit=6d9fabf message="Record assignment queue closeout"
 [GIT] push=origin/main status=passed range=fdafb75..6d9fabf
+[START] task=submitted-revision-flow subsystem=mask-save,review-audit,export
+[PLAN] scope=start-revision-mode-for-submitted-approved-images risks=exportable-edited-mask,audit-sync-loss,mask-api-contract
+[IMPACT] status=suspected chain=startRevisionMode->handleEditorChange->syncMaskToBackend->apiClient.saveMask->routeImage.mask-save
+[IMPACT] status=suspected chain=validateImageForExport->in-progress-exclusion-for-revised-images
+[IMPACT_VALIDATE] chain=startRevisionMode->handleEditorChange->syncMaskToBackend->apiClient.saveMask->routeImage.mask-save validation=npm test -- tests/apiClient.test.js tests/serverApi.test.js tests/appContracts.test.js passed
+[IMPACT_VALIDATE] chain=validateImageForExport->in-progress-exclusion-for-revised-images validation=revised-images-return-to-in_progress-and-existing-export-policy-excludes-in_progress
+[DOC] updated=docs/FEATURE_STATUS.md note=submitted revision flow marked complete
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=submitted edit/rework acceptance checked
+[CMD] npm test -- tests/apiClient.test.js tests/serverApi.test.js tests/appContracts.test.js
+[CMD] npm run lint
+[CMD] git diff --check
+[REVIEW_FIX] issue=server-trusted-client-revision-actor fixed=normalizeRevisionEvent-prefers-authenticated-session-actor validation=serverApi-test-passed
+[CMD] ./scripts/harness/lint-all.sh
+[CMD] ./scripts/harness/typecheck-all.sh
+[CMD] ./scripts/harness/test-target.sh
+[CMD] ./scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-revision-flow.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-revision-flow-app.js
+[CMD] rg reviseButton|수정 시작 /tmp/masking-revision-flow.html
+[CMD] rg startRevisionMode|pending_revision_event|revision_start|canStartRevision /tmp/masking-revision-flow-app.js
+[REVIEW] finding=none-blocking scope=submitted-revision-flow notes=checked-export-status-transition-audit-sync-and-authenticated-revision-actor-after-fix

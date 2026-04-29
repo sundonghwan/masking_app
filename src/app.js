@@ -86,6 +86,7 @@ const els = {
   undoButton: document.querySelector("#undoButton"),
   redoButton: document.querySelector("#redoButton"),
   downloadMaskButton: document.querySelector("#downloadMaskButton"),
+  reviseButton: document.querySelector("#reviseButton"),
   submitButton: document.querySelector("#submitButton"),
   exportButton: document.querySelector("#exportButton"),
   clearProjectButton: document.querySelector("#clearProjectButton"),
@@ -259,6 +260,7 @@ function bindEvents() {
   els.zoomInButton.addEventListener("click", () => editor.zoomBy(1.2));
   els.zoomOutButton.addEventListener("click", () => editor.zoomBy(0.85));
   els.downloadMaskButton.addEventListener("click", () => void saveCurrentMask());
+  els.reviseButton.addEventListener("click", () => void startSelectedRevision());
   els.submitButton.addEventListener("click", () => void submitCurrentImage());
   els.exportButton.addEventListener("click", () => void exportProject());
   els.clearProjectButton.addEventListener("click", clearProject);
@@ -531,6 +533,46 @@ async function submitCurrentImage() {
   setSaveState("saved", "제출됨");
 }
 
+async function startSelectedRevision() {
+  const image = getSelectedImage();
+  if (!image) return;
+  if (!canStartRevision(image)) {
+    setSaveState("failed", "제출 또는 승인 상태만 수정 모드를 시작할 수 있습니다");
+    return;
+  }
+  startRevisionMode(image, { reason: "manual_revision" });
+  await persistProject();
+  render();
+  setSaveState("dirty", "수정 모드 시작됨");
+}
+
+function startRevisionMode(image, options = {}) {
+  if (!image || !canStartRevision(image)) return null;
+
+  const now = new Date().toISOString();
+  const event = {
+    action: "revision_start",
+    reviewer_id: state.sessionUserId || "",
+    reason: options.reason || "mask_revision",
+    from_status: image.status,
+    to_status: "in_progress",
+    created_at: now,
+  };
+  image.revision_source_status = image.status;
+  image.revision_started_at = now;
+  image.status = "in_progress";
+  image.updatedAt = now;
+  image.updated_at = now;
+  image.review_events = [...(Array.isArray(image.review_events) ? image.review_events : []), event];
+  image.pending_revision_event = event;
+  image.review_server_synced = false;
+  return event;
+}
+
+function canStartRevision(image) {
+  return Boolean(image && ["submitted", "approved"].includes(image.status));
+}
+
 async function exportProject() {
   const exportState = getExportState();
   const { exportable, validImages } = exportState;
@@ -638,10 +680,12 @@ async function syncMaskToBackend(image, dataUrl, status) {
     const ready = await ensureBackendProject();
     if (!ready || !dataUrl) return false;
 
+    const revisionEvent = image.pending_revision_event || null;
     const result = await apiClient.saveMask(state.projectId, image.id, {
       dataUrl,
       status,
       maskRatio: image.maskRatio ?? image.mask_ratio,
+      revisionEvent,
     });
     const updated = result.image || {};
 
@@ -657,6 +701,10 @@ async function syncMaskToBackend(image, dataUrl, status) {
       server_mask_validation: result.validation || null,
       server_sync_error: "",
     });
+    if (revisionEvent) {
+      image.pending_revision_event = "";
+      image.review_server_synced = true;
+    }
     await persistProject();
     return true;
   } catch (error) {
@@ -966,6 +1014,9 @@ function handleEditorChange() {
   const image = getSelectedImage();
   if (!image) return;
 
+  if (canStartRevision(image)) {
+    startRevisionMode(image, { reason: "edit_after_submission" });
+  }
   image.maskRatio = editor.getMaskRatio();
   image.mask_ratio = image.maskRatio;
   image.updatedAt = new Date().toISOString();
@@ -1445,6 +1496,7 @@ function renderSyncStatus() {
 
 function renderValidation() {
   const image = getSelectedImage();
+  els.reviseButton.disabled = !image || !canStartRevision(image);
   const checks = image ? validateExportItem({
     ...image,
     maskRatio: editor.getMaskRatio(),

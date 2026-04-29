@@ -166,6 +166,36 @@ test("saves a mask with project id inside the JSON body", async () => {
   });
 });
 
+test("saves revision audit event with mask payload", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ image: { id: "image-1", status: "in_progress" } }, 200);
+    },
+  });
+
+  await client.saveMask("project-1", "image-1", {
+    dataUrl: "data:image/png;base64,AAAA",
+    status: "in_progress",
+    revisionEvent: {
+      action: "revision_start",
+      reviewer_id: "worker",
+      from_status: "submitted",
+      to_status: "in_progress",
+      created_at: "2026-04-29T00:00:00.000Z",
+    },
+  });
+
+  assert.deepEqual(JSON.parse(calls[0].options.body).revision_event, {
+    action: "revision_start",
+    reviewer_id: "worker",
+    from_status: "submitted",
+    to_status: "in_progress",
+    created_at: "2026-04-29T00:00:00.000Z",
+  });
+});
+
 test("submits review transitions with project id and reason", async () => {
   const calls = [];
   const client = createMaskingApiClient({

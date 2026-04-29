@@ -246,19 +246,21 @@ Acceptance criteria:
 
 Files likely touched:
 
-- `src/review/policy.js`
-- `src/export/exporter.js`
+- `index.html`
+- `src/api/client.js`
 - `src/server/api.js`
 - `src/app.js`
-- `tests/reviewPolicy.test.js`
-- `tests/exporter.test.js`
+- `tests/apiClient.test.js`
+- `tests/appContracts.test.js`
 - `tests/serverApi.test.js`
 
 Acceptance criteria:
 
-- submitted/approved images can enter `revision_in_progress`
+- submitted/approved images can enter revision edit mode and return to
+  `in_progress`
 - revision events are appended to history
-- revision images are excluded from export
+- revision images are excluded from export through existing `in_progress`
+  export policy
 - approve/reject still only apply to `submitted`
 - revised masks must be submitted again before export/review
 

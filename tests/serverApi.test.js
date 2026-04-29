@@ -460,6 +460,41 @@ test("valid mask save updates current mask and submitted status without claiming
   assert.equal(storage.maskWrites.length, 1);
 });
 
+test("mask save can append submitted revision audit event", async () => {
+  const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    status: "submitted",
+    current_mask_path: "masks/old_mask.png",
+  });
+
+  const response = await callJson(route, "PUT", "/api/images/image-1/mask", {
+    project_id: "project-1",
+    data_url: VALID_MASK_DATA_URL,
+    status: "in_progress",
+    revision_event: {
+      action: "revision_start",
+      reviewer_id: "spoofed",
+      reason: "edit_after_submission",
+      from_status: "submitted",
+      to_status: "in_progress",
+      created_at: "2026-04-29T00:00:00.000Z",
+    },
+  }, headers);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.image.status, "in_progress");
+  assert.equal(response.body.image.review_events.length, 1);
+  assert.equal(response.body.image.review_events[0].action, "revision_start");
+  assert.equal(response.body.image.review_events[0].reviewer_id, "worker");
+  assert.equal(response.body.image.revision_source_status, "submitted");
+
+  const manifest = await storage.readProjectManifest("project-1");
+  assert.equal(manifest.images[0].review_events[0].action, "revision_start");
+});
+
 test("invalid mask validation does not write a rejected mask file", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "worker");

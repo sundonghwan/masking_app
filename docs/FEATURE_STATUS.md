@@ -41,6 +41,7 @@
 - [x] Role-aware workbench panels for admin, worker, and reviewer
 - [x] Project creation/opening flow before entering the workbench
 - [x] Assignment queue filters and per-user task list counts
+- [x] Submitted data edit/revision flow with audit event
 
 ## In Progress
 
@@ -48,7 +49,6 @@
 
 ## Remaining
 
-- [ ] Submitted data edit/rework flow after submission
 - [ ] Pan/camera movement while image is zoomed
 - [ ] Magic-click assisted mask tool for local region selection
 - [ ] Dashboard planning and design for operational overview
@@ -60,7 +60,7 @@
 3. Project creation/opening flow to replace default workbench entry project. `[done]`
 4. Role-aware workbench panels for admin, worker, and reviewer. `[done]`
 5. Assignment queues and per-user task list. `[done]`
-6. Submitted data edit/rework flow after submission.
+6. Submitted data edit/rework flow after submission. `[done]`
 7. Pan/camera movement while image is zoomed.
 8. Magic-click assisted mask tool for local region selection.
 9. Dashboard planning and design for operational overview.
