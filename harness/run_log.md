@@ -440,3 +440,5 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] subagent=Harvey finding=none-blocking-high scope=operations-foundation-after-fixes
 [CLOSE] status=operations-foundation-complete
 [GIT] commit=2f8ae6b message="Add operations foundation auth"
+[GIT] commit=0618cf2 message="Record operations foundation closeout"
+[GIT] push=origin/main status=passed
