@@ -64,4 +64,4 @@
 - [x] Review checklist completed.
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
-- [ ] Commit and push completed.
+- [x] Commit and push completed: `ea24af3 Document hardcoded runtime debt`.

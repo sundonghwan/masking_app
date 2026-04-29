@@ -650,3 +650,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] ./scripts/harness/smoke-web.sh
 [REVIEW] finding=none-blocking scope=hardcoded-debt-audit notes=separated-mvp-safe-defaults-from-feature-blocking-debt
 [CLOSE] status=hardcoded-debt-audit-ready-for-commit
+[GIT] commit=ea24af3 message="Document hardcoded runtime debt"
+[GIT] push=origin/main status=passed range=0e10344..ea24af3
