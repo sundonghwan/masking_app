@@ -24,6 +24,9 @@
 - [x] Export readiness summary
 - [x] Export exclusion reason list
 - [x] Export ZIP structure preview
+- [x] Local reviewer identity field
+- [x] Required reviewer ID in review audit events
+- [x] Hash-based review detail route
 
 ## In Progress
 
@@ -31,7 +34,6 @@
 
 ## Remaining
 
-- [ ] Reviewer identity/auth
-- [ ] Dedicated review detail route
+- [ ] Real auth/session/RBAC
 - [ ] Multipart/streaming upload
 - [ ] Admin/assignment workflow

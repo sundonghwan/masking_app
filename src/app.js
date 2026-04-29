@@ -10,7 +10,7 @@ import {
 } from "./export/exporter.js";
 import { createZipBlob } from "./export/zip.js";
 import { createLogger } from "./observability/logger.js";
-import { REVIEW_ACTIONS, applyReviewTransition, reviewReasonLabel } from "./review/policy.js";
+import { REVIEW_ACTIONS, applyReviewTransition, normalizeReviewerId, reviewReasonLabel } from "./review/policy.js";
 import { createProjectStore } from "./storage/projectStore.js";
 import { UPLOAD_POLICY, formatBytes, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
 
@@ -25,6 +25,7 @@ const state = {
   backendProjectReady: false,
   uploadRejections: [],
   reviewReasonDraft: "",
+  reviewerId: "local_reviewer",
   exportApprovedOnly: false,
   projectSummaries: [],
   projectSummariesError: "",
@@ -65,6 +66,9 @@ const els = {
   metaFilename: document.querySelector("#metaFilename"),
   metaSize: document.querySelector("#metaSize"),
   metaStatus: document.querySelector("#metaStatus"),
+  reviewerId: document.querySelector("#reviewerId"),
+  reviewerIdentitySummary: document.querySelector("#reviewerIdentitySummary"),
+  reviewDetailLink: document.querySelector("#reviewDetailLink"),
   reviewReason: document.querySelector("#reviewReason"),
   approveButton: document.querySelector("#approveButton"),
   rejectButton: document.querySelector("#rejectButton"),
@@ -108,8 +112,13 @@ async function init() {
   render();
 
   if (state.images.length > 0) {
-    await selectImage(state.selectedId || state.images[0].id);
+    const routeImageId = getReviewImageIdFromHash();
+    const initialImageId = state.images.some((image) => image.id === routeImageId)
+      ? routeImageId
+      : state.selectedId || state.images[0].id;
+    await selectImage(initialImageId, { updateRoute: false });
   }
+  updateReviewRouteLink();
 }
 
 function bindEvents() {
@@ -190,12 +199,20 @@ function bindEvents() {
   els.reviewReason.addEventListener("input", () => {
     state.reviewReasonDraft = els.reviewReason.value;
   });
+  els.reviewerId.addEventListener("input", () => {
+    state.reviewerId = normalizeReviewerId(els.reviewerId.value);
+    void persistProject();
+    renderReviewIdentity();
+  });
   els.approvedOnlyExport.addEventListener("change", () => {
     state.exportApprovedOnly = els.approvedOnlyExport.checked;
     void persistProject();
     render();
   });
 
+  window.addEventListener("hashchange", () => {
+    void applyRouteFromHash();
+  });
   window.addEventListener("keydown", handleShortcut);
   window.addEventListener("resize", resizeEditorCanvas);
 
@@ -261,7 +278,7 @@ async function handleFiles(fileList) {
   setSaveState("saved", state.uploadRejections.length > 0 ? "일부 업로드 완료" : "업로드 완료");
 }
 
-async function selectImage(imageId) {
+async function selectImage(imageId, options = {}) {
   const image = state.images.find((item) => item.id === imageId);
   if (!image) return;
 
@@ -274,6 +291,11 @@ async function selectImage(imageId) {
   els.emptyState.hidden = true;
   await persistProject();
   render();
+  if (options.updateRoute !== false) {
+    updateReviewRoute(image.id);
+  } else {
+    updateReviewRouteLink();
+  }
   setSaveState("saved", "로드됨");
 }
 
@@ -545,6 +567,7 @@ async function syncReviewToBackend(image) {
     const response = await apiClient.reviewImage(state.projectId, image.id, {
       action,
       reason: image.reject_reason || state.reviewReasonDraft,
+      reviewerId: image.reviewer_id || state.reviewerId,
     });
     Object.assign(image, {
       ...response.image,
@@ -579,6 +602,10 @@ async function reviewSelectedImage(action) {
     setReviewMessage("마스크 서버 동기화 후 리뷰할 수 있습니다.", true);
     return;
   }
+  if (!state.reviewerId) {
+    setReviewMessage("리뷰어 ID 입력 후 리뷰할 수 있습니다.", true);
+    return;
+  }
   if (action === REVIEW_ACTIONS.REWORK && image.review_server_synced === false) {
     setReviewMessage("반려 상태 서버 동기화 후 재작업할 수 있습니다.", true);
     return;
@@ -587,6 +614,7 @@ async function reviewSelectedImage(action) {
   const result = applyReviewTransition(image, {
     action,
     reason: state.reviewReasonDraft,
+    reviewerId: state.reviewerId,
   });
   if (!result.valid) {
     setReviewMessage(result.validation.reasons.map(reviewReasonLabel).join(", "), true);
@@ -615,6 +643,7 @@ async function reviewSelectedImage(action) {
     const response = await apiClient.reviewImage(state.projectId, image.id, {
       action,
       reason: state.reviewReasonDraft,
+      reviewerId: image.reviewer_id || state.reviewerId,
     });
     Object.assign(image, {
       ...response.image,
@@ -709,6 +738,7 @@ function render() {
   renderMetadata();
   renderValidation();
   renderReviewPanel();
+  renderReviewIdentity();
   renderExportPolicy();
   renderSyncStatus();
   updateStatusbar();
@@ -798,17 +828,20 @@ function renderReviewPanel() {
   const image = getSelectedImage();
   const canReview = image?.status === "submitted" && Boolean(image.server_mask_synced);
   const canRework = image?.status === "rejected" && image.review_server_synced !== false;
+  const reviewerReady = Boolean(state.reviewerId);
 
   if (document.activeElement !== els.reviewReason) {
     els.reviewReason.value = state.reviewReasonDraft || image?.reject_reason || "";
   }
   els.reviewReason.disabled = !image || image.status === "approved";
-  els.approveButton.disabled = !canReview;
-  els.rejectButton.disabled = !canReview;
-  els.reworkButton.disabled = !canRework;
+  els.approveButton.disabled = !canReview || !reviewerReady;
+  els.rejectButton.disabled = !canReview || !reviewerReady;
+  els.reworkButton.disabled = !canRework || !reviewerReady;
 
   if (!image) {
     setReviewMessage("제출된 이미지를 선택하면 리뷰할 수 있습니다.", false);
+  } else if (!reviewerReady) {
+    setReviewMessage("리뷰어 ID 입력 후 리뷰할 수 있습니다.", true);
   } else if (image.status === "submitted" && !image.server_mask_synced) {
     setReviewMessage("마스크 서버 동기화 후 리뷰할 수 있습니다.", true);
   } else if (image.status === "submitted") {
@@ -822,6 +855,14 @@ function renderReviewPanel() {
   } else {
     setReviewMessage("제출 후 리뷰할 수 있습니다.", false);
   }
+}
+
+function renderReviewIdentity() {
+  if (document.activeElement !== els.reviewerId) {
+    els.reviewerId.value = state.reviewerId;
+  }
+  els.reviewerIdentitySummary.textContent = state.reviewerId || "미설정";
+  updateReviewRouteLink();
 }
 
 function renderExportPolicy() {
@@ -1016,6 +1057,38 @@ function hasSyncIssue(image) {
   ));
 }
 
+async function applyRouteFromHash() {
+  const imageId = getReviewImageIdFromHash();
+  if (!imageId || imageId === state.selectedId) {
+    updateReviewRouteLink();
+    return;
+  }
+  await selectImage(imageId, { updateRoute: false });
+}
+
+function updateReviewRoute(imageId) {
+  const nextHash = reviewRouteHash(imageId);
+  if (window.location.hash !== nextHash) {
+    window.history.replaceState(null, "", nextHash);
+  }
+  updateReviewRouteLink();
+}
+
+function updateReviewRouteLink() {
+  const hash = reviewRouteHash(state.selectedId);
+  els.reviewDetailLink.href = hash;
+  els.reviewDetailLink.textContent = hash;
+}
+
+function getReviewImageIdFromHash() {
+  const match = window.location.hash.match(/^#\/review\/([^/?#]+)$/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+function reviewRouteHash(imageId) {
+  return imageId ? `#/review/${encodeURIComponent(imageId)}` : "#/review";
+}
+
 function explainLocalExportFallback(validImages) {
   if (validImages.length === 0) return "Export 대상 없음";
   if (!state.backendProjectReady) return "서버 프로젝트 연결 전이라 로컬 ZIP 사용";
@@ -1041,6 +1114,7 @@ async function persistProject() {
     lastExportMode: state.lastExportMode || "",
     lastExportMessage: state.lastExportMessage || "",
     exportApprovedOnly: Boolean(state.exportApprovedOnly),
+    reviewerId: state.reviewerId,
     uploadRejections: state.uploadRejections || [],
     images: state.images.map(toSerializableImage),
   };
@@ -1062,6 +1136,7 @@ async function restoreProject() {
     state.lastExportMode = saved.lastExportMode || "";
     state.lastExportMessage = saved.lastExportMessage || "";
     state.exportApprovedOnly = Boolean(saved.exportApprovedOnly);
+    state.reviewerId = normalizeReviewerId(saved.reviewerId) || state.reviewerId;
     state.uploadRejections = Array.isArray(saved.uploadRejections) ? saved.uploadRejections : [];
     state.images = await Promise.all((saved.images || []).map(rehydrateImageRecord));
     setSaveState("saved", "작업 복구됨");
@@ -1086,6 +1161,7 @@ async function clearProject() {
   state.lastExportMode = "";
   state.lastExportMessage = "";
   state.exportApprovedOnly = false;
+  state.reviewerId = "local_reviewer";
   state.uploadRejections = [];
   await projectStore.clearProject();
   editor.clear();

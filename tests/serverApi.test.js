@@ -129,11 +129,29 @@ test("review reject requires reason and leaves manifest unchanged", async () => 
   const response = await callJson(route, "PUT", "/api/images/image-1/review", {
     project_id: "project-1",
     action: "reject",
+    reviewer_id: "reviewer-1",
   });
 
   assert.equal(response.statusCode, 422);
   assert.equal(response.body.error, "review_transition_failed");
   assert.deepEqual(response.body.validation.reasons, ["missing_rejection_reason"]);
+  assert.deepEqual(await storage.readProjectManifest("project-1"), before);
+});
+
+test("review action requires reviewer identity and leaves manifest unchanged", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", { ...baseImage(), status: "submitted" });
+  const before = await storage.readProjectManifest("project-1");
+
+  const response = await callJson(route, "PUT", "/api/images/image-1/review", {
+    project_id: "project-1",
+    action: "approve",
+  });
+
+  assert.equal(response.statusCode, 422);
+  assert.equal(response.body.error, "review_transition_failed");
+  assert.deepEqual(response.body.validation.reasons, ["missing_reviewer_id"]);
   assert.deepEqual(await storage.readProjectManifest("project-1"), before);
 });
 
@@ -149,6 +167,7 @@ test("review rework moves rejected image back to in progress", async () => {
   const response = await callJson(route, "PUT", "/api/images/image-1/review", {
     project_id: "project-1",
     action: "rework",
+    reviewer_id: "reviewer-1",
   });
 
   assert.equal(response.statusCode, 200);

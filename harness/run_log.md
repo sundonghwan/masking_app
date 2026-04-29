@@ -301,3 +301,24 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=three-feature-export-setup-result-batch-complete
 [GIT] commit=c2261bc message="Bootstrap masking app MVP harness"
 [GIT] push=origin/main status=passed
+[START] task=review-identity-detail-batch subsystem=review
+[PLAN] scope=reviewer identity field + required review event reviewer id + hash review detail route risks=audit-without-actor,hash-selection-loop,retry-reviewer-drift
+[IMPACT] status=suspected chain=reviewSelectedImage->applyReviewTransition->apiClient.reviewImage
+[IMPACT] status=suspected chain=routeImage.review->applyReviewTransition->writeProjectManifest
+[IMPACT] status=suspected chain=applyRouteFromHash->selectImage->renderReviewPanel
+[IMPACT_VALIDATE] chain=reviewSelectedImage->applyReviewTransition->apiClient.reviewImage validation=npm test; reviewer id required by shared policy
+[IMPACT_VALIDATE] chain=routeImage.review->applyReviewTransition->writeProjectManifest validation=npm test; missing reviewer id returns 422 and manifest remains unchanged
+[IMPACT_VALIDATE] chain=applyRouteFromHash->selectImage->renderReviewPanel validation=server HTML/JS smoke; review route controls and hash route functions rendered
+[REVIEW] finding=none-blocking scope=reviewer-id-ui,review-policy,server-review-route,hash-review-route risk=local-identity-not-real-auth
+[CMD] npm run lint
+[CMD] npm test
+[CMD] scripts/harness/lint-all.sh
+[CMD] scripts/harness/typecheck-all.sh
+[CMD] scripts/harness/test-target.sh
+[CMD] scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-index-review.html
+[CMD] rg reviewerId|reviewerIdentitySummary|reviewDetailLink|#/review /tmp/masking-index-review.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-app-review.js
+[CMD] rg getReviewImageIdFromHash|updateReviewRoute|normalizeReviewerId|reviewerId /tmp/masking-app-review.js
+[CMD] curl -sS http://localhost:4173/api/health
+[CLOSE] status=three-feature-review-identity-detail-batch-complete

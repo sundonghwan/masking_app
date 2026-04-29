@@ -10,15 +10,18 @@ export const REVIEW_REASONS = {
   NOT_SUBMITTED: "not_submitted",
   NOT_REJECTED: "not_rejected",
   MISSING_REJECTION_REASON: "missing_rejection_reason",
+  MISSING_REVIEWER_ID: "missing_reviewer_id",
 };
 
 export function validateReviewTransition(image = {}, input = {}) {
   const action = normalizeAction(input.action);
   const reason = String(input.reason || input.reject_reason || "").trim();
+  const reviewerId = normalizeReviewerId(input.reviewerId || input.reviewer_id);
   const reasons = [];
 
   if (!image || !image.id) reasons.push(REVIEW_REASONS.IMAGE_NOT_FOUND);
   if (!action) reasons.push(REVIEW_REASONS.INVALID_ACTION);
+  if (!reviewerId) reasons.push(REVIEW_REASONS.MISSING_REVIEWER_ID);
 
   if (action === REVIEW_ACTIONS.APPROVE && image.status !== "submitted") {
     reasons.push(REVIEW_REASONS.NOT_SUBMITTED);
@@ -41,6 +44,7 @@ export function validateReviewTransition(image = {}, input = {}) {
       submitted: action === REVIEW_ACTIONS.REWORK ? true : image?.status === "submitted",
       rejected: action === REVIEW_ACTIONS.REWORK ? image?.status === "rejected" : true,
       rejection_reason: action === REVIEW_ACTIONS.REJECT ? Boolean(reason) : true,
+      reviewer_id: Boolean(reviewerId),
     },
   };
 }
@@ -52,7 +56,7 @@ export function applyReviewTransition(image = {}, input = {}, options = {}) {
   }
 
   const now = options.now || new Date().toISOString();
-  const reviewerId = String(input.reviewerId || input.reviewer_id || "local_reviewer").trim();
+  const reviewerId = normalizeReviewerId(input.reviewerId || input.reviewer_id);
   const reason = String(input.reason || input.reject_reason || "").trim();
   const updated = {
     ...image,
@@ -103,7 +107,12 @@ export function reviewReasonLabel(reason) {
     [REVIEW_REASONS.NOT_SUBMITTED]: "제출 상태에서만 리뷰할 수 있습니다",
     [REVIEW_REASONS.NOT_REJECTED]: "반려 상태에서만 재작업을 시작할 수 있습니다",
     [REVIEW_REASONS.MISSING_REJECTION_REASON]: "반려 사유가 필요합니다",
+    [REVIEW_REASONS.MISSING_REVIEWER_ID]: "리뷰어 ID가 필요합니다",
   }[reason] || reason;
+}
+
+export function normalizeReviewerId(value) {
+  return String(value || "").trim();
 }
 
 function normalizeAction(action) {

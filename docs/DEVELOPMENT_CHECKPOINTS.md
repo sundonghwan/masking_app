@@ -186,11 +186,12 @@ Completed:
 - [x] review history/audit records are retained in manifest
 - [x] feature status is tracked in `docs/FEATURE_STATUS.md`
 - [x] full backend PNG binary mask pixel validation is active
+- [x] reviewer identity is explicit in local UI and review audit events
+- [x] review detail hash route can reopen a selected review image
 
 Remaining:
 
-- [ ] reviewer identity beyond the local MVP default
-- [ ] separate review-detail route if reviewer workflow outgrows the workbench panel
+- [ ] real auth/session/RBAC beyond the local reviewer id
 
 ## Work To Avoid For Now
 

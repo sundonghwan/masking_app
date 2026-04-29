@@ -36,6 +36,7 @@ test("rejects submitted images with required reason", () => {
   const result = applyReviewTransition(baseImage({ status: "submitted" }), {
     action: REVIEW_ACTIONS.REJECT,
     reason: "Mask leaks outside the part",
+    reviewer_id: "reviewer-1",
   });
 
   assert.equal(result.valid, true);
@@ -47,6 +48,7 @@ test("rejects submitted images with required reason", () => {
 test("reject action requires a rejection reason", () => {
   const result = validateReviewTransition(baseImage({ status: "submitted" }), {
     action: REVIEW_ACTIONS.REJECT,
+    reviewer_id: "reviewer-1",
   });
 
   assert.equal(result.valid, false);
@@ -56,9 +58,11 @@ test("reject action requires a rejection reason", () => {
 test("rework starts only from rejected images", () => {
   const rejected = applyReviewTransition(baseImage({ status: "rejected", reject_reason: "Needs tighter edge" }), {
     action: REVIEW_ACTIONS.REWORK,
+    reviewer_id: "reviewer-1",
   });
   const submitted = validateReviewTransition(baseImage({ status: "submitted" }), {
     action: REVIEW_ACTIONS.REWORK,
+    reviewer_id: "reviewer-1",
   });
 
   assert.equal(rejected.valid, true);
@@ -69,6 +73,16 @@ test("rework starts only from rejected images", () => {
 
 test("review reason labels are stable", () => {
   assert.equal(reviewReasonLabel(REVIEW_REASONS.NOT_SUBMITTED), "제출 상태에서만 리뷰할 수 있습니다");
+});
+
+test("review transition requires reviewer identity", () => {
+  const result = validateReviewTransition(baseImage({ status: "submitted" }), {
+    action: REVIEW_ACTIONS.APPROVE,
+  });
+
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.reasons, [REVIEW_REASONS.MISSING_REVIEWER_ID]);
+  assert.equal(result.checks.reviewer_id, false);
 });
 
 function baseImage(overrides = {}) {

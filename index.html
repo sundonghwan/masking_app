@@ -142,6 +142,14 @@
 
         <section class="panel-section">
           <h2>리뷰</h2>
+          <label class="stacked-field">
+            <span>리뷰어 ID</span>
+            <input class="text-input" id="reviewerId" type="text" value="local_reviewer" autocomplete="off">
+          </label>
+          <dl class="metadata-list compact">
+            <div><dt>현재 리뷰어</dt><dd id="reviewerIdentitySummary">local_reviewer</dd></div>
+            <div><dt>리뷰 링크</dt><dd><a id="reviewDetailLink" href="#/review">#/review</a></dd></div>
+          </dl>
           <textarea class="review-reason" id="reviewReason" rows="3" placeholder="반려 사유"></textarea>
           <div class="review-actions">
             <button class="button primary" id="approveButton" type="button">승인</button>
