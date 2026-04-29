@@ -613,3 +613,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] ./scripts/harness/smoke-web.sh
 [REVIEW] finding=none-blocking scope=dashboard-planning-design notes=checked-audience-data-source-mapping-workbench-boundary-and-future-implementation-hand-off
 [CLOSE] status=dashboard-planning-design-ready-for-commit
+[GIT] commit=f9d436e message="Add dashboard planning design"
+[GIT] push=origin/main status=passed range=369d332..f9d436e
