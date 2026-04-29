@@ -84,4 +84,4 @@
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
 - [x] Commit completed: `0e43fc5 Add assignment queue filters`.
-- [ ] Push completed.
+- [x] Push completed: `origin/main` at `6d9fabf`.

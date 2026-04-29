@@ -529,3 +529,5 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=assignment-queues notes=checked-queue-status-composition-review-ready-filter-persistence-and-new-module-lint-coverage
 [CLOSE] status=assignment-queues-complete
 [GIT] commit=0e43fc5 message="Add assignment queue filters"
+[GIT] commit=6d9fabf message="Record assignment queue closeout"
+[GIT] push=origin/main status=passed range=fdafb75..6d9fabf
