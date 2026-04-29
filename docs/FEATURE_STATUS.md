@@ -46,11 +46,15 @@
 - [ ] Project creation/opening flow to replace default `mask_project_001`
 - [ ] Authenticated reviewer/assignment identity instead of manual local actor fields
 - [ ] Assignment queues and per-user task list
+- [ ] Submitted data edit/rework flow after submission
+- [ ] Pan/camera movement while image is zoomed
+- [ ] Magic-click assisted mask tool for local region selection
 
 ## Future Hardening
 
 - [ ] Persist session/account storage beyond the current in-memory MVP session map.
 - [ ] Restore server image/mask binaries into IndexedDB for full cross-device editing.
+- [ ] AI-backed segmentation model integration behind the magic-click tool.
 
 ## Hardcoded Runtime Debt
 

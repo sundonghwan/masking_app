@@ -393,3 +393,7 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=hardcoded-runtime-debt-triage-complete
 [GIT] commit=9d9b822 message="Track hardcoded runtime debt"
 [GIT] push=origin/main status=passed
+[START] task=improvement-backlog-capture subsystem=docs
+[PLAN] scope=submitted-edit,zoom-pan,magic-click-tool backlog capture risks=review-audit-breakage,editor-pan-draw-conflict,ai-tool-overreach
+[DOC] updated=docs/FEATURE_STATUS.md note=added submitted data edit, zoom pan, and magic-click assisted mask tool to remaining work
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=added post-submission edit and editor assist checkpoint with recommended order and acceptance criteria

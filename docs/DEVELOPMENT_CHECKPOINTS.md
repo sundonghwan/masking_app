@@ -270,13 +270,55 @@ Acceptance criteria:
 - [ ] review and assignment actions can use authenticated actor identity
 - [ ] new users open or create a project instead of silently using `mask_project_001`
 
+### 8. Post-Submission Edit And Editor Assist
+
+Goal: improve annotation correction speed without breaking review auditability or
+mask/export contracts.
+
+Status: requested improvement backlog. These items are not implemented yet.
+
+Requested improvements:
+
+- submitted data can be opened for additional edits after submission
+- zoomed images can be panned with camera movement
+- clicking part of an image can invoke a magic-tool-like assisted mask action
+
+Recommended development order:
+
+1. Submitted data edit/rework flow.
+2. Zoom-state pan/camera movement.
+3. Magic-click assisted mask tool with deterministic local behavior first.
+4. Optional AI-backed segmentation integration only after the local tool contract
+   is stable.
+
+Implementation notes:
+
+- Submitted edits must create an audit event so reviewers can tell that a
+  submitted mask changed after the original submission.
+- Re-editing a submitted or approved mask should define whether the status moves
+  back to `in_progress`, `submitted`, or a new `revision_requested` state.
+- Camera pan must be separate from mask drawing so zoomed navigation does not
+  accidentally modify a mask.
+- The first magic-click implementation should be local and predictable, such as
+  connected-region or brush-fill assistance. Model-backed segmentation belongs
+  in future hardening.
+
+Acceptance criteria:
+
+- [ ] submitted image can enter an explicit edit/rework mode
+- [ ] post-submission edits are recorded in review/history metadata
+- [ ] export excludes or labels records whose submitted mask is being reworked
+- [ ] zoomed canvas supports pan without changing mask pixels
+- [ ] pan state resets or persists by a defined rule when switching images
+- [ ] magic-click action previews or applies a local mask region deterministically
+- [ ] magic-click changes can be undone before save
+
 ## Work To Avoid For Now
 
 Do not start these before the MVP data contract checkpoint is closed:
 
 - dashboard metrics
 - DB migration
-- AI-assisted masks
 - multi-class masks
 - COCO/RLE export
 
