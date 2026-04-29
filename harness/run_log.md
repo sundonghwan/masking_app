@@ -389,3 +389,7 @@ chains in `harness/tasks/`; keep this file short.
 [PLAN] scope=extract runtime hardcoded MVP placeholders and convert them into remaining feature work risks=overclaiming-complete-status,removing-defaults-without-replacement-flow
 [DOC] updated=docs/FEATURE_STATUS.md note=remaining work now includes credential login, server-owned roles, project opening, authenticated actor identity, assignment queues, and centralized defaults
 [DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=added hardcoded runtime debt cleanup checkpoint and development order
+[CMD] git diff --check
+[CLOSE] status=hardcoded-runtime-debt-triage-complete
+[GIT] commit=9d9b822 message="Track hardcoded runtime debt"
+[GIT] push=origin/main status=passed
