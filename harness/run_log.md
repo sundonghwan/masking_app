@@ -397,3 +397,7 @@ chains in `harness/tasks/`; keep this file short.
 [PLAN] scope=submitted-edit,zoom-pan,magic-click-tool backlog capture risks=review-audit-breakage,editor-pan-draw-conflict,ai-tool-overreach
 [DOC] updated=docs/FEATURE_STATUS.md note=added submitted data edit, zoom pan, and magic-click assisted mask tool to remaining work
 [DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=added post-submission edit and editor assist checkpoint with recommended order and acceptance criteria
+[CMD] git diff --check
+[CLOSE] status=improvement-backlog-capture-complete
+[GIT] commit=24f2eb4 message="Add editor improvement backlog"
+[GIT] push=origin/main status=passed
