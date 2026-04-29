@@ -56,7 +56,7 @@ test("uploads an image and URL-encodes the project path segment", async () => {
 test("uploads an image with multipart form data when a File is provided", async () => {
   const calls = [];
   const client = createMaskingApiClient({
-    session: { userId: "worker-1", role: "worker" },
+    session: { userId: "worker-1", role: "worker", allowRoleHeaders: true },
     fetchImpl: async (url, options) => {
       calls.push({ url, options });
       return jsonResponse({ id: "image-1", image_path: "images/image-1.png" }, 201);
@@ -94,6 +94,46 @@ test("lists projects", async () => {
 
   assert.equal(result.total_projects, 1);
   assert.equal(result.projects[0].project_id, "project-1");
+});
+
+test("logs in and sends bearer token on protected requests", async () => {
+  const calls = [];
+  let token = "";
+  const client = createMaskingApiClient({
+    getSession: () => ({ token, userId: "admin-1", role: "admin" }),
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      if (url === "/api/session/login") {
+        return jsonResponse({ session: { token: "sess_123", user_id: "admin-1", role: "admin" } }, 201);
+      }
+      return jsonResponse({ project_id: "project-1" }, 200);
+    },
+  });
+
+  const login = await client.login({ userId: "admin-1", role: "admin" });
+  token = login.session.token;
+  await client.getProject("project-1");
+
+  assert.equal(calls[0].url, "/api/session/login");
+  assert.equal(Object.hasOwn(calls[0].options.headers, "authorization"), false);
+  assert.equal(calls[1].options.headers.authorization, "Bearer sess_123");
+});
+
+test("does not send local role headers unless fallback is explicitly allowed", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { userId: "admin-1", role: "admin" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ project_id: "project-1" }, 200);
+    },
+  });
+
+  await client.getProject("project-1");
+
+  assert.equal(Object.hasOwn(calls[0].options.headers, "authorization"), false);
+  assert.equal(Object.hasOwn(calls[0].options.headers, "x-user-id"), false);
+  assert.equal(Object.hasOwn(calls[0].options.headers, "x-user-role"), false);
 });
 
 test("saves a mask with project id inside the JSON body", async () => {
@@ -149,8 +189,11 @@ test("submits review transitions with project id and reason", async () => {
 test("downloads project export as a Blob", async () => {
   const expected = new Blob(["zip"]);
   const client = createMaskingApiClient({
-    fetchImpl: async (url) => {
+    session: { token: "sess_export", userId: "reviewer-1", role: "reviewer" },
+    fetchImpl: async (url, options) => {
       assert.equal(url, "/api/projects/project-1/export?approved_only=1");
+      assert.equal(options.method, "GET");
+      assert.equal(options.headers.authorization, "Bearer sess_export");
       return {
         ok: true,
         blob: async () => expected,

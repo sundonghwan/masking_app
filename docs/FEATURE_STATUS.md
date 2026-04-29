@@ -30,6 +30,9 @@
 - [x] Multipart/FormData image upload
 - [x] Role-aware API request headers and server RBAC checks
 - [x] Admin image assignment workflow
+- [x] Server-backed login/logout/me session endpoints
+- [x] Bearer token API authentication
+- [x] Project selection/manifest restore from server project list
 
 ## In Progress
 
@@ -37,5 +40,9 @@
 
 ## Remaining
 
-- [ ] Project selection/restore from server project list
-- [ ] Hard login/session store beyond local role headers
+- None.
+
+## Future Hardening
+
+- [ ] Persist session/account storage beyond the current in-memory MVP session map.
+- [ ] Restore server image/mask binaries into IndexedDB for full cross-device editing.

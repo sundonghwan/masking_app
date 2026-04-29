@@ -11,6 +11,24 @@ export function createMaskingApiClient(options = {}) {
     health() {
       return requestJson("/api/health");
     },
+    login(input = {}) {
+      return requestJson("/api/session/login", {
+        method: "POST",
+        body: {
+          user_id: input.userId || input.user_id,
+          role: input.role,
+        },
+        skipAuth: true,
+      });
+    },
+    logout() {
+      return requestJson("/api/session/logout", {
+        method: "POST",
+      });
+    },
+    me() {
+      return requestJson("/api/session/me");
+    },
     createProject(input = {}) {
       return requestJson("/api/projects", {
         method: "POST",
@@ -23,6 +41,10 @@ export function createMaskingApiClient(options = {}) {
     },
     listProjects() {
       return requestJson("/api/projects");
+    },
+    getProject(projectId) {
+      assertRequired(projectId, "projectId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}`);
     },
     uploadImage(projectId, input = {}) {
       assertRequired(projectId, "projectId");
@@ -91,7 +113,13 @@ export function createMaskingApiClient(options = {}) {
     async downloadProjectExport(projectId, options = {}) {
       assertRequired(projectId, "projectId");
       const query = options.approvedOnly ? "?approved_only=1" : "";
-      const response = await fetchImpl(`${baseUrl}/api/projects/${encodeURIComponent(projectId)}/export${query}`);
+      const response = await fetchImpl(`${baseUrl}/api/projects/${encodeURIComponent(projectId)}/export${query}`, {
+        method: "GET",
+        headers: {
+          ...sessionHeaders(getSession()),
+          ...(options.headers || {}),
+        },
+      });
       if (!response.ok) {
         throw await createApiError(response);
       }
@@ -104,7 +132,7 @@ export function createMaskingApiClient(options = {}) {
       method: options.method || "GET",
       headers: {
         accept: "application/json",
-        ...sessionHeaders(getSession()),
+        ...sessionHeaders(options.skipAuth ? {} : getSession()),
         ...(options.body ? { "content-type": "application/json" } : {}),
         ...(options.headers || {}),
       },
@@ -122,9 +150,12 @@ export function createMaskingApiClient(options = {}) {
 function sessionHeaders(session = {}) {
   const userId = String(session.userId || session.user_id || "").trim();
   const role = String(session.role || "").trim();
+  const token = String(session.token || "").trim();
+  const allowRoleHeaders = Boolean(session.allowRoleHeaders);
   return {
-    ...(userId ? { "x-user-id": userId } : {}),
-    ...(role ? { "x-user-role": role } : {}),
+    ...(token ? { authorization: `Bearer ${token}` } : {}),
+    ...(allowRoleHeaders && userId ? { "x-user-id": userId } : {}),
+    ...(allowRoleHeaders && role ? { "x-user-role": role } : {}),
   };
 }
 

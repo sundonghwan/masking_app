@@ -337,13 +337,23 @@ h2 {
 
 .project-summary-row {
   min-width: 0;
+  width: 100%;
+  border: 0;
   padding: 6px;
   border-radius: var(--radius-sm);
   background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .project-summary-row.current {
   box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.project-summary-row:hover {
+  background: #f3f7fb;
 }
 
 .project-summary-row span {

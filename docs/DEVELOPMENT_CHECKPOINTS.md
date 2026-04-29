@@ -193,17 +193,27 @@ Completed:
 - [x] review detail hash route can reopen a selected review image
 - [x] server rejects reviewer actions from worker role
 - [x] admin can assign worker/reviewer ownership without changing mask status
+- [x] bearer session login/logout/me endpoints are available
+- [x] API client sends bearer tokens on protected requests
+- [x] server project list rows can load a project manifest into the workbench
 
 Remaining:
 
-- [ ] hard login/session store beyond local role headers
-- [ ] project selection/restore from server project list
+- None for the planned review/admin MVP batch.
+
+Future hardening:
+
+- [ ] persist session/account records beyond the current in-memory MVP session map
+- [ ] restore server image/mask binaries into IndexedDB for full cross-device editing
 
 ### 6. Admin And Assignment MVP
 
 Goal: make ownership explicit before project selection and multi-user restore.
 
 Status: implemented at the local-header MVP boundary.
+Current status: server-backed bearer sessions are now implemented for the
+browser client. The server still accepts explicit role headers as a compatibility
+fallback for the dependency-free MVP and harness tests.
 
 Completed:
 
@@ -211,10 +221,12 @@ Completed:
 - [x] server RBAC checks protect upload, mask save, review, export, and assignment actions
 - [x] admin assignment endpoint updates `worker_id`, `reviewer_id`, `assigned_by`, and `assigned_at`
 - [x] assignment UI saves selected image worker/reviewer fields
+- [x] frontend session panel can login/logout through server session endpoints
+- [x] protected API calls send bearer tokens when a session exists
+- [x] server project list selection restores project manifest state
 
 Remaining:
 
-- [ ] hard login/session store
 - [ ] assignment queues and per-user task list
 
 ## Work To Avoid For Now

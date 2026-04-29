@@ -21,6 +21,8 @@ const ROLES = {
 };
 
 export function createApiRouter({ storage, logger = null }) {
+  const sessions = new Map();
+
   return async function routeApi(request, response, url, context = {}) {
     const parts = url.pathname.split("/").filter(Boolean);
 
@@ -29,7 +31,37 @@ export function createApiRouter({ storage, logger = null }) {
       return sendJson(response, 200, { ok: true, service: "masking-app-backend" });
     }
 
+    if (url.pathname === "/api/session/login" && request.method === "POST") {
+      const body = await readJsonBody(request);
+      const session = createSession({
+        userId: body.user_id || body.userId,
+        role: body.role,
+      });
+      sessions.set(session.token, session);
+      return sendJson(response, 201, { session });
+    }
+
+    if (url.pathname === "/api/session/logout" && request.method === "POST") {
+      const session = readSession(request);
+      if (session.token) sessions.delete(session.token);
+      return sendJson(response, 200, { ok: true });
+    }
+
+    if (url.pathname === "/api/session/me" && request.method === "GET") {
+      const session = readSession(request);
+      if (!session.authenticated) {
+        return sendJson(response, 401, {
+          error: "unauthorized",
+          message: "A valid session token is required",
+        });
+      }
+      return sendJson(response, 200, { session: publicSession(session) });
+    }
+
     if (url.pathname === "/api/projects" && request.method === "POST") {
+      const session = readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+
       const body = await readJsonBody(request);
       const project = createProjectRecord({
         id: body.project_id || body.id || "mask_project_001",
@@ -41,6 +73,9 @@ export function createApiRouter({ storage, logger = null }) {
     }
 
     if (url.pathname === "/api/projects" && request.method === "GET") {
+      const session = readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+
       const projects = await storage.listProjects();
       return sendJson(response, 200, {
         projects,
@@ -63,6 +98,9 @@ export function createApiRouter({ storage, logger = null }) {
     const projectId = parts[0];
 
     if (parts.length === 1 && request.method === "GET") {
+      const session = readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+
       const manifest = await storage.readProjectManifest(projectId);
       if (!manifest) throw createHttpError(404, "Project not found");
       return sendJson(response, 200, manifest);
@@ -300,11 +338,22 @@ export function createApiRouter({ storage, logger = null }) {
   }
 
   function readSession(request) {
-    const role = String(request.headers["x-user-role"] || ROLES.ADMIN).trim().toLowerCase();
-    const userId = normalizeActorId(request.headers["x-user-id"] || "local_admin");
+    const token = bearerToken(request);
+    const stored = token ? sessions.get(token) : null;
+    if (stored) {
+      return {
+        ...stored,
+        token,
+        authenticated: true,
+      };
+    }
+    const role = String(request.headers["x-user-role"] || "").trim().toLowerCase();
+    const userId = normalizeActorId(request.headers["x-user-id"] || "");
     return {
       userId,
       role: Object.values(ROLES).includes(role) ? role : "",
+      token: "",
+      authenticated: false,
     };
   }
 
@@ -317,6 +366,39 @@ export function createApiRouter({ storage, logger = null }) {
       role: session.role || "",
     });
     return false;
+  }
+
+  function createSession(input = {}) {
+    const userId = normalizeActorId(input.userId || "local_admin");
+    const role = normalizeRole(input.role || ROLES.ADMIN);
+    const createdAt = new Date().toISOString();
+    return {
+      token: createSessionToken(),
+      user_id: userId,
+      userId,
+      role,
+      created_at: createdAt,
+    };
+  }
+
+  function publicSession(session = {}) {
+    return {
+      token: session.token,
+      user_id: session.userId || session.user_id,
+      userId: session.userId || session.user_id,
+      role: session.role,
+      created_at: session.created_at,
+    };
+  }
+
+  function createSessionToken() {
+    return `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+  }
+
+  function bearerToken(request) {
+    const value = String(request.headers.authorization || request.headers.Authorization || "");
+    const match = value.match(/^Bearer\s+(.+)$/i);
+    return match ? match[1].trim() : "";
   }
 
   async function readImageUpload(request) {
@@ -397,6 +479,11 @@ export function createApiRouter({ storage, logger = null }) {
 
   function normalizeActorId(value) {
     return String(value || "").trim();
+  }
+
+  function normalizeRole(value) {
+    const role = String(value || "").trim().toLowerCase();
+    return Object.values(ROLES).includes(role) ? role : ROLES.WORKER;
   }
 
   function maskValidationStatusCode(validation) {

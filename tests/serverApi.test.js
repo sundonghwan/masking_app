@@ -12,6 +12,66 @@ const RGB_MASK_DATA_URL = toPngDataUrl(createMinimalPngHeader({ width: 2, height
 const INVALID_PNG_DATA_URL = `data:image/png;base64,${Buffer.from("not a png").toString("base64")}`;
 const VALID_IMAGE_DATA_URL = toPngDataUrl(createMinimalPngHeader({ width: 2, height: 2, bitDepth: 8, colorType: 6 }));
 
+test("session login returns a bearer token that authorizes protected actions", async () => {
+  const { route, storage } = createApiHarness();
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "worker-9",
+    role: "worker",
+  }, {});
+
+  assert.equal(login.statusCode, 201);
+  assert.match(login.body.session.token, /^sess_/);
+
+  const response = await callJson(route, "POST", "/api/projects/project-1/images", {
+    image_id: "image-1",
+    file_name: "frame.png",
+    data_url: VALID_IMAGE_DATA_URL,
+    width: 2,
+    height: 2,
+  }, { authorization: `Bearer ${login.body.session.token}` });
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.worker_id, "worker-9");
+  assert.equal(storage.imageWrites.length, 1);
+});
+
+test("protected actions reject requests without session or role headers", async () => {
+  const { route } = createApiHarness();
+
+  const response = await callJson(route, "POST", "/api/projects/project-1/images", {
+    image_id: "image-1",
+    file_name: "frame.png",
+    data_url: VALID_IMAGE_DATA_URL,
+    width: 2,
+    height: 2,
+  }, {});
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.error, "forbidden");
+});
+
+test("project list and manifest endpoints require an authorized session", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+
+  const rejectedList = await callJson(route, "GET", "/api/projects", null, {});
+  assert.equal(rejectedList.statusCode, 403);
+
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "reviewer-7",
+    role: "reviewer",
+  }, {});
+  const headers = { authorization: `Bearer ${login.body.session.token}` };
+
+  const list = await callJson(route, "GET", "/api/projects", null, headers);
+  const manifest = await callJson(route, "GET", "/api/projects/project-1", null, headers);
+
+  assert.equal(list.statusCode, 200);
+  assert.equal(list.body.total_projects, 1);
+  assert.equal(manifest.statusCode, 200);
+  assert.equal(manifest.body.project_id, "project-1");
+});
+
 test("valid image upload writes file and appends manifest image", async () => {
   const { route, storage } = createApiHarness();
 
@@ -569,7 +629,7 @@ function createMemoryStorage() {
   };
 }
 
-async function callJson(route, method, pathname, body, headers = {}) {
+async function callJson(route, method, pathname, body, headers = authHeaders("admin", "admin-1")) {
   const response = await callRoute(route, method, pathname, body, headers);
   return {
     ...response,
@@ -577,7 +637,7 @@ async function callJson(route, method, pathname, body, headers = {}) {
   };
 }
 
-async function callRoute(route, method, pathname, body, headers = {}) {
+async function callRoute(route, method, pathname, body, headers = authHeaders("admin", "admin-1")) {
   const payload = Buffer.isBuffer(body) ? body : Buffer.from(JSON.stringify(body || {}));
   const request = Readable.from([payload]);
   request.method = method;
@@ -587,6 +647,13 @@ async function callRoute(route, method, pathname, body, headers = {}) {
   const response = createMemoryResponse();
   await route(request, response, new URL(pathname, "http://localhost:4173"));
   return response.result();
+}
+
+function authHeaders(role = "admin", userId = `${role}-1`) {
+  return {
+    "x-user-role": role,
+    "x-user-id": userId,
+  };
 }
 
 function createMemoryResponse() {

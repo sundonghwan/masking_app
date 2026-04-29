@@ -26,6 +26,8 @@ const state = {
   uploadRejections: [],
   sessionUserId: "local_admin",
   sessionRole: "admin",
+  sessionToken: "",
+  sessionAuthenticated: false,
   reviewReasonDraft: "",
   reviewerId: "local_reviewer",
   assignmentWorkerId: "local_worker",
@@ -39,6 +41,8 @@ const apiClient = createMaskingApiClient({
   getSession: () => ({
     userId: state.sessionUserId,
     role: state.sessionRole,
+    token: state.sessionToken,
+    allowRoleHeaders: false,
   }),
 });
 const logger = createLogger({ component: "frontend" });
@@ -77,6 +81,8 @@ const els = {
   metaStatus: document.querySelector("#metaStatus"),
   sessionUserId: document.querySelector("#sessionUserId"),
   sessionRole: document.querySelector("#sessionRole"),
+  loginButton: document.querySelector("#loginButton"),
+  logoutButton: document.querySelector("#logoutButton"),
   sessionMessage: document.querySelector("#sessionMessage"),
   assignmentWorkerId: document.querySelector("#assignmentWorkerId"),
   assignmentReviewerId: document.querySelector("#assignmentReviewerId"),
@@ -209,17 +215,23 @@ function bindEvents() {
   els.clearProjectButton.addEventListener("click", clearProject);
   els.retrySyncButton.addEventListener("click", () => void retrySelectedSync());
   els.refreshProjectsButton.addEventListener("click", () => void refreshProjectSummaries());
+  els.loginButton.addEventListener("click", () => void loginSession());
+  els.logoutButton.addEventListener("click", () => void logoutSession());
   els.approveButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.APPROVE));
   els.rejectButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.REJECT));
   els.reworkButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.REWORK));
   els.assignButton.addEventListener("click", () => void assignSelectedImage());
   els.sessionUserId.addEventListener("input", () => {
     state.sessionUserId = normalizeActorId(els.sessionUserId.value);
+    state.sessionToken = "";
+    state.sessionAuthenticated = false;
     void persistProject();
-    renderSessionPanel();
+    render();
   });
   els.sessionRole.addEventListener("change", () => {
     state.sessionRole = normalizeRole(els.sessionRole.value);
+    state.sessionToken = "";
+    state.sessionAuthenticated = false;
     void persistProject();
     render();
   });
@@ -321,9 +333,20 @@ async function selectImage(imageId, options = {}) {
   state.reviewReasonDraft = image.reject_reason || "";
   state.assignmentWorkerId = image.worker_id || state.assignmentWorkerId;
   state.assignmentReviewerId = image.reviewer_id || state.assignmentReviewerId || state.reviewerId;
-  image.status = image.status === "not_started" ? "in_progress" : image.status;
+  if (options.markInProgress !== false) {
+    image.status = image.status === "not_started" ? "in_progress" : image.status;
+  }
   setSaveState("saving", "이미지 로딩");
   await ensureObjectUrls(image);
+  if (!image.objectUrl && options.allowMissingBlob) {
+    editor.clear();
+    els.emptyState.hidden = false;
+    await persistProject();
+    render();
+    updateReviewRouteLink();
+    setSaveState("failed", "서버 manifest만 로드됨");
+    return;
+  }
   await editor.loadImage(image.objectUrl, image.maskDataUrl || image.maskObjectUrl);
   els.emptyState.hidden = true;
   await persistProject();
@@ -351,6 +374,44 @@ async function refreshProjectSummaries() {
     });
     renderProjectSummaries();
   }
+}
+
+async function loginSession() {
+  try {
+    const response = await apiClient.login({
+      userId: state.sessionUserId,
+      role: state.sessionRole,
+    });
+    const session = response.session || {};
+    state.sessionToken = session.token || "";
+    state.sessionUserId = session.userId || session.user_id || state.sessionUserId;
+    state.sessionRole = normalizeRole(session.role || state.sessionRole);
+    state.sessionAuthenticated = Boolean(state.sessionToken);
+    await persistProject();
+    render();
+    setSaveState("saved", "로그인됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.sessionAuthenticated = false;
+    state.sessionToken = "";
+    renderSessionPanel();
+    setSaveState("failed", `로그인 실패: ${normalized.message}`);
+  }
+}
+
+async function logoutSession() {
+  try {
+    if (state.sessionToken) await apiClient.logout();
+  } catch (error) {
+    logger.warn("session.logout.failed", {
+      error: normalizeApiError(error),
+    });
+  }
+  state.sessionToken = "";
+  state.sessionAuthenticated = false;
+  await persistProject();
+  render();
+  setSaveState("saved", "로그아웃됨");
 }
 
 async function saveCurrentMask() {
@@ -932,8 +993,10 @@ function renderProjectSummaries() {
   }
 
   const items = (state.projectSummaries || []).slice(0, 4).map((project) => {
-    const row = document.createElement("div");
+    const row = document.createElement("button");
+    row.type = "button";
     row.className = `project-summary-row ${project.project_id === state.projectId ? "current" : ""}`;
+    row.addEventListener("click", () => void loadServerProject(project.project_id));
     row.innerHTML = `
       <span>
         <strong>${escapeHtml(project.name || project.project_id || "Untitled")}</strong>
@@ -953,6 +1016,43 @@ function renderProjectSummaries() {
   els.projectSummaryList.replaceChildren(...items);
 }
 
+async function loadServerProject(projectId) {
+  if (!projectId) return;
+  setSaveState("saving", "서버 프로젝트 로딩");
+  try {
+    const manifest = await apiClient.getProject(projectId);
+    await restoreServerManifest(manifest);
+    setSaveState("saved", "서버 프로젝트 선택됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.projectSummariesError = normalized.message;
+    renderProjectSummaries();
+    setSaveState("failed", `프로젝트 로딩 실패: ${normalized.message}`);
+  }
+}
+
+async function restoreServerManifest(manifest = {}) {
+  revokeImageUrls();
+  await projectStore.clearProject();
+  state.projectId = manifest.project_id || state.projectId;
+  state.projectName = manifest.name || manifest.project_name || state.projectId;
+  state.images = (manifest.images || []).map(rehydrateServerImageRecord);
+  state.selectedId = state.images[0]?.id || null;
+  state.filter = "all";
+  state.backendProjectReady = true;
+  state.backendProjectError = "";
+  state.uploadRejections = [];
+  state.savedAt = manifest.updated_at ? new Date(manifest.updated_at) : new Date();
+  await persistProject();
+  editor.clear();
+  els.emptyState.hidden = false;
+  if (state.selectedId) {
+    await selectImage(state.selectedId, { updateRoute: false, allowMissingBlob: true, markInProgress: false });
+  } else {
+    render();
+  }
+}
+
 function renderMetadata() {
   const image = getSelectedImage();
   els.metaImageId.textContent = image?.id || "-";
@@ -966,8 +1066,12 @@ function renderSessionPanel() {
     els.sessionUserId.value = state.sessionUserId;
   }
   els.sessionRole.value = state.sessionRole;
-  els.sessionMessage.textContent = `${state.sessionUserId || "미설정"} / ${state.sessionRole || "role 없음"}`;
-  els.sessionMessage.classList.toggle("warning", !state.sessionUserId || !state.sessionRole);
+  els.loginButton.disabled = !state.sessionUserId || !state.sessionRole;
+  els.logoutButton.disabled = !state.sessionAuthenticated;
+  els.sessionMessage.textContent = state.sessionAuthenticated
+    ? `${state.sessionUserId} / ${state.sessionRole} / session`
+    : `${state.sessionUserId || "미설정"} / ${state.sessionRole || "role 없음"} / 로그인 필요`;
+  els.sessionMessage.classList.toggle("warning", !state.sessionAuthenticated);
 }
 
 function renderAssignmentPanel() {
@@ -978,9 +1082,11 @@ function renderAssignmentPanel() {
   if (document.activeElement !== els.assignmentReviewerId) {
     els.assignmentReviewerId.value = state.assignmentReviewerId || image?.reviewer_id || state.reviewerId || "";
   }
-  els.assignButton.disabled = !image || state.sessionRole !== "admin";
+  els.assignButton.disabled = !image || !state.sessionAuthenticated || state.sessionRole !== "admin";
   if (!image) {
     setAssignmentMessage("이미지를 선택하면 배정할 수 있습니다.", false);
+  } else if (!state.sessionAuthenticated) {
+    setAssignmentMessage("로그인 후 배정할 수 있습니다.", true);
   } else if (state.sessionRole !== "admin") {
     setAssignmentMessage("admin 역할에서만 배정할 수 있습니다.", true);
   } else if (image.assignment_server_synced === false) {
@@ -1288,6 +1394,8 @@ async function persistProject() {
     exportApprovedOnly: Boolean(state.exportApprovedOnly),
     sessionUserId: state.sessionUserId,
     sessionRole: state.sessionRole,
+    sessionToken: state.sessionToken,
+    sessionAuthenticated: state.sessionAuthenticated,
     reviewerId: state.reviewerId,
     assignmentWorkerId: state.assignmentWorkerId,
     assignmentReviewerId: state.assignmentReviewerId,
@@ -1314,6 +1422,8 @@ async function restoreProject() {
     state.exportApprovedOnly = Boolean(saved.exportApprovedOnly);
     state.sessionUserId = normalizeActorId(saved.sessionUserId) || state.sessionUserId;
     state.sessionRole = normalizeRole(saved.sessionRole) || state.sessionRole;
+    state.sessionToken = String(saved.sessionToken || "");
+    state.sessionAuthenticated = Boolean(saved.sessionAuthenticated && state.sessionToken);
     state.reviewerId = normalizeReviewerId(saved.reviewerId) || state.reviewerId;
     state.assignmentWorkerId = normalizeActorId(saved.assignmentWorkerId) || state.assignmentWorkerId;
     state.assignmentReviewerId = normalizeActorId(saved.assignmentReviewerId) || state.assignmentReviewerId;
@@ -1329,10 +1439,7 @@ async function restoreProject() {
 }
 
 async function clearProject() {
-  state.images.forEach((image) => URL.revokeObjectURL(image.objectUrl));
-  state.images.forEach((image) => {
-    if (image.maskObjectUrl) URL.revokeObjectURL(image.maskObjectUrl);
-  });
+  revokeImageUrls();
   state.images = [];
   state.selectedId = null;
   state.savedAt = null;
@@ -1343,6 +1450,8 @@ async function clearProject() {
   state.exportApprovedOnly = false;
   state.sessionUserId = "local_admin";
   state.sessionRole = "admin";
+  state.sessionToken = "";
+  state.sessionAuthenticated = false;
   state.reviewerId = "local_reviewer";
   state.assignmentWorkerId = "local_worker";
   state.assignmentReviewerId = "local_reviewer";
@@ -1352,6 +1461,13 @@ async function clearProject() {
   els.emptyState.hidden = false;
   setSaveState("saved", "초기화됨");
   render();
+}
+
+function revokeImageUrls() {
+  state.images.forEach((image) => {
+    if (image.objectUrl) URL.revokeObjectURL(image.objectUrl);
+    if (image.maskObjectUrl) URL.revokeObjectURL(image.maskObjectUrl);
+  });
 }
 
 function toSerializableImage(image) {
@@ -1383,6 +1499,24 @@ async function rehydrateImageRecord(image) {
   };
   await ensureObjectUrls(record);
   return record;
+}
+
+function rehydrateServerImageRecord(image) {
+  return {
+    ...image,
+    fileName: image.original_file_name || image.fileName || image.id,
+    imagePath: image.image_path || image.imagePath || "",
+    maskPath: image.current_mask_path || image.maskPath || "",
+    objectUrl: "",
+    object_url: "",
+    maskObjectUrl: "",
+    maskDataUrl: "",
+    mask_data_url: "",
+    server_image_synced: Boolean(image.image_path),
+    server_mask_synced: Boolean(image.current_mask_path),
+    review_server_synced: true,
+    assignment_server_synced: true,
+  };
 }
 
 async function ensureObjectUrls(image) {

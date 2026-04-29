@@ -348,3 +348,38 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=three-feature-upload-auth-assignment-batch-complete
 [GIT] commit=e4217bf message="Add multipart upload RBAC and assignment"
 [GIT] push=origin/main status=passed
+[START] task=session-project-restore-batch subsystem=session-projects
+[PLAN] scope=server session endpoints + bearer token API client + server project selection/manifest restore risks=strict-session-breakage,missing-local-blobs,bearer-header-drift
+[IMPACT] status=suspected chain=loginSession->apiClient.login->routeSession.login
+[IMPACT] status=suspected chain=apiClient.requestJson->readSession->requireRole
+[IMPACT] status=suspected chain=loadServerProject->apiClient.getProject->restoreServerManifest
+[IMPACT_VALIDATE] chain=loginSession->apiClient.login->routeSession.login validation=npm test; bearer token session authorizes protected upload
+[IMPACT_VALIDATE] chain=apiClient.requestJson->readSession->requireRole validation=npm test; unauthenticated protected upload returns 403
+[IMPACT_VALIDATE] chain=loadServerProject->apiClient.getProject->restoreServerManifest validation=npm test; server HTML/JS smoke passed
+[CMD] npm run lint
+[CMD] npm test
+[CMD] scripts/harness/lint-all.sh
+[CMD] scripts/harness/typecheck-all.sh
+[CMD] scripts/harness/test-target.sh
+[CMD] scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-index-session-project.html
+[CMD] rg loginButton|logoutButton|projectSummaryList|sessionUserId|sessionRole /tmp/masking-index-session-project.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-app-session-project.js
+[CMD] rg loginSession|logoutSession|loadServerProject|restoreServerManifest|sessionToken|markInProgress /tmp/masking-app-session-project.js
+[CMD] curl -sS http://localhost:4173/src/api/client.js -o /tmp/masking-client-session-project.js
+[CMD] rg login\(|logout\(|me\(|getProject|authorization /tmp/masking-client-session-project.js
+[CMD] curl -sS http://localhost:4173/api/health
+[REVIEW] finding=high logout-role-header-bypass fixed=client-no-role-header-default,token-clear-on-identity-change
+[REVIEW] finding=high export-missing-auth fixed=downloadProjectExport-sends-session-headers
+[CMD] npm run lint
+[CMD] npm test
+[CMD] scripts/harness/lint-all.sh
+[CMD] scripts/harness/typecheck-all.sh
+[CMD] scripts/harness/test-target.sh
+[CMD] scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-index-session-project.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-app-session-project.js
+[CMD] curl -sS http://localhost:4173/src/api/client.js -o /tmp/masking-client-session-project.js
+[CMD] curl -sS http://localhost:4173/api/health
+[REVIEW] finding=none-blocking scope=session-logout,export-auth,project-manifest-restore,docs-overclaim
+[CLOSE] status=two-feature-session-project-restore-batch-complete
