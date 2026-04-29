@@ -640,3 +640,5 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW_FIX] issue=space-keyup-target-drift fixed=always-release-temporary-pan-on-space-keyup validation=app-contract-test-passed
 [REVIEW] finding=none-blocking scope=edge-aware-magic-tool-and-space-pan notes=checked-binary-mask-output-undo-boundary-no-network-segmentation-spacebar-pan-no-mask-mutation-and-tool-layout
 [CLOSE] status=edge-aware-magic-tool-and-space-pan-ready-for-commit
+[GIT] commit=1763196 message="Improve magic tool edge selection"
+[GIT] push=origin/main status=passed range=683e796..1763196
