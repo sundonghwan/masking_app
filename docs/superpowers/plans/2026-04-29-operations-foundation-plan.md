@@ -1,12 +1,16 @@
 # Operations Foundation Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Replace browser-selected roles and local actor defaults with MVP credential login, server-owned roles, authenticated review/assignment actors, and centralized runtime defaults.
 
 **Architecture:** Add a small dependency-free auth/defaults module that owns demo users, default project metadata, and compatibility actor defaults. Server login validates `user_id/password` against that module and creates bearer sessions with server-owned roles. The browser sends password only during login, displays the returned role as read-only, and protected actions derive actor identity from the session where possible.
 
 **Tech Stack:** Dependency-free Node HTTP server, browser ES modules, Node test runner, existing filesystem manifest storage.
+
+**Implementation note:** Public runtime defaults intentionally contain user IDs
+and roles only. Demo password validation lives in the server-only auth module,
+and static serving blocks server/docs/harness/test paths.
 
 ---
 
@@ -48,7 +52,7 @@
 - Modify: `src/server/api.js`
 - Test: `tests/appContracts.test.js`
 
-- [ ] **Step 1: Write failing tests for defaults module**
+- [x] **Step 1: Write failing tests for defaults module**
 
 Add to `tests/appContracts.test.js`:
 
@@ -64,9 +68,9 @@ import {
 test("runtime defaults expose explicit MVP project and actor fallbacks", () => {
   assert.equal(DEFAULT_PROJECT.id, "mask_project_001");
   assert.equal(DEFAULT_PROJECT.name, "Masking Project");
-  assert.equal(DEFAULT_ACTORS.admin, "local_admin");
-  assert.equal(DEFAULT_ACTORS.worker, "local_worker");
-  assert.equal(DEFAULT_ACTORS.reviewer, "local_reviewer");
+  assert.equal(DEFAULT_ACTORS.admin, "admin");
+  assert.equal(DEFAULT_ACTORS.worker, "worker");
+  assert.equal(DEFAULT_ACTORS.reviewer, "reviewer");
 });
 
 test("MVP users validate credentials and expose server-owned roles", () => {
@@ -81,7 +85,7 @@ test("MVP users validate credentials and expose server-owned roles", () => {
 });
 ```
 
-- [ ] **Step 2: Run the focused test and verify it fails**
+- [x] **Step 2: Run the focused test and verify it fails**
 
 Run:
 
@@ -91,7 +95,7 @@ npm test -- tests/appContracts.test.js
 
 Expected: FAIL because `src/config/runtimeDefaults.js` does not exist.
 
-- [ ] **Step 3: Create the defaults module**
+- [x] **Step 3: Create the defaults module**
 
 Create `src/config/runtimeDefaults.js`:
 
@@ -108,15 +112,15 @@ export const DEFAULT_PROJECT = {
 };
 
 export const DEFAULT_ACTORS = {
-  admin: "local_admin",
-  worker: "local_worker",
-  reviewer: "local_reviewer",
+  admin: "admin",
+  worker: "worker",
+  reviewer: "reviewer",
 };
 
 export const MVP_USERS = [
-  { user_id: "admin", password: "admin123", role: ROLES.ADMIN, display_name: "Admin" },
-  { user_id: "worker", password: "worker123", role: ROLES.WORKER, display_name: "Worker" },
-  { user_id: "reviewer", password: "reviewer123", role: ROLES.REVIEWER, display_name: "Reviewer" },
+  { user_id: "admin", role: ROLES.ADMIN, display_name: "Admin" },
+  { user_id: "worker", role: ROLES.WORKER, display_name: "Worker" },
+  { user_id: "reviewer", role: ROLES.REVIEWER, display_name: "Reviewer" },
 ];
 
 export function normalizeActorId(value) {
@@ -131,12 +135,6 @@ export function normalizeRole(value, fallback = "") {
 export function findMvpUser(userId) {
   const normalized = normalizeActorId(userId);
   return MVP_USERS.find((user) => user.user_id === normalized) || null;
-}
-
-export function validateMvpCredentials(input = {}) {
-  const user = findMvpUser(input.userId || input.user_id);
-  if (!user) return null;
-  return String(input.password || "") === user.password ? publicMvpUser(user) : null;
 }
 
 export function userHasRole(userId, role) {
@@ -155,7 +153,7 @@ export function publicMvpUser(user = {}) {
 }
 ```
 
-- [ ] **Step 4: Replace scattered default constants where no behavior changes are intended**
+- [x] **Step 4: Replace scattered default constants where no behavior changes are intended**
 
 Use imports from `src/config/runtimeDefaults.js` in:
 
@@ -199,7 +197,7 @@ import { DEFAULT_ACTORS, DEFAULT_PROJECT, ROLES, normalizeActorId, normalizeRole
 
 Remove the local `ROLES`, `normalizeActorId`, and `normalizeRole` definitions from `src/server/api.js` after confirming all call sites use imported helpers.
 
-- [ ] **Step 5: Run tests**
+- [x] **Step 5: Run tests**
 
 Run:
 
@@ -218,7 +216,7 @@ Expected: all tests pass.
 - Modify: `tests/serverApi.test.js`
 - Modify: `tests/apiClient.test.js`
 
-- [ ] **Step 1: Add failing server credential tests**
+- [x] **Step 1: Add failing server credential tests**
 
 Add to `tests/serverApi.test.js` near existing session tests:
 
@@ -246,7 +244,7 @@ test("session login validates password and uses server-owned role", async () => 
 });
 ```
 
-- [ ] **Step 2: Add failing API client login payload test**
+- [x] **Step 2: Add failing API client login payload test**
 
 Update `tests/apiClient.test.js` login test so the client calls:
 
@@ -260,7 +258,7 @@ assert.deepEqual(JSON.parse(calls[0].options.body), {
 
 Expected: current client includes `role`, so the assertion fails.
 
-- [ ] **Step 3: Run focused tests and verify failures**
+- [x] **Step 3: Run focused tests and verify failures**
 
 Run:
 
@@ -270,7 +268,7 @@ npm test -- tests/serverApi.test.js tests/apiClient.test.js
 
 Expected: FAIL on credential login behavior.
 
-- [ ] **Step 4: Implement server credential validation**
+- [x] **Step 4: Implement server credential validation**
 
 In `src/server/api.js`, import:
 
@@ -316,7 +314,7 @@ function createSession(input = {}) {
 }
 ```
 
-- [ ] **Step 5: Implement API client login payload**
+- [x] **Step 5: Implement API client login payload**
 
 Change `src/api/client.js` login body to:
 
@@ -327,7 +325,7 @@ body: {
 },
 ```
 
-- [ ] **Step 6: Run focused tests and full tests**
+- [x] **Step 6: Run focused tests and full tests**
 
 Run:
 
@@ -344,7 +342,7 @@ Expected: all tests pass.
 - Modify: `index.html`
 - Modify: `src/app.js`
 
-- [ ] **Step 1: Update HTML login controls**
+- [x] **Step 1: Update HTML login controls**
 
 Replace the role select in `index.html` with a password input and read-only role output:
 
@@ -360,7 +358,7 @@ Replace the role select in `index.html` with a password input and read-only role
 
 Keep `loginButton`, `logoutButton`, and `sessionMessage`.
 
-- [ ] **Step 2: Update app state and element refs**
+- [x] **Step 2: Update app state and element refs**
 
 In `src/app.js`, add:
 
@@ -377,7 +375,7 @@ sessionRoleLabel: document.querySelector("#sessionRoleLabel"),
 
 Remove `sessionRole: document.querySelector("#sessionRole")`.
 
-- [ ] **Step 3: Update event binding**
+- [x] **Step 3: Update event binding**
 
 Replace the role select event with password input:
 
@@ -390,7 +388,7 @@ els.sessionPassword.addEventListener("input", () => {
 });
 ```
 
-- [ ] **Step 4: Update loginSession and renderSessionPanel**
+- [x] **Step 4: Update loginSession and renderSessionPanel**
 
 Change login payload:
 
@@ -418,7 +416,7 @@ els.sessionRoleLabel.textContent = state.sessionAuthenticated ? state.sessionRol
 els.loginButton.disabled = !state.sessionUserId || !state.sessionPassword;
 ```
 
-- [ ] **Step 5: Manual smoke criteria**
+- [x] **Step 5: Manual smoke criteria**
 
 Expected browser behavior:
 
@@ -436,7 +434,7 @@ Expected browser behavior:
 - Modify: `tests/serverApi.test.js`
 - Modify: `tests/apiClient.test.js`
 
-- [ ] **Step 1: Add failing tests for review actor from session**
+- [x] **Step 1: Add failing tests for review actor from session**
 
 Add to `tests/serverApi.test.js`:
 
@@ -466,7 +464,7 @@ test("review events use authenticated session identity instead of request body r
 });
 ```
 
-- [ ] **Step 2: Add failing tests for assignment target validation**
+- [x] **Step 2: Add failing tests for assignment target validation**
 
 Add to `tests/serverApi.test.js`:
 
@@ -500,7 +498,7 @@ test("admin assignment validates worker and reviewer target roles", async () => 
 });
 ```
 
-- [ ] **Step 3: Run focused tests and verify failures**
+- [x] **Step 3: Run focused tests and verify failures**
 
 Run:
 
@@ -510,7 +508,7 @@ npm test -- tests/serverApi.test.js
 
 Expected: FAIL because review still uses body reviewer and assignment target roles are not validated.
 
-- [ ] **Step 4: Update server review route**
+- [x] **Step 4: Update server review route**
 
 In `src/server/api.js`, change review input to use session user:
 
@@ -521,7 +519,7 @@ const result = applyReviewTransition(image, {
 });
 ```
 
-- [ ] **Step 5: Update API client and app review payload**
+- [x] **Step 5: Update API client and app review payload**
 
 In `src/api/client.js`, remove `reviewer_id` from `reviewImage` body:
 
@@ -535,7 +533,7 @@ body: {
 
 In `src/app.js`, stop passing `reviewerId` to `apiClient.reviewImage`.
 
-- [ ] **Step 6: Validate assignment targets**
+- [x] **Step 6: Validate assignment targets**
 
 In `src/server/api.js`, import `userHasRole`.
 
@@ -556,7 +554,7 @@ if (!userHasRole(workerId, ROLES.WORKER) || !userHasRole(reviewerId, ROLES.REVIE
 }
 ```
 
-- [ ] **Step 7: Run tests**
+- [x] **Step 7: Run tests**
 
 Run:
 
@@ -575,7 +573,7 @@ Expected: all tests pass.
 - Modify: `harness/run_log.md`
 - Create: `harness/tasks/2026-04-29-operations-foundation.md`
 
-- [ ] **Step 1: Create harness task file**
+- [x] **Step 1: Create harness task file**
 
 Create `harness/tasks/2026-04-29-operations-foundation.md` with:
 
@@ -627,7 +625,7 @@ Create `harness/tasks/2026-04-29-operations-foundation.md` with:
 - scripts/harness/smoke-web.sh
 ```
 
-- [ ] **Step 2: Update feature status**
+- [x] **Step 2: Update feature status**
 
 When implementation is verified, mark these completed in `docs/FEATURE_STATUS.md`:
 
@@ -641,11 +639,11 @@ When implementation is verified, mark these completed in `docs/FEATURE_STATUS.md
 Keep these remaining:
 
 ```md
-- [ ] Project creation/opening flow to replace default `mask_project_001`
-- [ ] Assignment queues and per-user task list
+- [x] Project creation/opening flow to replace default `mask_project_001`
+- [x] Assignment queues and per-user task list
 ```
 
-- [ ] **Step 3: Run full verification**
+- [x] **Step 3: Run full verification**
 
 Run:
 
@@ -661,7 +659,7 @@ curl -sS http://localhost:4173/api/health
 
 Expected: all commands pass.
 
-- [ ] **Step 4: Commit and push**
+- [x] **Step 4: Commit and push**
 
 Run:
 

@@ -56,7 +56,7 @@ test("uploads an image and URL-encodes the project path segment", async () => {
 test("uploads an image with multipart form data when a File is provided", async () => {
   const calls = [];
   const client = createMaskingApiClient({
-    session: { userId: "worker-1", role: "worker", allowRoleHeaders: true },
+    session: { token: "sess_worker" },
     fetchImpl: async (url, options) => {
       calls.push({ url, options });
       return jsonResponse({ id: "image-1", image_path: "images/image-1.png" }, 201);
@@ -73,8 +73,9 @@ test("uploads an image with multipart form data when a File is provided", async 
   });
 
   assert.equal(calls[0].url, "/api/projects/project-1/images");
-  assert.equal(calls[0].options.headers["x-user-id"], "worker-1");
-  assert.equal(calls[0].options.headers["x-user-role"], "worker");
+  assert.equal(calls[0].options.headers.authorization, "Bearer sess_worker");
+  assert.equal(Object.hasOwn(calls[0].options.headers, "x-user-id"), false);
+  assert.equal(Object.hasOwn(calls[0].options.headers, "x-user-role"), false);
   assert.equal(Object.hasOwn(calls[0].options.headers, "content-type"), false);
   assert.equal(calls[0].options.body instanceof FormData, true);
   assert.equal(calls[0].options.body.get("image_id"), "image-1");
@@ -110,16 +111,20 @@ test("logs in and sends bearer token on protected requests", async () => {
     },
   });
 
-  const login = await client.login({ userId: "admin-1", role: "admin" });
+  const login = await client.login({ userId: "admin", password: "admin123", role: "worker" });
   token = login.session.token;
   await client.getProject("project-1");
 
   assert.equal(calls[0].url, "/api/session/login");
   assert.equal(Object.hasOwn(calls[0].options.headers, "authorization"), false);
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    user_id: "admin",
+    password: "admin123",
+  });
   assert.equal(calls[1].options.headers.authorization, "Bearer sess_123");
 });
 
-test("does not send local role headers unless fallback is explicitly allowed", async () => {
+test("does not send local role headers", async () => {
   const calls = [];
   const client = createMaskingApiClient({
     session: { userId: "admin-1", role: "admin" },
@@ -182,7 +187,6 @@ test("submits review transitions with project id and reason", async () => {
     project_id: "project 1",
     action: "reject",
     reason: "Needs tighter edge",
-    reviewer_id: "reviewer-1",
   });
 });
 

@@ -210,14 +210,14 @@ Future hardening:
 
 Goal: make ownership explicit before project selection and multi-user restore.
 
-Status: implemented at the local-header MVP boundary.
-Current status: server-backed bearer sessions are now implemented for the
-browser client. The server still accepts explicit role headers as a compatibility
-fallback for the dependency-free MVP and harness tests.
+Status: implemented at the bearer-session MVP boundary.
+Current status: server-backed bearer sessions are implemented for the browser
+client. Legacy `x-user-id` / `x-user-role` headers are no longer accepted as an
+authorization fallback.
 
 Completed:
 
-- [x] frontend session panel sends `x-user-id` and `x-user-role`
+- [x] frontend session panel sends bearer tokens after login
 - [x] server RBAC checks protect upload, mask save, review, export, and assignment actions
 - [x] admin assignment endpoint updates `worker_id`, `reviewer_id`, `assigned_by`, and `assigned_at`
 - [x] assignment UI saves selected image worker/reviewer fields
@@ -227,10 +227,17 @@ Completed:
 
 Remaining:
 
-- [ ] MVP credential login with ID/password fields
-- [ ] server-owned role resolution instead of browser role selection
-- [ ] authenticated reviewer/assignment identity instead of manual local actor fields
 - [ ] assignment queues and per-user task list
+
+Completed in the operations foundation batch:
+
+- [x] ID/password login validates against MVP users on the server
+- [x] browser-imported defaults do not expose MVP passwords
+- [x] browser login no longer sends a selected role
+- [x] browser role display is read-only and reflects the server-returned role
+- [x] review actor identity is derived from the authenticated session
+- [x] assignment audit `assigned_by` is derived from the authenticated session
+- [x] remaining MVP defaults are centralized in `src/config/runtimeDefaults.js`
 
 ### 7. Hardcoded Runtime Debt Cleanup
 
@@ -242,32 +249,26 @@ blindly; each one currently covers a missing workflow.
 
 Current hardcoded areas:
 
-- `local_admin` is the bootstrapped session user until ID/password login exists.
-- The browser role selector remains until the server account owns role
-  resolution.
-- `local_worker` and `local_reviewer` remain until assignment queues and a user
-  directory exist.
-- The manual reviewer identity field remains until review actions derive actor
-  identity from the authenticated session.
-- `mask_project_001` and `Masking Project` remain until project creation/opening
-  is the first-class entry flow.
+- `worker` and `reviewer` remain as default assignment targets until assignment
+  queues and a user directory exist.
+- `mask_project_001` and `Masking Project` remain as centralized defaults until
+  project creation/opening is the first-class entry flow.
 
 Recommended development order:
 
-1. MVP credential login with ID/password fields.
-2. Server-owned role resolution and read-only role display in the browser.
-3. Centralized runtime defaults/config module for any remaining MVP defaults.
-4. Project creation/opening flow before entering the workbench.
-5. Authenticated reviewer and assignment identity.
-6. Assignment queues and per-user task list.
+1. Project creation/opening flow before entering the workbench.
+2. Assignment queues and per-user task list.
+3. Submitted data edit/rework flow after submission.
+4. Pan/camera movement while image is zoomed.
+5. Magic-click assisted mask tool for local region selection.
 
 Acceptance criteria:
 
-- [ ] login form has ID and password fields
-- [ ] server rejects invalid ID/password pairs with `401`
-- [ ] server decides `role`; browser no longer chooses role during login
-- [ ] default actor IDs are not duplicated across HTML, app state, export, and server code
-- [ ] review and assignment actions can use authenticated actor identity
+- [x] login form has ID and password fields
+- [x] server rejects invalid ID/password pairs with `401`
+- [x] server decides `role`; browser no longer chooses role during login
+- [x] default actor IDs are not duplicated across HTML, app state, export, and server code
+- [x] review and assignment actions use authenticated actor identity
 - [ ] new users open or create a project instead of silently using `mask_project_001`
 
 ### 8. Post-Submission Edit And Editor Assist

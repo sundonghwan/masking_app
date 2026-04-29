@@ -401,3 +401,40 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=improvement-backlog-capture-complete
 [GIT] commit=24f2eb4 message="Add editor improvement backlog"
 [GIT] push=origin/main status=passed
+[START] task=ui-server-owned-role-login subsystem=frontend-session-ui
+[PLAN] scope=index.html and login/session portions of src/app.js risks=credential-required-state,password-persistence,server-owned-role-display
+[IMPACT] status=suspected chain=bindEvents->loginSession->apiClient.login
+[IMPACT] status=validated chain=bindEvents(src/app.js:227-238)->loginSession(src/app.js:381-394)->apiClient.login validation=node --check src/app.js; diff review
+[IMPACT] status=validated chain=loginSession(src/app.js:381-394)->renderSessionPanel(src/app.js:1067-1080)->renderAssignmentPanel(src/app.js:1083-1100) validation=node --check src/app.js; diff review
+[CMD] node --check src/app.js
+[REVIEW] finding=none-blocking scope=owned-login-panel-ui
+[CLOSE] status=ui-server-owned-role-login-complete push=skipped reason=unrelated-concurrent-working-tree-edits
+[START] task=operations-foundation subsystem=auth-session-actor-defaults
+[PLAN] scope=credential-login,server-owned-role,authenticated-review-actor,assignment-audit,centralized-defaults risks=password-persistence,role-spoofing,review-audit-drift,assignment-target-validation
+[IMPACT] status=suspected chain=loginSession->apiClient.login->validateMvpCredentials->createSession
+[IMPACT] status=suspected chain=reviewSelectedImage->getReviewActorId->apiClient.reviewImage->applyReviewTransition
+[IMPACT] status=suspected chain=assignSelectedImage->apiClient.assignImage->userHasRole->routeImage.assignment
+[IMPACT_VALIDATE] chain=loginSession->apiClient.login->validateMvpCredentials->createSession validation=focused tests passed; invalid password rejected and login role spoof ignored
+[IMPACT_VALIDATE] chain=reviewSelectedImage->getReviewActorId->apiClient.reviewImage->applyReviewTransition validation=focused tests passed; review audit uses authenticated session identity
+[IMPACT_VALIDATE] chain=assignSelectedImage->apiClient.assignImage->userHasRole->routeImage.assignment validation=focused tests passed; assignment target roles validated and assigned_by uses session
+[IMPACT_VALIDATE] chain=runtimeDefaults->app/export/server defaults validation=focused tests passed; defaults centralized and default login user is MVP account admin
+[DOC] updated=docs/FEATURE_STATUS.md note=completed operations foundation items and remaining project-opening/queue/editor work
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=next recommended order starts with project opening then assignment queues
+[CMD] node --check src/app.js
+[CMD] npm test -- tests/serverApi.test.js tests/apiClient.test.js tests/appContracts.test.js
+[REVIEW] finding=critical role-header-spoofing fixed=server-requires-authenticated-bearer-session-and-tests-forged-headers-403
+[REVIEW] finding=critical browser-exposed-passwords fixed=passwords-moved-to-server-auth-and-private-static-paths-blocked
+[REVIEW] finding=high stale-local-session-review fixed=review-and-assignment-call-session-me-before-local-authenticated-actor-use
+[REVIEW] finding=high invalid-assignment-defaults fixed=default-assignment-targets-use-valid-mvp-user-ids
+[CMD] npm run lint
+[CMD] npm test
+[CMD] git diff --check
+[CMD] scripts/harness/lint-all.sh
+[CMD] scripts/harness/typecheck-all.sh
+[CMD] scripts/harness/test-target.sh
+[CMD] scripts/harness/smoke-web.sh
+[CMD] curl -sS -X POST http://localhost:4173/api/session/login ...
+[CMD] curl -sS -X POST http://localhost:4173/api/projects with forged x-user-role admin
+[CMD] curl -sS -I http://localhost:4173/src/server/auth.js
+[CMD] curl -sS http://localhost:4173/src/config/runtimeDefaults.js
+[REVIEW] subagent=Harvey finding=none-blocking-high scope=operations-foundation-after-fixes

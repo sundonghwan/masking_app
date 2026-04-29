@@ -72,6 +72,9 @@ async function serveStatic(request, response, url) {
   }
 
   const relative = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
+  if (isPrivateStaticPath(relative)) {
+    throw createHttpError(404, "File not found");
+  }
   const filePath = safePublicPath(relative);
   const info = await stat(filePath).catch((error) => {
     if (error.code === "ENOENT") return null;
@@ -93,6 +96,15 @@ async function serveStatic(request, response, url) {
   }
 
   createReadStream(filePath).pipe(response);
+}
+
+function isPrivateStaticPath(relative) {
+  const normalized = path.normalize(relative).replace(/^[/\\]+/, "");
+  return normalized === "server.js"
+    || normalized.startsWith(`src${path.sep}server${path.sep}`)
+    || normalized.startsWith(`tests${path.sep}`)
+    || normalized.startsWith(`harness${path.sep}`)
+    || normalized.startsWith(`docs${path.sep}`);
 }
 
 function safePublicPath(relative) {

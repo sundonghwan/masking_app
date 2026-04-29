@@ -13,12 +13,15 @@ import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimens
 import { validateMaskContract } from "./maskValidation.js";
 import { applyReviewTransition } from "../review/policy.js";
 import { UPLOAD_REASONS, validateImageDataUrlUpload, validateUploadCandidate } from "../upload/policy.js";
-
-const ROLES = {
-  WORKER: "worker",
-  REVIEWER: "reviewer",
-  ADMIN: "admin",
-};
+import {
+  DEFAULT_ACTORS,
+  DEFAULT_PROJECT,
+  ROLES,
+  normalizeActorId,
+  normalizeRole,
+  userHasRole,
+} from "../config/runtimeDefaults.js";
+import { validateMvpCredentials } from "./auth.js";
 
 export function createApiRouter({ storage, logger = null }) {
   const sessions = new Map();
@@ -33,10 +36,17 @@ export function createApiRouter({ storage, logger = null }) {
 
     if (url.pathname === "/api/session/login" && request.method === "POST") {
       const body = await readJsonBody(request);
-      const session = createSession({
-        userId: body.user_id || body.userId,
-        role: body.role,
+      const account = validateMvpCredentials({
+        user_id: body.user_id || body.userId,
+        password: body.password,
       });
+      if (!account) {
+        return sendJson(response, 401, {
+          error: "unauthorized",
+          message: "Invalid user ID or password",
+        });
+      }
+      const session = createSession(account);
       sessions.set(session.token, session);
       return sendJson(response, 201, { session });
     }
@@ -64,8 +74,8 @@ export function createApiRouter({ storage, logger = null }) {
 
       const body = await readJsonBody(request);
       const project = createProjectRecord({
-        id: body.project_id || body.id || "mask_project_001",
-        name: body.name || "Masking Project",
+        id: body.project_id || body.id || DEFAULT_PROJECT.id,
+        name: body.name || DEFAULT_PROJECT.name,
         description: body.description || "",
       });
       const manifest = await storage.ensureProject(project.id, { name: project.name });
@@ -180,7 +190,7 @@ export function createApiRouter({ storage, logger = null }) {
         width: imageMetadata.width,
         height: imageMetadata.height,
         status: "not_started",
-        workerId: session.userId || "local_worker",
+        workerId: session.userId || DEFAULT_ACTORS.worker,
       });
       manifest.images = [...(manifest.images || []).filter((item) => item.id !== image.id), image];
       manifest.updated_at = new Date().toISOString();
@@ -271,7 +281,7 @@ export function createApiRouter({ storage, logger = null }) {
       const result = applyReviewTransition(image, {
         action: body.action,
         reason: body.reason || body.reject_reason,
-        reviewer_id: body.reviewer_id,
+        reviewer_id: session.userId,
       });
       if (!result.valid) {
         logger?.warn("review.transition.failed", {
@@ -312,11 +322,26 @@ export function createApiRouter({ storage, logger = null }) {
       const image = (manifest.images || []).find((item) => item.id === imageId);
       if (!image) throw createHttpError(404, "Image not found");
 
+      const workerId = normalizeActorId(body.worker_id || image.worker_id || DEFAULT_ACTORS.worker);
+      const reviewerId = normalizeActorId(body.reviewer_id || image.reviewer_id || "");
+      const workerValid = userHasRole(workerId, ROLES.WORKER);
+      const reviewerValid = userHasRole(reviewerId, ROLES.REVIEWER);
+      if (!workerValid || !reviewerValid) {
+        return sendJson(response, 422, {
+          error: "assignment_validation_failed",
+          message: "Assignment target roles are invalid",
+          validation: {
+            worker_id: workerValid,
+            reviewer_id: reviewerValid,
+          },
+        });
+      }
+
       const now = new Date().toISOString();
       const updated = {
         ...image,
-        worker_id: normalizeActorId(body.worker_id || image.worker_id || "local_worker"),
-        reviewer_id: normalizeActorId(body.reviewer_id || image.reviewer_id || ""),
+        worker_id: workerId,
+        reviewer_id: reviewerId,
         assigned_by: session.userId,
         assigned_at: now,
         updated_at: now,
@@ -347,18 +372,17 @@ export function createApiRouter({ storage, logger = null }) {
         authenticated: true,
       };
     }
-    const role = String(request.headers["x-user-role"] || "").trim().toLowerCase();
-    const userId = normalizeActorId(request.headers["x-user-id"] || "");
     return {
-      userId,
-      role: Object.values(ROLES).includes(role) ? role : "",
+      user_id: "",
+      userId: "",
+      role: "",
       token: "",
       authenticated: false,
     };
   }
 
   function requireRole(response, session, allowedRoles) {
-    if (session.userId && allowedRoles.includes(session.role)) return true;
+    if (session.authenticated && session.userId && allowedRoles.includes(session.role)) return true;
     sendJson(response, 403, {
       error: "forbidden",
       message: "The current role cannot perform this action",
@@ -369,8 +393,8 @@ export function createApiRouter({ storage, logger = null }) {
   }
 
   function createSession(input = {}) {
-    const userId = normalizeActorId(input.userId || "local_admin");
-    const role = normalizeRole(input.role || ROLES.ADMIN);
+    const userId = normalizeActorId(input.userId || input.user_id || DEFAULT_ACTORS.admin);
+    const role = normalizeRole(input.role, ROLES.WORKER);
     const createdAt = new Date().toISOString();
     return {
       token: createSessionToken(),
@@ -475,15 +499,6 @@ export function createApiRouter({ storage, logger = null }) {
       offset = next;
     }
     return parts;
-  }
-
-  function normalizeActorId(value) {
-    return String(value || "").trim();
-  }
-
-  function normalizeRole(value) {
-    const role = String(value || "").trim().toLowerCase();
-    return Object.values(ROLES).includes(role) ? role : ROLES.WORKER;
   }
 
   function maskValidationStatusCode(validation) {

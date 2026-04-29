@@ -1,3 +1,5 @@
+import { DEFAULT_ACTORS, DEFAULT_PROJECT } from "../config/runtimeDefaults.js";
+
 export const MASK_CONTRACT = {
   format: "8-bit grayscale PNG",
   background_value: 0,
@@ -25,8 +27,8 @@ export function createProjectRecord(input = {}, options = {}) {
   const now = options.now || new Date().toISOString();
 
   return {
-    id: normalizeText(input.id || input.projectId || "mask_project_001"),
-    name: normalizeText(input.name || "Masking Project"),
+    id: normalizeText(input.id || input.projectId || DEFAULT_PROJECT.id),
+    name: normalizeText(input.name || DEFAULT_PROJECT.name),
     description: normalizeText(input.description || ""),
     created_at: input.createdAt || input.created_at || now,
     updated_at: input.updatedAt || input.updated_at || now,
@@ -61,7 +63,7 @@ export function createImageRecord(input = {}, options = {}) {
     mask_ratio: Number(input.maskRatio ?? input.mask_ratio ?? 0),
     status: normalizeText(input.status || "not_started"),
     assigned_to: normalizeText(input.assignedTo || input.assigned_to || ""),
-    worker_id: normalizeText(input.workerId || input.worker_id || "local_worker"),
+    worker_id: normalizeText(input.workerId || input.worker_id || DEFAULT_ACTORS.worker),
     reviewer_id: normalizeText(input.reviewerId || input.reviewer_id || ""),
     submitted_at: input.submittedAt || input.submitted_at || "",
     created_at: input.createdAt || input.created_at || now,
@@ -328,7 +330,7 @@ async function createBrowserImageRecord(file, options = {}) {
 
   return {
     id,
-    project_id: options.projectId || "mask_project_001",
+    project_id: options.projectId || DEFAULT_PROJECT.id,
     original_file_name: file.name,
     fileName: file.name,
     image_path: `images/${exportImageFileName}`,
@@ -343,7 +345,7 @@ async function createBrowserImageRecord(file, options = {}) {
     mask_ratio: 0,
     maskRatio: 0,
     status: "not_started",
-    worker_id: "local_worker",
+    worker_id: DEFAULT_ACTORS.worker,
     reviewer_id: "",
     created_at: now,
     updated_at: now,

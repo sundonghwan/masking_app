@@ -16,7 +16,7 @@ export function createMaskingApiClient(options = {}) {
         method: "POST",
         body: {
           user_id: input.userId || input.user_id,
-          role: input.role,
+          password: input.password,
         },
         skipAuth: true,
       });
@@ -94,7 +94,6 @@ export function createMaskingApiClient(options = {}) {
           project_id: projectId,
           action: input.action,
           reason: input.reason || input.reject_reason,
-          reviewer_id: input.reviewerId || input.reviewer_id,
         },
       });
     },
@@ -148,14 +147,9 @@ export function createMaskingApiClient(options = {}) {
 }
 
 function sessionHeaders(session = {}) {
-  const userId = String(session.userId || session.user_id || "").trim();
-  const role = String(session.role || "").trim();
   const token = String(session.token || "").trim();
-  const allowRoleHeaders = Boolean(session.allowRoleHeaders);
   return {
     ...(token ? { authorization: `Bearer ${token}` } : {}),
-    ...(allowRoleHeaders && userId ? { "x-user-id": userId } : {}),
-    ...(allowRoleHeaders && role ? { "x-user-role": role } : {}),
   };
 }
 

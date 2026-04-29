@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 
 import {
@@ -8,8 +9,56 @@ import {
   serializeJson,
   validateExportItem,
 } from "../src/export/exporter.js";
+import {
+  DEFAULT_ACTORS,
+  DEFAULT_PROJECT,
+  DEFAULT_SESSION,
+  findMvpUser,
+  userHasRole,
+} from "../src/config/runtimeDefaults.js";
+import { validateMvpCredentials } from "../src/server/auth.js";
 
 const NOW = "2026-04-29T03:00:00.000Z";
+
+test("runtime defaults expose explicit MVP project and actor fallbacks", () => {
+  assert.equal(DEFAULT_PROJECT.id, "mask_project_001");
+  assert.equal(DEFAULT_PROJECT.name, "Masking Project");
+  assert.equal(DEFAULT_ACTORS.admin, "admin");
+  assert.equal(DEFAULT_ACTORS.worker, "worker");
+  assert.equal(DEFAULT_ACTORS.reviewer, "reviewer");
+  assert.equal(DEFAULT_SESSION.user_id, "admin");
+  assert.equal(DEFAULT_SESSION.role, "admin");
+});
+
+test("MVP users validate credentials and expose server-owned roles", () => {
+  const admin = validateMvpCredentials({ userId: "admin", password: "admin123" });
+  assert.equal(admin.user_id, "admin");
+  assert.equal(admin.role, "admin");
+
+  assert.equal(validateMvpCredentials({ userId: "admin", password: "bad" }), null);
+  assert.equal(findMvpUser("worker").role, "worker");
+  assert.equal(userHasRole("reviewer", "reviewer"), true);
+  assert.equal(userHasRole("reviewer", "worker"), false);
+});
+
+test("browser-imported runtime defaults do not expose valid MVP passwords", () => {
+  const defaultsModule = fs.readFileSync(new URL("../src/config/runtimeDefaults.js", import.meta.url), "utf8");
+
+  assert.doesNotMatch(defaultsModule, /admin123|worker123|reviewer123/);
+});
+
+test("operation session UI uses credential login and derived reviewer identity", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="sessionPassword"/);
+  assert.match(html, /id="sessionRoleLabel"[^>]+readonly/);
+  assert.doesNotMatch(html, /id="sessionRole"/);
+  assert.doesNotMatch(html, /id="reviewerId"/);
+  assert.match(app, /function getReviewActorId\(\)/);
+  assert.match(app, /ensureAuthenticatedSession\(\)/);
+  assert.doesNotMatch(app, /reviewerId: state\.reviewerId/);
+});
 
 function createRestoredSubmittedRecord(overrides = {}) {
   return createImageRecord(

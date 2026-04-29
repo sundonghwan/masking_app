@@ -15,8 +15,8 @@ const VALID_IMAGE_DATA_URL = toPngDataUrl(createMinimalPngHeader({ width: 2, hei
 test("session login returns a bearer token that authorizes protected actions", async () => {
   const { route, storage } = createApiHarness();
   const login = await callJson(route, "POST", "/api/session/login", {
-    user_id: "worker-9",
-    role: "worker",
+    user_id: "worker",
+    password: "worker123",
   }, {});
 
   assert.equal(login.statusCode, 201);
@@ -31,8 +31,30 @@ test("session login returns a bearer token that authorizes protected actions", a
   }, { authorization: `Bearer ${login.body.session.token}` });
 
   assert.equal(response.statusCode, 201);
-  assert.equal(response.body.worker_id, "worker-9");
+  assert.equal(response.body.worker_id, "worker");
   assert.equal(storage.imageWrites.length, 1);
+});
+
+test("session login validates password and uses server-owned role", async () => {
+  const { route } = createApiHarness();
+
+  const rejected = await callJson(route, "POST", "/api/session/login", {
+    user_id: "admin",
+    password: "wrong",
+    role: "worker",
+  }, {});
+  assert.equal(rejected.statusCode, 401);
+  assert.equal(rejected.body.error, "unauthorized");
+
+  const accepted = await callJson(route, "POST", "/api/session/login", {
+    user_id: "admin",
+    password: "admin123",
+    role: "worker",
+  }, {});
+  assert.equal(accepted.statusCode, 201);
+  assert.equal(accepted.body.session.user_id, "admin");
+  assert.equal(accepted.body.session.role, "admin");
+  assert.match(accepted.body.session.token, /^sess_/);
 });
 
 test("protected actions reject requests without session or role headers", async () => {
@@ -50,6 +72,21 @@ test("protected actions reject requests without session or role headers", async 
   assert.equal(response.body.error, "forbidden");
 });
 
+test("protected actions reject forged legacy role headers without bearer session", async () => {
+  const { route } = createApiHarness();
+
+  const response = await callJson(route, "POST", "/api/projects/project-1/images", {
+    image_id: "image-1",
+    file_name: "frame.png",
+    data_url: VALID_IMAGE_DATA_URL,
+    width: 2,
+    height: 2,
+  }, authHeaders("admin", "attacker"));
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.error, "forbidden");
+});
+
 test("project list and manifest endpoints require an authorized session", async () => {
   const { route, storage } = createApiHarness();
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -58,8 +95,8 @@ test("project list and manifest endpoints require an authorized session", async 
   assert.equal(rejectedList.statusCode, 403);
 
   const login = await callJson(route, "POST", "/api/session/login", {
-    user_id: "reviewer-7",
-    role: "reviewer",
+    user_id: "reviewer",
+    password: "reviewer123",
   }, {});
   const headers = { authorization: `Bearer ${login.body.session.token}` };
 
@@ -72,8 +109,61 @@ test("project list and manifest endpoints require an authorized session", async 
   assert.equal(manifest.body.project_id, "project-1");
 });
 
+test("review events use authenticated session identity instead of request body reviewer", async () => {
+  const { route, storage } = createApiHarness();
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "reviewer",
+    password: "reviewer123",
+  }, {});
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    status: "submitted",
+    current_mask_path: "masks/image-1_mask.png",
+  });
+
+  const response = await callJson(route, "PUT", "/api/images/image-1/review", {
+    project_id: "project-1",
+    action: "approve",
+    reviewer_id: "spoofed-reviewer",
+  }, { authorization: `Bearer ${login.body.session.token}` });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.image.reviewer_id, "reviewer");
+  assert.equal(response.body.image.review_events[0].reviewer_id, "reviewer");
+});
+
+test("admin assignment validates worker and reviewer target roles", async () => {
+  const { route, storage } = createApiHarness();
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "admin",
+    password: "admin123",
+  }, {});
+  const headers = { authorization: `Bearer ${login.body.session.token}` };
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", baseImage());
+
+  const invalid = await callJson(route, "PUT", "/api/images/image-1/assignment", {
+    project_id: "project-1",
+    worker_id: "reviewer",
+    reviewer_id: "worker",
+  }, headers);
+  assert.equal(invalid.statusCode, 422);
+
+  const valid = await callJson(route, "PUT", "/api/images/image-1/assignment", {
+    project_id: "project-1",
+    worker_id: "worker",
+    reviewer_id: "reviewer",
+  }, headers);
+  assert.equal(valid.statusCode, 200);
+  assert.equal(valid.body.image.worker_id, "worker");
+  assert.equal(valid.body.image.reviewer_id, "reviewer");
+  assert.equal(valid.body.image.assigned_by, "admin");
+});
+
 test("valid image upload writes file and appends manifest image", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
 
   const response = await callJson(route, "POST", "/api/projects/project-1/images", {
     image_id: "image-1",
@@ -81,7 +171,7 @@ test("valid image upload writes file and appends manifest image", async () => {
     data_url: VALID_IMAGE_DATA_URL,
     width: 2,
     height: 2,
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 201);
   assert.equal(response.body.id, "image-1");
@@ -95,6 +185,7 @@ test("valid image upload writes file and appends manifest image", async () => {
 
 test("multipart image upload writes file and appends manifest image", async () => {
   const { route, storage } = createApiHarness();
+  const auth = await loginHeaders(route, "worker");
   const png = createGrayscalePng({ width: 2, height: 2, pixels: [0, 0, 0, 0] });
   const boundary = "----masking-app-test";
   const body = createMultipartBody(boundary, [
@@ -107,19 +198,19 @@ test("multipart image upload writes file and appends manifest image", async () =
 
   const response = await callJson(route, "POST", "/api/projects/project-1/images", body, {
     "content-type": `multipart/form-data; boundary=${boundary}`,
-    "x-user-role": "worker",
-    "x-user-id": "worker-1",
+    ...auth,
   });
 
   assert.equal(response.statusCode, 201);
   assert.equal(response.body.id, "image-1");
-  assert.equal(response.body.worker_id, "worker-1");
+  assert.equal(response.body.worker_id, "worker");
   assert.equal(storage.imageWrites[0].relativePath, "images/image-1_frame.png");
   assert.deepEqual(storage.imageWrites[0].buffer, png);
 });
 
 test("image upload uses server-extracted dimensions and rejects mismatches", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   const before = await storage.readProjectManifest("project-1");
 
@@ -129,7 +220,7 @@ test("image upload uses server-extracted dimensions and rejects mismatches", asy
     data_url: VALID_IMAGE_DATA_URL,
     width: 999,
     height: 2,
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 422);
   assert.equal(response.body.error, "image_dimension_mismatch");
@@ -140,6 +231,7 @@ test("image upload uses server-extracted dimensions and rejects mismatches", asy
 
 test("worker role cannot review submitted images", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", {
     ...baseImage(),
@@ -152,10 +244,7 @@ test("worker role cannot review submitted images", async () => {
     project_id: "project-1",
     action: "approve",
     reviewer_id: "reviewer-1",
-  }, {
-    "x-user-role": "worker",
-    "x-user-id": "worker-1",
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 403);
   assert.equal(response.body.error, "forbidden");
@@ -164,6 +253,7 @@ test("worker role cannot review submitted images", async () => {
 
 test("unsupported image upload returns 400 before mutating manifest", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   const before = await storage.readProjectManifest("project-1");
 
@@ -173,7 +263,7 @@ test("unsupported image upload returns 400 before mutating manifest", async () =
     data_url: `data:text/plain;base64,${Buffer.from("not an image").toString("base64")}`,
     width: 2,
     height: 2,
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 400);
   assert.equal(response.body.error, "image_upload_validation_failed");
@@ -184,6 +274,7 @@ test("unsupported image upload returns 400 before mutating manifest", async () =
 
 test("oversized image upload returns 413 before mutating manifest", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   const before = await storage.readProjectManifest("project-1");
   const oversizedDataUrl = `data:image/png;base64,${Buffer.alloc((15 * 1024 * 1024) + 1).toString("base64")}`;
@@ -194,7 +285,7 @@ test("oversized image upload returns 413 before mutating manifest", async () => 
     data_url: oversizedDataUrl,
     width: 2,
     height: 2,
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 413);
   assert.equal(response.body.error, "image_upload_validation_failed");
@@ -205,6 +296,7 @@ test("oversized image upload returns 413 before mutating manifest", async () => 
 
 test("review approve updates only submitted images", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "reviewer");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", {
     ...baseImage(),
@@ -216,11 +308,11 @@ test("review approve updates only submitted images", async () => {
     project_id: "project-1",
     action: "approve",
     reviewer_id: "reviewer-1",
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.image.status, "approved");
-  assert.equal(response.body.image.reviewer_id, "reviewer-1");
+  assert.equal(response.body.image.reviewer_id, "reviewer");
   assert.ok(response.body.image.approved_at);
 
   const manifest = await storage.readProjectManifest("project-1");
@@ -231,6 +323,7 @@ test("review approve updates only submitted images", async () => {
 
 test("review reject requires reason and leaves manifest unchanged", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "reviewer");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", { ...baseImage(), status: "submitted" });
   const before = await storage.readProjectManifest("project-1");
@@ -239,7 +332,7 @@ test("review reject requires reason and leaves manifest unchanged", async () => 
     project_id: "project-1",
     action: "reject",
     reviewer_id: "reviewer-1",
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 422);
   assert.equal(response.body.error, "review_transition_failed");
@@ -247,25 +340,25 @@ test("review reject requires reason and leaves manifest unchanged", async () => 
   assert.deepEqual(await storage.readProjectManifest("project-1"), before);
 });
 
-test("review action requires reviewer identity and leaves manifest unchanged", async () => {
+test("review action uses session reviewer identity when body reviewer is omitted", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "reviewer");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", { ...baseImage(), status: "submitted" });
-  const before = await storage.readProjectManifest("project-1");
 
   const response = await callJson(route, "PUT", "/api/images/image-1/review", {
     project_id: "project-1",
     action: "approve",
-  });
+  }, headers);
 
-  assert.equal(response.statusCode, 422);
-  assert.equal(response.body.error, "review_transition_failed");
-  assert.deepEqual(response.body.validation.reasons, ["missing_reviewer_id"]);
-  assert.deepEqual(await storage.readProjectManifest("project-1"), before);
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.image.status, "approved");
+  assert.equal(response.body.image.reviewer_id, "reviewer");
 });
 
 test("review rework moves rejected image back to in progress", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "reviewer");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", {
     ...baseImage(),
@@ -277,7 +370,7 @@ test("review rework moves rejected image back to in progress", async () => {
     project_id: "project-1",
     action: "rework",
     reviewer_id: "reviewer-1",
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.image.status, "in_progress");
@@ -286,31 +379,30 @@ test("review rework moves rejected image back to in progress", async () => {
 
 test("admin assignment updates worker and reviewer without changing status", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "admin");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", { ...baseImage(), status: "submitted" });
 
   const response = await callJson(route, "PUT", "/api/images/image-1/assignment", {
     project_id: "project-1",
-    worker_id: "worker-7",
-    reviewer_id: "reviewer-2",
-  }, {
-    "x-user-role": "admin",
-    "x-user-id": "admin-1",
-  });
+    worker_id: "worker",
+    reviewer_id: "reviewer",
+  }, headers);
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.image.status, "submitted");
-  assert.equal(response.body.image.worker_id, "worker-7");
-  assert.equal(response.body.image.reviewer_id, "reviewer-2");
-  assert.equal(response.body.image.assigned_by, "admin-1");
+  assert.equal(response.body.image.worker_id, "worker");
+  assert.equal(response.body.image.reviewer_id, "reviewer");
+  assert.equal(response.body.image.assigned_by, "admin");
 
   const manifest = await storage.readProjectManifest("project-1");
-  assert.equal(manifest.images[0].worker_id, "worker-7");
-  assert.equal(manifest.images[0].reviewer_id, "reviewer-2");
+  assert.equal(manifest.images[0].worker_id, "worker");
+  assert.equal(manifest.images[0].reviewer_id, "reviewer");
 });
 
 test("valid mask save updates current mask and submitted status without claiming pixel validation", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", {
     id: "image-1",
@@ -329,7 +421,7 @@ test("valid mask save updates current mask and submitted status without claiming
     data_url: VALID_MASK_DATA_URL,
     status: "submitted",
     mask_ratio: 0.5,
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.image.current_mask_path, "masks/image-1_mask.png");
@@ -347,6 +439,7 @@ test("valid mask save updates current mask and submitted status without claiming
 
 test("invalid mask validation does not write a rejected mask file", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", baseImage());
 
@@ -354,7 +447,7 @@ test("invalid mask validation does not write a rejected mask file", async () => 
     project_id: "project-1",
     data_url: toPngDataUrl(createGrayscalePng({ width: 2, height: 2, pixels: [0, 128, 0, 0] })),
     status: "submitted",
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 422);
   assert.equal(storage.maskWrites.length, 0);
@@ -362,6 +455,7 @@ test("invalid mask validation does not write a rejected mask file", async () => 
 
 test("invalid PNG mask returns 400 and leaves manifest unchanged", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", baseImage());
   const before = await storage.readProjectManifest("project-1");
@@ -371,7 +465,7 @@ test("invalid PNG mask returns 400 and leaves manifest unchanged", async () => {
     data_url: INVALID_PNG_DATA_URL,
     status: "submitted",
     mask_ratio: 0.5,
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 400);
   assert.equal(response.body.error, "mask_validation_failed");
@@ -381,6 +475,7 @@ test("invalid PNG mask returns 400 and leaves manifest unchanged", async () => {
 
 test("dimension mismatch returns 422 and does not submit the image", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", baseImage());
 
@@ -388,7 +483,7 @@ test("dimension mismatch returns 422 and does not submit the image", async () =>
     project_id: "project-1",
     data_url: DIMENSION_MISMATCH_DATA_URL,
     status: "submitted",
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 422);
   assert.equal(response.body.error, "mask_validation_failed");
@@ -401,6 +496,7 @@ test("dimension mismatch returns 422 and does not submit the image", async () =>
 
 test("unsupported PNG mask format returns 422 and leaves previous mask intact", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", {
     ...baseImage(),
@@ -415,7 +511,7 @@ test("unsupported PNG mask format returns 422 and leaves previous mask intact", 
     project_id: "project-1",
     data_url: RGB_MASK_DATA_URL,
     status: "submitted",
-  });
+  }, headers);
 
   assert.equal(response.statusCode, 422);
   assert.deepEqual(response.body.validation.reasons, ["mask_not_8bit_grayscale"]);
@@ -427,6 +523,7 @@ test("unsupported PNG mask format returns 422 and leaves previous mask intact", 
 
 test("project export writes files only for the same images included in annotations", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "admin");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", {
     ...baseImage(),
@@ -449,7 +546,7 @@ test("project export writes files only for the same images included in annotatio
   storage.files.set("project-1/images/draft_source.png", "draft-image");
   storage.files.set("project-1/masks/draft_source_mask.png", "draft-mask");
 
-  const response = await callRoute(route, "GET", "/api/projects/project-1/export");
+  const response = await callRoute(route, "GET", "/api/projects/project-1/export", null, headers);
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.headers["content-type"], "application/zip");
@@ -465,6 +562,7 @@ test("project export writes files only for the same images included in annotatio
 
 test("project export approved-only query excludes submitted images", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "admin");
   await storage.ensureProject("project-1", { name: "Project 1" });
   await storage.addImage("project-1", {
     ...baseImage(),
@@ -488,7 +586,7 @@ test("project export approved-only query excludes submitted images", async () =>
   storage.files.set("project-1/images/approved_source.png", "approved-image");
   storage.files.set("project-1/masks/approved_source_mask.png", "approved-mask");
 
-  const response = await callRoute(route, "GET", "/api/projects/project-1/export?approved_only=1");
+  const response = await callRoute(route, "GET", "/api/projects/project-1/export?approved_only=1", null, headers);
 
   assert.equal(response.statusCode, 200);
   assert.match(response.text, /images\/approved\.png/);
@@ -501,6 +599,7 @@ test("project export approved-only query excludes submitted images", async () =>
 
 test("lists project summaries ordered by update time", async () => {
   const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "reviewer");
   await storage.ensureProject("project-old", { name: "Old Project" });
   await storage.addImage("project-old", { ...baseImage(), id: "old-submitted", status: "submitted" });
   await storage.writeProjectManifest("project-old", {
@@ -514,7 +613,7 @@ test("lists project summaries ordered by update time", async () => {
     updated_at: "2026-04-29T01:00:00.000Z",
   });
 
-  const response = await callJson(route, "GET", "/api/projects");
+  const response = await callJson(route, "GET", "/api/projects", null, headers);
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.total_projects, 2);
@@ -629,7 +728,16 @@ function createMemoryStorage() {
   };
 }
 
-async function callJson(route, method, pathname, body, headers = authHeaders("admin", "admin-1")) {
+async function loginHeaders(route, userId = "admin", password = `${userId}123`) {
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: userId,
+    password,
+  }, {});
+  assert.equal(login.statusCode, 201);
+  return { authorization: `Bearer ${login.body.session.token}` };
+}
+
+async function callJson(route, method, pathname, body, headers = {}) {
   const response = await callRoute(route, method, pathname, body, headers);
   return {
     ...response,
@@ -637,7 +745,7 @@ async function callJson(route, method, pathname, body, headers = authHeaders("ad
   };
 }
 
-async function callRoute(route, method, pathname, body, headers = authHeaders("admin", "admin-1")) {
+async function callRoute(route, method, pathname, body, headers = {}) {
   const payload = Buffer.isBuffer(body) ? body : Buffer.from(JSON.stringify(body || {}));
   const request = Readable.from([payload]);
   request.method = method;

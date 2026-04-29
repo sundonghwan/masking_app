@@ -13,10 +13,11 @@ import { createLogger } from "./observability/logger.js";
 import { REVIEW_ACTIONS, applyReviewTransition, normalizeReviewerId, reviewReasonLabel } from "./review/policy.js";
 import { createProjectStore } from "./storage/projectStore.js";
 import { UPLOAD_POLICY, formatBytes, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
+import { DEFAULT_ACTORS, DEFAULT_PROJECT, DEFAULT_SESSION, ROLES, normalizeRole } from "./config/runtimeDefaults.js";
 
 const state = {
-  projectId: "mask_project_001",
-  projectName: "Rail Defect Masking",
+  projectId: DEFAULT_PROJECT.id,
+  projectName: DEFAULT_PROJECT.name,
   images: [],
   selectedId: null,
   filter: "all",
@@ -24,14 +25,14 @@ const state = {
   autosaveTimer: null,
   backendProjectReady: false,
   uploadRejections: [],
-  sessionUserId: "local_admin",
-  sessionRole: "admin",
+  sessionUserId: DEFAULT_SESSION.user_id,
+  sessionPassword: "",
+  sessionRole: DEFAULT_SESSION.role,
   sessionToken: "",
   sessionAuthenticated: false,
   reviewReasonDraft: "",
-  reviewerId: "local_reviewer",
-  assignmentWorkerId: "local_worker",
-  assignmentReviewerId: "local_reviewer",
+  assignmentWorkerId: DEFAULT_ACTORS.worker,
+  assignmentReviewerId: DEFAULT_ACTORS.reviewer,
   exportApprovedOnly: false,
   projectSummaries: [],
   projectSummariesError: "",
@@ -42,7 +43,6 @@ const apiClient = createMaskingApiClient({
     userId: state.sessionUserId,
     role: state.sessionRole,
     token: state.sessionToken,
-    allowRoleHeaders: false,
   }),
 });
 const logger = createLogger({ component: "frontend" });
@@ -80,7 +80,8 @@ const els = {
   metaSize: document.querySelector("#metaSize"),
   metaStatus: document.querySelector("#metaStatus"),
   sessionUserId: document.querySelector("#sessionUserId"),
-  sessionRole: document.querySelector("#sessionRole"),
+  sessionPassword: document.querySelector("#sessionPassword"),
+  sessionRoleLabel: document.querySelector("#sessionRoleLabel"),
   loginButton: document.querySelector("#loginButton"),
   logoutButton: document.querySelector("#logoutButton"),
   sessionMessage: document.querySelector("#sessionMessage"),
@@ -88,7 +89,6 @@ const els = {
   assignmentReviewerId: document.querySelector("#assignmentReviewerId"),
   assignButton: document.querySelector("#assignButton"),
   assignmentMessage: document.querySelector("#assignmentMessage"),
-  reviewerId: document.querySelector("#reviewerId"),
   reviewerIdentitySummary: document.querySelector("#reviewerIdentitySummary"),
   reviewDetailLink: document.querySelector("#reviewDetailLink"),
   reviewReason: document.querySelector("#reviewReason"),
@@ -128,6 +128,7 @@ void init();
 async function init() {
   resizeEditorCanvas();
   await restoreProject();
+  await validateRestoredSession();
   void ensureBackendProject();
   bindEvents();
   void refreshProjectSummaries();
@@ -228,11 +229,10 @@ function bindEvents() {
     void persistProject();
     render();
   });
-  els.sessionRole.addEventListener("change", () => {
-    state.sessionRole = normalizeRole(els.sessionRole.value);
+  els.sessionPassword.addEventListener("input", () => {
+    state.sessionPassword = els.sessionPassword.value;
     state.sessionToken = "";
     state.sessionAuthenticated = false;
-    void persistProject();
     render();
   });
   els.assignmentWorkerId.addEventListener("input", () => {
@@ -245,11 +245,6 @@ function bindEvents() {
   });
   els.reviewReason.addEventListener("input", () => {
     state.reviewReasonDraft = els.reviewReason.value;
-  });
-  els.reviewerId.addEventListener("input", () => {
-    state.reviewerId = normalizeReviewerId(els.reviewerId.value);
-    void persistProject();
-    renderReviewIdentity();
   });
   els.approvedOnlyExport.addEventListener("change", () => {
     state.exportApprovedOnly = els.approvedOnlyExport.checked;
@@ -332,7 +327,7 @@ async function selectImage(imageId, options = {}) {
   state.selectedId = image.id;
   state.reviewReasonDraft = image.reject_reason || "";
   state.assignmentWorkerId = image.worker_id || state.assignmentWorkerId;
-  state.assignmentReviewerId = image.reviewer_id || state.assignmentReviewerId || state.reviewerId;
+  state.assignmentReviewerId = image.reviewer_id || state.assignmentReviewerId;
   if (options.markInProgress !== false) {
     image.status = image.status === "not_started" ? "in_progress" : image.status;
   }
@@ -380,12 +375,13 @@ async function loginSession() {
   try {
     const response = await apiClient.login({
       userId: state.sessionUserId,
-      role: state.sessionRole,
+      password: state.sessionPassword,
     });
     const session = response.session || {};
     state.sessionToken = session.token || "";
     state.sessionUserId = session.userId || session.user_id || state.sessionUserId;
-    state.sessionRole = normalizeRole(session.role || state.sessionRole);
+    state.sessionRole = normalizeRole(session.role, state.sessionRole);
+    state.sessionPassword = "";
     state.sessionAuthenticated = Boolean(state.sessionToken);
     await persistProject();
     render();
@@ -698,7 +694,6 @@ async function syncReviewToBackend(image) {
     const response = await apiClient.reviewImage(state.projectId, image.id, {
       action,
       reason: image.reject_reason || state.reviewReasonDraft,
-      reviewerId: image.reviewer_id || state.reviewerId,
     });
     Object.assign(image, {
       ...response.image,
@@ -733,8 +728,13 @@ async function reviewSelectedImage(action) {
     setReviewMessage("마스크 서버 동기화 후 리뷰할 수 있습니다.", true);
     return;
   }
-  if (!state.reviewerId) {
-    setReviewMessage("리뷰어 ID 입력 후 리뷰할 수 있습니다.", true);
+  if (!await ensureAuthenticatedSession()) {
+    setReviewMessage("세션 확인 후 리뷰할 수 있습니다.", true);
+    return;
+  }
+  const reviewActorId = getReviewActorId();
+  if (!reviewActorId) {
+    setReviewMessage("reviewer 또는 admin 세션으로 로그인 후 리뷰할 수 있습니다.", true);
     return;
   }
   if (action === REVIEW_ACTIONS.REWORK && image.review_server_synced === false) {
@@ -745,7 +745,7 @@ async function reviewSelectedImage(action) {
   const result = applyReviewTransition(image, {
     action,
     reason: state.reviewReasonDraft,
-    reviewerId: state.reviewerId,
+    reviewerId: reviewActorId,
   });
   if (!result.valid) {
     setReviewMessage(result.validation.reasons.map(reviewReasonLabel).join(", "), true);
@@ -774,7 +774,6 @@ async function reviewSelectedImage(action) {
     const response = await apiClient.reviewImage(state.projectId, image.id, {
       action,
       reason: state.reviewReasonDraft,
-      reviewerId: image.reviewer_id || state.reviewerId,
     });
     Object.assign(image, {
       ...response.image,
@@ -809,13 +808,17 @@ async function assignSelectedImage() {
     setAssignmentMessage("배정할 이미지를 선택하세요.", true);
     return;
   }
-  if (state.sessionRole !== "admin") {
+  if (!await ensureAuthenticatedSession()) {
+    setAssignmentMessage("세션 확인 후 배정할 수 있습니다.", true);
+    return;
+  }
+  if (state.sessionRole !== ROLES.ADMIN) {
     setAssignmentMessage("admin 역할에서만 배정할 수 있습니다.", true);
     return;
   }
 
-  const workerId = normalizeActorId(state.assignmentWorkerId || image.worker_id || "local_worker");
-  const reviewerId = normalizeActorId(state.assignmentReviewerId || image.reviewer_id || state.reviewerId);
+  const workerId = normalizeActorId(state.assignmentWorkerId || image.worker_id || DEFAULT_ACTORS.worker);
+  const reviewerId = normalizeActorId(state.assignmentReviewerId || image.reviewer_id);
   if (!workerId || !reviewerId) {
     setAssignmentMessage("작업자와 리뷰어 ID가 필요합니다.", true);
     return;
@@ -1065,8 +1068,11 @@ function renderSessionPanel() {
   if (document.activeElement !== els.sessionUserId) {
     els.sessionUserId.value = state.sessionUserId;
   }
-  els.sessionRole.value = state.sessionRole;
-  els.loginButton.disabled = !state.sessionUserId || !state.sessionRole;
+  if (document.activeElement !== els.sessionPassword || !state.sessionPassword) {
+    els.sessionPassword.value = state.sessionPassword;
+  }
+  els.sessionRoleLabel.value = state.sessionRole || "미확인";
+  els.loginButton.disabled = !state.sessionUserId || !state.sessionPassword;
   els.logoutButton.disabled = !state.sessionAuthenticated;
   els.sessionMessage.textContent = state.sessionAuthenticated
     ? `${state.sessionUserId} / ${state.sessionRole} / session`
@@ -1080,14 +1086,14 @@ function renderAssignmentPanel() {
     els.assignmentWorkerId.value = state.assignmentWorkerId || image?.worker_id || "";
   }
   if (document.activeElement !== els.assignmentReviewerId) {
-    els.assignmentReviewerId.value = state.assignmentReviewerId || image?.reviewer_id || state.reviewerId || "";
+    els.assignmentReviewerId.value = state.assignmentReviewerId || image?.reviewer_id || "";
   }
-  els.assignButton.disabled = !image || !state.sessionAuthenticated || state.sessionRole !== "admin";
+  els.assignButton.disabled = !image || !state.sessionAuthenticated || state.sessionRole !== ROLES.ADMIN;
   if (!image) {
     setAssignmentMessage("이미지를 선택하면 배정할 수 있습니다.", false);
   } else if (!state.sessionAuthenticated) {
     setAssignmentMessage("로그인 후 배정할 수 있습니다.", true);
-  } else if (state.sessionRole !== "admin") {
+  } else if (state.sessionRole !== ROLES.ADMIN) {
     setAssignmentMessage("admin 역할에서만 배정할 수 있습니다.", true);
   } else if (image.assignment_server_synced === false) {
     setAssignmentMessage("배정 서버 동기화가 필요합니다.", true);
@@ -1100,7 +1106,7 @@ function renderReviewPanel() {
   const image = getSelectedImage();
   const canReview = image?.status === "submitted" && Boolean(image.server_mask_synced);
   const canRework = image?.status === "rejected" && image.review_server_synced !== false;
-  const reviewerReady = Boolean(state.reviewerId);
+  const reviewerReady = Boolean(getReviewActorId());
 
   if (document.activeElement !== els.reviewReason) {
     els.reviewReason.value = state.reviewReasonDraft || image?.reject_reason || "";
@@ -1113,7 +1119,7 @@ function renderReviewPanel() {
   if (!image) {
     setReviewMessage("제출된 이미지를 선택하면 리뷰할 수 있습니다.", false);
   } else if (!reviewerReady) {
-    setReviewMessage("리뷰어 ID 입력 후 리뷰할 수 있습니다.", true);
+    setReviewMessage("reviewer 또는 admin 세션으로 로그인 후 리뷰할 수 있습니다.", true);
   } else if (image.status === "submitted" && !image.server_mask_synced) {
     setReviewMessage("마스크 서버 동기화 후 리뷰할 수 있습니다.", true);
   } else if (image.status === "submitted") {
@@ -1130,11 +1136,14 @@ function renderReviewPanel() {
 }
 
 function renderReviewIdentity() {
-  if (document.activeElement !== els.reviewerId) {
-    els.reviewerId.value = state.reviewerId;
-  }
-  els.reviewerIdentitySummary.textContent = state.reviewerId || "미설정";
+  els.reviewerIdentitySummary.textContent = getReviewActorId() || "로그인 필요";
   updateReviewRouteLink();
+}
+
+function getReviewActorId() {
+  if (!state.sessionAuthenticated) return "";
+  if (state.sessionRole !== ROLES.REVIEWER && state.sessionRole !== ROLES.ADMIN) return "";
+  return normalizeReviewerId(state.sessionUserId);
 }
 
 function renderExportPolicy() {
@@ -1311,6 +1320,40 @@ function reviewStatusMessage(image) {
   }[image.status] || "리뷰 상태 저장됨";
 }
 
+async function validateRestoredSession() {
+  if (!state.sessionToken || !state.sessionAuthenticated) return false;
+  return ensureAuthenticatedSession();
+}
+
+async function ensureAuthenticatedSession() {
+  if (!state.sessionToken || !state.sessionAuthenticated) {
+    state.sessionAuthenticated = false;
+    state.sessionToken = "";
+    return false;
+  }
+  try {
+    const response = await apiClient.me();
+    const session = response.session || {};
+    state.sessionUserId = session.userId || session.user_id || state.sessionUserId;
+    state.sessionRole = normalizeRole(session.role, state.sessionRole);
+    state.sessionAuthenticated = true;
+    await persistProject();
+    return true;
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.sessionAuthenticated = false;
+    state.sessionToken = "";
+    logger.warn("session.validate.failed", {
+      user_id: state.sessionUserId,
+      error: normalized,
+    });
+    await persistProject();
+    renderSessionPanel();
+    renderReviewIdentity();
+    return false;
+  }
+}
+
 function getSelectedImage() {
   return state.images.find((image) => image.id === state.selectedId) || null;
 }
@@ -1396,7 +1439,6 @@ async function persistProject() {
     sessionRole: state.sessionRole,
     sessionToken: state.sessionToken,
     sessionAuthenticated: state.sessionAuthenticated,
-    reviewerId: state.reviewerId,
     assignmentWorkerId: state.assignmentWorkerId,
     assignmentReviewerId: state.assignmentReviewerId,
     uploadRejections: state.uploadRejections || [],
@@ -1421,10 +1463,9 @@ async function restoreProject() {
     state.lastExportMessage = saved.lastExportMessage || "";
     state.exportApprovedOnly = Boolean(saved.exportApprovedOnly);
     state.sessionUserId = normalizeActorId(saved.sessionUserId) || state.sessionUserId;
-    state.sessionRole = normalizeRole(saved.sessionRole) || state.sessionRole;
+    state.sessionRole = normalizeRole(saved.sessionRole, state.sessionRole);
     state.sessionToken = String(saved.sessionToken || "");
     state.sessionAuthenticated = Boolean(saved.sessionAuthenticated && state.sessionToken);
-    state.reviewerId = normalizeReviewerId(saved.reviewerId) || state.reviewerId;
     state.assignmentWorkerId = normalizeActorId(saved.assignmentWorkerId) || state.assignmentWorkerId;
     state.assignmentReviewerId = normalizeActorId(saved.assignmentReviewerId) || state.assignmentReviewerId;
     state.uploadRejections = Array.isArray(saved.uploadRejections) ? saved.uploadRejections : [];
@@ -1448,13 +1489,13 @@ async function clearProject() {
   state.lastExportMode = "";
   state.lastExportMessage = "";
   state.exportApprovedOnly = false;
-  state.sessionUserId = "local_admin";
-  state.sessionRole = "admin";
+  state.sessionUserId = DEFAULT_SESSION.user_id;
+  state.sessionPassword = "";
+  state.sessionRole = DEFAULT_SESSION.role;
   state.sessionToken = "";
   state.sessionAuthenticated = false;
-  state.reviewerId = "local_reviewer";
-  state.assignmentWorkerId = "local_worker";
-  state.assignmentReviewerId = "local_reviewer";
+  state.assignmentWorkerId = DEFAULT_ACTORS.worker;
+  state.assignmentReviewerId = DEFAULT_ACTORS.reviewer;
   state.uploadRejections = [];
   await projectStore.clearProject();
   editor.clear();
@@ -1548,11 +1589,6 @@ function statusLabel(status) {
 
 function normalizeActorId(value) {
   return String(value || "").trim();
-}
-
-function normalizeRole(value) {
-  const role = String(value || "").trim().toLowerCase();
-  return ["admin", "worker", "reviewer"].includes(role) ? role : "worker";
 }
 
 function escapeHtml(value) {
