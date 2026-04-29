@@ -79,4 +79,5 @@
 - [x] Review checklist completed.
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
-- [ ] Commit and push completed.
+- [x] Commit completed: `d885879 Add zoom pan controls`.
+- [ ] Push completed.

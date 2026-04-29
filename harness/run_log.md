@@ -576,3 +576,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] rg panDeltaForKey|editor.panBy|shiftKey /tmp/masking-zoom-pan-app.js
 [CMD] rg panDeltaForKey|panBy|onViewportChange /tmp/masking-zoom-pan-editor.js
 [REVIEW] finding=none-blocking scope=zoom-pan-controls notes=checked-pan-does-not-call-onChange-or-undo-and-keyboard-shortcuts-ignore-inputs-through-existing-guard
+[CLOSE] status=zoom-pan-controls-complete
+[GIT] commit=d885879 message="Add zoom pan controls"
