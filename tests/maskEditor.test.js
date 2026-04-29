@@ -49,6 +49,42 @@ test("panDeltaForKey maps arrow keys without touching mask state", async () => {
   assert.equal(panDeltaForKey("a", 24), null);
 });
 
+test("selectConnectedRegionFromImageData returns local connected region only", async () => {
+  const { selectConnectedRegionFromImageData } = await import("../src/editor/maskEditor.js");
+  const imageData = new TestImageData(4, 2);
+  imageData.data.set([
+    10, 10, 10, 255,
+    11, 11, 11, 255,
+    200, 200, 200, 255,
+    10, 10, 10, 255,
+    12, 12, 12, 255,
+    13, 13, 13, 255,
+    201, 201, 201, 255,
+    10, 10, 10, 255,
+  ]);
+
+  const region = selectConnectedRegionFromImageData(imageData, { x: 0, y: 0 }, { tolerance: 5 });
+
+  assert.deepEqual(region, [
+    { x: 0, y: 0 },
+    { x: 1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 1, y: 1 },
+  ]);
+});
+
+test("selectConnectedRegionFromImageData respects max pixel cap", async () => {
+  const { selectConnectedRegionFromImageData } = await import("../src/editor/maskEditor.js");
+  const imageData = new TestImageData(3, 3);
+  for (let i = 0; i < imageData.data.length; i += 4) {
+    imageData.data.set([10, 10, 10, 255], i);
+  }
+
+  const region = selectConnectedRegionFromImageData(imageData, { x: 1, y: 1 }, { tolerance: 0, maxPixels: 3 });
+
+  assert.equal(region.length, 3);
+});
+
 test("constructor rejects missing visible canvas", async () => {
   const { createMaskEditor } = await import("../src/editor/maskEditor.js");
 

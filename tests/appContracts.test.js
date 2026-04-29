@@ -143,6 +143,18 @@ test("zoomed image pan controls use viewport movement without mask save", () => 
   assert.match(editor, /panBy\(deltaX, deltaY\)/);
 });
 
+test("magic click tool is local deterministic mask assist", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const editor = fs.readFileSync(new URL("../src/editor/maskEditor.js", import.meta.url), "utf8");
+
+  assert.match(html, /data-tool="magic"/);
+  assert.match(app, /setTool\("magic"\)/);
+  assert.match(editor, /function selectConnectedRegionFromImageData/);
+  assert.match(editor, /magicSelectAt\(point/);
+  assert.doesNotMatch(editor, /fetch\(|\/api\/.*magic|segmentation/i);
+});
+
 test("project creation replaces default project entry path", () => {
   const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
   const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");

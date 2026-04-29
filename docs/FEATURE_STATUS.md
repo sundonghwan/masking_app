@@ -43,6 +43,7 @@
 - [x] Assignment queue filters and per-user task list counts
 - [x] Submitted data edit/revision flow with audit event
 - [x] Zoomed image pan/camera movement controls
+- [x] Magic-click assisted mask tool for local region selection
 
 ## In Progress
 
@@ -50,7 +51,6 @@
 
 ## Remaining
 
-- [ ] Magic-click assisted mask tool for local region selection
 - [ ] Dashboard planning and design for operational overview
 
 ## Recommended Development Order
@@ -62,7 +62,7 @@
 5. Assignment queues and per-user task list. `[done]`
 6. Submitted data edit/rework flow after submission. `[done]`
 7. Pan/camera movement while image is zoomed. `[done]`
-8. Magic-click assisted mask tool for local region selection.
+8. Magic-click assisted mask tool for local region selection. `[done]`
 9. Dashboard planning and design for operational overview.
 
 ## Future Hardening

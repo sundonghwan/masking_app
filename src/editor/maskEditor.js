@@ -37,6 +37,43 @@ export function panDeltaForKey(key, step = 48) {
   return null;
 }
 
+export function selectConnectedRegionFromImageData(imageData, start, options = {}) {
+  const width = imageData.width;
+  const height = imageData.height;
+  const startX = Math.floor(start?.x ?? -1);
+  const startY = Math.floor(start?.y ?? -1);
+  if (startX < 0 || startY < 0 || startX >= width || startY >= height) return [];
+
+  const tolerance = Math.max(0, Number(options.tolerance ?? 36));
+  const maxPixels = Math.max(1, Number(options.maxPixels ?? 50000));
+  const data = imageData.data;
+  const startIndex = (startY * width + startX) * 4;
+  const seed = [data[startIndex], data[startIndex + 1], data[startIndex + 2]];
+  const visited = new Uint8Array(width * height);
+  const queue = [[startX, startY]];
+  const region = [];
+  let head = 0;
+  visited[startY * width + startX] = 1;
+
+  while (head < queue.length && region.length < maxPixels) {
+    const [x, y] = queue[head];
+    head += 1;
+    const index = (y * width + x) * 4;
+    if (colorDistance(seed, [data[index], data[index + 1], data[index + 2]]) > tolerance) continue;
+    region.push({ x, y });
+
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+      const key = ny * width + nx;
+      if (visited[key]) continue;
+      visited[key] = 1;
+      queue.push([nx, ny]);
+    }
+  }
+
+  return region;
+}
+
 export class MaskEditor {
   constructor(canvas, options = {}) {
     if (!canvas) {
@@ -48,6 +85,8 @@ export class MaskEditor {
     this.imageUrl = null;
     this.maskCanvas = document.createElement("canvas");
     this.maskCtx = this.maskCanvas.getContext("2d", { willReadFrequently: true });
+    this.sourceCanvas = document.createElement("canvas");
+    this.sourceCtx = this.sourceCanvas.getContext("2d", { willReadFrequently: true });
     this.tool = "brush";
     this.brushSize = options.brushSize || 32;
     this.overlayOpacity = options.overlayOpacity ?? 0.55;
@@ -76,7 +115,11 @@ export class MaskEditor {
     this.image = await loadImage(url);
     this.maskCanvas.width = this.image.naturalWidth;
     this.maskCanvas.height = this.image.naturalHeight;
+    this.sourceCanvas.width = this.image.naturalWidth;
+    this.sourceCanvas.height = this.image.naturalHeight;
     this.maskCtx.clearRect(0, 0, this.maskCanvas.width, this.maskCanvas.height);
+    this.sourceCtx.clearRect(0, 0, this.sourceCanvas.width, this.sourceCanvas.height);
+    this.sourceCtx.drawImage(this.image, 0, 0);
 
     if (maskDataUrl) {
       const mask = await loadImage(maskDataUrl);
@@ -93,6 +136,7 @@ export class MaskEditor {
     this.image = null;
     this.imageUrl = null;
     this.maskCtx.clearRect(0, 0, this.maskCanvas.width, this.maskCanvas.height);
+    this.sourceCtx.clearRect(0, 0, this.sourceCanvas.width, this.sourceCanvas.height);
     this.undoStack = [];
     this.redoStack = [];
     this.redraw();
@@ -280,6 +324,25 @@ export class MaskEditor {
     this.onViewportChange(this.getViewportState());
   }
 
+  magicSelectAt(point, options = {}) {
+    if (!this.image || !inBounds(point, this.image)) return 0;
+    const source = this.sourceCtx.getImageData(0, 0, this.sourceCanvas.width, this.sourceCanvas.height);
+    const region = selectConnectedRegionFromImageData(source, point, options);
+    if (region.length === 0) return 0;
+
+    const mask = this.maskCtx.getImageData(0, 0, this.maskCanvas.width, this.maskCanvas.height);
+    for (const pixel of region) {
+      const index = (pixel.y * mask.width + pixel.x) * 4;
+      mask.data[index] = 255;
+      mask.data[index + 1] = 255;
+      mask.data[index + 2] = 255;
+      mask.data[index + 3] = 255;
+    }
+    this.maskCtx.putImageData(mask, 0, 0);
+    this.redraw();
+    return region.length;
+  }
+
   setOverlay(options = {}) {
     if (options.opacity != null) this.setOverlayOpacity(options.opacity);
   }
@@ -392,6 +455,13 @@ export class MaskEditor {
         this.redoStack = [];
         this.paintAt(point);
         this.onChange();
+      } else if (this.tool === "magic") {
+        this.beforeStroke = this.snapshotMask();
+        this.redoStack = [];
+        const changed = this.magicSelectAt(point);
+        if (changed > 0) this.onChange();
+        if (changed === 0) this.beforeStroke = null;
+        this.endPointer(event);
       }
     });
 
@@ -436,7 +506,7 @@ export class MaskEditor {
     this.isPointerDown = false;
     this.isPanning = false;
 
-    if (this.beforeStroke && ["brush", "erase"].includes(this.tool)) {
+    if (this.beforeStroke && ["brush", "erase", "magic"].includes(this.tool)) {
       this.undoStack.push(this.beforeStroke);
       if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
       this.beforeStroke = null;
@@ -518,6 +588,14 @@ function loadImage(url) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function colorDistance(left, right) {
+  return Math.max(
+    Math.abs(left[0] - right[0]),
+    Math.abs(left[1] - right[1]),
+    Math.abs(left[2] - right[2]),
+  );
 }
 
 function inBounds(point, image) {

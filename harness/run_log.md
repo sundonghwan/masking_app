@@ -580,3 +580,23 @@ chains in `harness/tasks/`; keep this file short.
 [GIT] commit=d885879 message="Add zoom pan controls"
 [GIT] commit=8be953a message="Record zoom pan closeout"
 [GIT] push=origin/main status=passed range=02faf05..8be953a
+[START] task=magic-click-tool subsystem=canvas-mask-editor
+[PLAN] scope=deterministic-connected-region-magic-click risks=runaway-fill,global-fill,undo-breakage,nonbinary-mask
+[IMPACT] status=suspected chain=MaskEditor.bindCanvasEvents->magicSelectAt->selectConnectedRegionFromImageData->mask-bitmap
+[IMPACT_VALIDATE] chain=MaskEditor.bindCanvasEvents->magicSelectAt->selectConnectedRegionFromImageData->mask-bitmap validation=npm-test-targeted-and-full-harness-passed
+[DOC] updated=docs/FEATURE_STATUS.md note=magic click marked complete; dashboard planning remains
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=magic click acceptance checked
+[CMD] npm test -- tests/maskEditor.test.js tests/appContracts.test.js
+[CMD] npm run lint
+[CMD] git diff --check
+[CMD] ./scripts/harness/typecheck-all.sh
+[CMD] ./scripts/harness/test-target.sh
+[CMD] ./scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-magic-tool.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-magic-tool-app.js
+[CMD] curl -sS http://localhost:4173/src/editor/maskEditor.js -o /tmp/masking-magic-tool-editor.js
+[CMD] rg data-tool="magic"|매직 /tmp/masking-magic-tool.html
+[CMD] rg setTool\("magic"\)|magic /tmp/masking-magic-tool-app.js
+[CMD] rg selectConnectedRegionFromImageData|magicSelectAt|fetch\(|segmentation /tmp/masking-magic-tool-editor.js
+[REVIEW] finding=none-blocking scope=magic-click-tool notes=checked-local-only-implementation-binary-mask-write-fill-cap-and-noop-undo-snapshot-drop
+[CLOSE] status=magic-click-tool-ready-for-commit

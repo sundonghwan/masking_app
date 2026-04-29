@@ -332,8 +332,8 @@ Acceptance criteria:
 - [x] export excludes or labels records whose submitted mask is being reworked
 - [x] zoomed canvas supports pan without changing mask pixels
 - [x] pan state resets or persists by a defined rule when switching images
-- [ ] magic-click action previews or applies a local mask region deterministically
-- [ ] magic-click changes can be undone before save
+- [x] magic-click action previews or applies a local mask region deterministically
+- [x] magic-click changes can be undone before save
 
 ### 9. Dashboard Planning And Design
 

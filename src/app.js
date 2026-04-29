@@ -1562,6 +1562,8 @@ function handleShortcut(event) {
     setTool("brush");
   } else if (key === "e") {
     setTool("erase");
+  } else if (key === "m") {
+    setTool("magic");
   } else if (key === "v") {
     setTool("view");
   } else if (key === "n") {
