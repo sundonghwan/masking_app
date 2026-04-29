@@ -642,3 +642,11 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=edge-aware-magic-tool-and-space-pan-ready-for-commit
 [GIT] commit=1763196 message="Improve magic tool edge selection"
 [GIT] push=origin/main status=passed range=683e796..1763196
+[START] task=hardcoded-debt-audit subsystem=planning,feature-status
+[PLAN] scope=classify-hardcoded-runtime-debt-and-update-feature-development-items risks=misclassifying-dev-defaults-as-product-debt,missing-feature-blocking-defaults
+[DOC] updated=docs/FEATURE_STATUS.md note=expanded-hardcoded-runtime-debt-and-recommended-feature-order
+[CMD] rg -n "MVP_PASSWORDS|DEFAULT_PROJECT|DEFAULT_ACTORS|UPLOAD_POLICY|PORT|DEFAULT_ROOT_DIR|MAGIC_DEFAULTS|sessions|new Map\(" src server.js
+[CMD] git diff --check
+[CMD] ./scripts/harness/smoke-web.sh
+[REVIEW] finding=none-blocking scope=hardcoded-debt-audit notes=separated-mvp-safe-defaults-from-feature-blocking-debt
+[CLOSE] status=hardcoded-debt-audit-ready-for-commit

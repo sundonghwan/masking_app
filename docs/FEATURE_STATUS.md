@@ -74,6 +74,11 @@
 - [ ] Restore server image/mask binaries into IndexedDB for full cross-device editing.
 - [ ] AI-backed segmentation model integration behind the magic-click tool after local edge-aware selection reaches its limit.
 - [ ] Implement the dashboard screen from `docs/DASHBOARD_DESIGN.md`.
+- [ ] Replace MVP account/password constants with a persistent user directory.
+- [ ] Add an assignment target picker backed by the user directory.
+- [ ] Remove legacy default project and actor fallbacks from export/API helper paths.
+- [ ] Add a magic-tool sensitivity control if edge-aware defaults are not enough across datasets.
+- [ ] Add dataset/project settings for upload limits and allowed formats if these need to vary by project.
 
 ## Hardcoded Runtime Debt
 
@@ -82,8 +87,39 @@ not implemented yet. They should not be treated as final architecture.
 
 | Current hardcoded area | Current location | Why it remains | Required feature |
 | --- | --- | --- | --- |
-| `worker` / `reviewer` fallback assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | Queue filters now exist, but there is still no user directory or dynamic assignment picker. | User directory and assignment target picker |
-| `mask_project_001` and `Masking Project` fallback defaults | `src/config/runtimeDefaults.js`, `src/export/exporter.js`, `src/server/api.js` | Kept only for legacy/export fallback records and API bodies that omit project identity. New app sessions now require explicit project create/open before workbench entry. | Future migration can remove fallback once all callers require explicit project ID |
+| MVP users and passwords: `admin/admin123`, `worker/worker123`, `reviewer/reviewer123` | `src/config/runtimeDefaults.js`, `src/server/auth.js`, `index.html`, tests | Current auth is a local MVP login model with in-memory sessions. It proves RBAC and actor identity, but is not account management. | Persistent user directory, password storage, account admin, invite/reset flow |
+| `worker` / `reviewer` fallback assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | Queue filters exist, but there is still no user directory-backed picker. Assignment fields still default to known MVP user IDs. | User directory and assignment target picker |
+| `mask_project_001` and `Masking Project` fallback defaults | `src/config/runtimeDefaults.js`, `src/export/exporter.js`, `src/server/api.js` | Kept only for legacy/export fallback records and API bodies that omit project identity. New app sessions now require explicit project create/open before workbench entry. | Require explicit project ID at all image/export/API creation boundaries, then remove fallback |
+| Empty server manifest/project-name fallback | `src/server/storage.js`, `src/app.js` | Manifest creation and restore can still fall back to project ID/name when partial data is received. This keeps old or malformed local data recoverable. | Strict project metadata schema and manifest migration/repair flow |
+| Upload limit and allowed image formats | `src/upload/policy.js`, `index.html` | Current project has one global upload policy: 15 MB, PNG/JPEG/BMP/WEBP. That is acceptable for MVP but not project-specific. | Project/dataset settings for upload policy, or environment-backed deployment config |
+| Local filesystem data root and dev port defaults | `server.js`, `src/server/storage.js`, `harness/commands.md` | `PORT=4173` and `data/` are local development defaults with env overrides. They are not blocking product features. | Deployment config profile if moving beyond local dev |
+| Magic-tool sensitivity defaults | `src/editor/maskEditor.js` | Edge-aware local vision now exists, but `colorTolerance`, `edgeThreshold`, and max-pixel caps are fixed internal defaults. | Magic sensitivity control or project-level tool preset after real dataset tuning |
+| Server export vs local ZIP fallback | `src/app.js`, `src/export/exporter.js` | Local-first recovery still allows fallback export when server sync is incomplete. This is a deliberate MVP safety path. | Server-first restore/sync reconciliation before multi-user production use |
+| In-memory session store | `src/server/api.js` | Sessions survive only while the Node process runs. This is enough for MVP role validation, not operations. | Persistent sessions and logout/invalidation storage |
+
+## Feature Development Items From Hardcoded Debt
+
+Recommended order:
+
+1. User directory and account persistence.
+   - Replaces MVP user constants and hardcoded passwords.
+   - Enables real admin account management later.
+2. Assignment target picker.
+   - Uses the user directory to choose valid workers/reviewers instead of typing
+     `worker` and `reviewer`.
+3. Server-first project restore and sync reconciliation.
+   - Reduces reliance on local ZIP fallback and local-only recovery assumptions.
+4. Strict project identity and manifest schema.
+   - Removes `mask_project_001`, `Masking Project`, and partial-manifest
+     fallback paths once all callers send explicit project IDs.
+5. Dashboard implementation.
+   - Uses the already-written `docs/DASHBOARD_DESIGN.md` and should consume
+     real user/assignment/project state once items 1-3 exist.
+6. Magic-tool sensitivity/preset control.
+   - Add only after trying the edge-aware defaults on real datasets.
+7. Deployment/project settings.
+   - Move upload policy, port/data root profiles, and dataset-specific limits
+     into explicit configuration only when deployment needs them.
 
 ## MVP Accounts
 
