@@ -502,3 +502,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] rg projectCreateForm|projectCreateId|projectCreateName|createProjectButton|projectSummaryList|workbenchScreen /tmp/masking-project-flow.html
 [CMD] rg createProjectFromForm|normalizeProjectId|project-required-message|projectId-empty /tmp/masking-project-flow-app.js
 [REVIEW] finding=none-blocking scope=project-create-open-flow notes=diff-review-checked-state-routing-auth-role-and-upload-without-project-guards
+[CLOSE] status=project-create-open-flow-complete
+[GIT] commit=4b63baf message="Add project create open flow"

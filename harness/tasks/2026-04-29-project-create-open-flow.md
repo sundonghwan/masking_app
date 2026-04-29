@@ -95,4 +95,5 @@
 - [x] Review checklist completed.
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
-- [ ] Commit and push completed.
+- [x] Commit completed: `4b63baf Add project create open flow`.
+- [ ] Push completed.
