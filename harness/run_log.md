@@ -299,3 +299,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] curl -sS http://localhost:4173/ -o /tmp/masking-index.html
 [CMD] rg exportIncludedCount|exportExcludedCount|exportErrorList|exportFilePreview /tmp/masking-index.html
 [CLOSE] status=three-feature-export-setup-result-batch-complete
+[GIT] commit=c2261bc message="Bootstrap masking app MVP harness"
+[GIT] push=origin/main status=passed
