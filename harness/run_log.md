@@ -383,3 +383,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] curl -sS http://localhost:4173/api/health
 [REVIEW] finding=none-blocking scope=session-logout,export-auth,project-manifest-restore,docs-overclaim
 [CLOSE] status=two-feature-session-project-restore-batch-complete
+[GIT] commit=ae81459 message="Add sessions and project restore"
+[GIT] push=origin/main status=passed
