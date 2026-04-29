@@ -447,3 +447,7 @@ chains in `harness/tasks/`; keep this file short.
 [DOC] updated=docs/FEATURE_STATUS.md note=added login/projects/workbench split and MVP accounts
 [DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=next order starts with screen-flow separation before project opening and queues
 [DOC] updated=docs/superpowers/specs/2026-04-29-operations-revision-editor-roadmap-design.md note=added Batch A3 screen-flow separation
+[CMD] git diff --check
+[CLOSE] status=screen-flow-scope-capture-complete
+[GIT] commit=b197ef1 message="Track screen flow separation backlog"
+[GIT] push=origin/main status=passed
