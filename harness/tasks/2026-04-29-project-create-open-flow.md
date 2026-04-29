@@ -96,4 +96,4 @@
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
 - [x] Commit completed: `4b63baf Add project create open flow`.
-- [ ] Push completed.
+- [x] Push completed: `origin/main` at `8f18689`.

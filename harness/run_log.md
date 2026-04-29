@@ -504,3 +504,5 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=project-create-open-flow notes=diff-review-checked-state-routing-auth-role-and-upload-without-project-guards
 [CLOSE] status=project-create-open-flow-complete
 [GIT] commit=4b63baf message="Add project create open flow"
+[GIT] commit=8f18689 message="Record project create open closeout"
+[GIT] push=origin/main status=passed range=d110fb7..8f18689
