@@ -227,15 +227,54 @@ Completed:
 
 Remaining:
 
+- [ ] MVP credential login with ID/password fields
+- [ ] server-owned role resolution instead of browser role selection
+- [ ] authenticated reviewer/assignment identity instead of manual local actor fields
 - [ ] assignment queues and per-user task list
+
+### 7. Hardcoded Runtime Debt Cleanup
+
+Goal: remove MVP placeholder identities and default project assumptions only when
+the replacement product workflows exist.
+
+Status: documented as required follow-up work. Do not delete these defaults
+blindly; each one currently covers a missing workflow.
+
+Current hardcoded areas:
+
+- `local_admin` is the bootstrapped session user until ID/password login exists.
+- The browser role selector remains until the server account owns role
+  resolution.
+- `local_worker` and `local_reviewer` remain until assignment queues and a user
+  directory exist.
+- The manual reviewer identity field remains until review actions derive actor
+  identity from the authenticated session.
+- `mask_project_001` and `Masking Project` remain until project creation/opening
+  is the first-class entry flow.
+
+Recommended development order:
+
+1. MVP credential login with ID/password fields.
+2. Server-owned role resolution and read-only role display in the browser.
+3. Centralized runtime defaults/config module for any remaining MVP defaults.
+4. Project creation/opening flow before entering the workbench.
+5. Authenticated reviewer and assignment identity.
+6. Assignment queues and per-user task list.
+
+Acceptance criteria:
+
+- [ ] login form has ID and password fields
+- [ ] server rejects invalid ID/password pairs with `401`
+- [ ] server decides `role`; browser no longer chooses role during login
+- [ ] default actor IDs are not duplicated across HTML, app state, export, and server code
+- [ ] review and assignment actions can use authenticated actor identity
+- [ ] new users open or create a project instead of silently using `mask_project_001`
 
 ## Work To Avoid For Now
 
 Do not start these before the MVP data contract checkpoint is closed:
 
-- auth/RBAC
 - dashboard metrics
-- assignment workflow
 - DB migration
 - AI-assisted masks
 - multi-class masks

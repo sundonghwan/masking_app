@@ -40,9 +40,28 @@
 
 ## Remaining
 
-- None.
+- [ ] MVP credential login with ID/password fields
+- [ ] Centralized runtime defaults/config to replace scattered `local_*` values
+- [ ] Server-owned role resolution instead of browser role selection
+- [ ] Project creation/opening flow to replace default `mask_project_001`
+- [ ] Authenticated reviewer/assignment identity instead of manual local actor fields
+- [ ] Assignment queues and per-user task list
 
 ## Future Hardening
 
 - [ ] Persist session/account storage beyond the current in-memory MVP session map.
 - [ ] Restore server image/mask binaries into IndexedDB for full cross-device editing.
+
+## Hardcoded Runtime Debt
+
+These values remain intentionally because the corresponding product feature is
+not implemented yet. They should not be treated as final architecture.
+
+| Current hardcoded area | Current location | Why it remains | Required feature |
+| --- | --- | --- | --- |
+| `local_admin` session user | `index.html`, `src/app.js`, `src/server/api.js` | There is no ID/password credential login yet. | MVP credential login with server-side user validation |
+| Browser role selector defaults to `admin` | `index.html`, `src/app.js` | Role is still editable in the UI instead of resolved by the server account. | Server-owned role resolution |
+| `local_worker` / `local_reviewer` assignment defaults | `index.html`, `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | There is no user directory, queue, or assignment picker yet. | Assignment queues and per-user task list |
+| Manual reviewer identity field | `index.html`, `src/app.js` | Review identity is not derived from the authenticated session yet. | Authenticated reviewer identity |
+| `mask_project_001` and `Masking Project` defaults | `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | The app still boots into a default local-first project when no project is selected. | Project creation/opening flow |
+| Runtime constants scattered across app/export/server | `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | Defaults were added incrementally during MVP feature work. | Centralized runtime defaults/config |

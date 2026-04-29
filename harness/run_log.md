@@ -385,3 +385,7 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=two-feature-session-project-restore-batch-complete
 [GIT] commit=ae81459 message="Add sessions and project restore"
 [GIT] push=origin/main status=passed
+[START] task=hardcoded-runtime-debt-triage subsystem=docs
+[PLAN] scope=extract runtime hardcoded MVP placeholders and convert them into remaining feature work risks=overclaiming-complete-status,removing-defaults-without-replacement-flow
+[DOC] updated=docs/FEATURE_STATUS.md note=remaining work now includes credential login, server-owned roles, project opening, authenticated actor identity, assignment queues, and centralized defaults
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=added hardcoded runtime debt cleanup checkpoint and development order
