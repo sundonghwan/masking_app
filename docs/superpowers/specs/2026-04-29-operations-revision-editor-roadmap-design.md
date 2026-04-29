@@ -224,6 +224,24 @@ Acceptance criteria:
 - default MVP accounts are documented near the login/project workflow
 - no new route can bypass bearer-session checks for protected API calls
 
+### Batch A4: Assignment Queue Filters
+
+Files touched:
+
+- `index.html`
+- `src/app.js`
+- `src/assignment/queue.js`
+- `tests/assignmentQueue.test.js`
+- `tests/appContracts.test.js`
+
+Acceptance criteria:
+
+- workbench image list exposes `all`, `my_work`, and `my_review` queue filters
+- queue counts are derived from the current project manifest images
+- worker queue uses `worker_id`
+- reviewer queue uses `reviewer_id` and only review-ready statuses
+- queue filtering composes with the existing status filter
+
 ### Batch C1: Revision State And Export Policy
 
 Files likely touched:

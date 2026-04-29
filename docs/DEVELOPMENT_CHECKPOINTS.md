@@ -224,10 +224,12 @@ Completed:
 - [x] frontend session panel can login/logout through server session endpoints
 - [x] protected API calls send bearer tokens when a session exists
 - [x] server project list selection restores project manifest state
+- [x] assignment queues and per-user task list filters are available in the
+  workbench image list
 
 Remaining:
 
-- [ ] assignment queues and per-user task list
+- None for this checkpoint.
 
 Completed in the operations foundation batch:
 
@@ -249,8 +251,8 @@ blindly; each one currently covers a missing workflow.
 
 Current hardcoded areas:
 
-- `worker` and `reviewer` remain as default assignment targets until assignment
-  queues and a user directory exist.
+- `worker` and `reviewer` remain as default assignment targets until a user
+  directory and dynamic assignment picker exist.
 - `mask_project_001` and `Masking Project` remain only as fallback defaults for
   legacy/export/API callers that omit project identity. New app sessions now
   require explicit project create/open before entering the workbench.
@@ -279,6 +281,8 @@ Acceptance criteria:
 - [x] project selection/opening screen is separate from the annotation workbench UI
 - [x] workbench hides or deprioritizes role-inappropriate panels
 - [x] new users open or create a project instead of silently using `mask_project_001`
+- [x] worker/reviewer users can filter the current project image list to their
+  assigned queue
 
 MVP accounts:
 

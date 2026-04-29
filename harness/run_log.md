@@ -506,3 +506,24 @@ chains in `harness/tasks/`; keep this file short.
 [GIT] commit=4b63baf message="Add project create open flow"
 [GIT] commit=8f18689 message="Record project create open closeout"
 [GIT] push=origin/main status=passed range=d110fb7..8f18689
+[START] task=assignment-queues subsystem=frontend-assignment
+[PLAN] scope=workbench-queue-filter-and-per-user-task-list risks=hidden-images,filter-count-mismatch,reviewer-draft-leak
+[IMPACT] status=suspected chain=renderImageList->filterImagesForQueue->image-list-rows
+[IMPACT] status=suspected chain=assignSelectedImage->renderImageList->queue-membership-update
+[IMPACT_VALIDATE] chain=renderImageList->filterImagesForQueue->image-list-rows validation=npm test -- tests/assignmentQueue.test.js tests/appContracts.test.js passed
+[IMPACT_VALIDATE] chain=assignSelectedImage->renderImageList->queue-membership-update validation=npm test -- tests/assignmentQueue.test.js tests/appContracts.test.js passed
+[DOC] updated=docs/FEATURE_STATUS.md note=assignment queue filters marked complete
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=assignment checkpoint remaining set to none
+[CMD] npm test -- tests/assignmentQueue.test.js
+[CMD] npm test -- tests/assignmentQueue.test.js tests/appContracts.test.js
+[CMD] npm run lint
+[CMD] git diff --check
+[CMD] ./scripts/harness/lint-all.sh
+[CMD] ./scripts/harness/typecheck-all.sh
+[CMD] ./scripts/harness/test-target.sh
+[CMD] ./scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-assignment-queue.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-assignment-queue-app.js
+[CMD] rg data-queue|queueWorkCount|queueReviewCount /tmp/masking-assignment-queue.html
+[CMD] rg filterImagesForQueue|summarizeAssignmentQueue|queueMode|renderQueueControls /tmp/masking-assignment-queue-app.js
+[REVIEW] finding=none-blocking scope=assignment-queues notes=checked-queue-status-composition-review-ready-filter-persistence-and-new-module-lint-coverage

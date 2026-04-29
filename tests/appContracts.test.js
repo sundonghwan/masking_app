@@ -105,6 +105,20 @@ test("workbench actions are role-marked and shortcut gated to workbench", () => 
   assert.match(app, /currentScreen\(\) !== SCREENS\.WORKBENCH/);
 });
 
+test("assignment queue controls expose per-user task lists", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /data-queue="all"/);
+  assert.match(html, /data-queue="my_work"/);
+  assert.match(html, /data-queue="my_review"/);
+  assert.match(html, /id="queueWorkCount"/);
+  assert.match(html, /id="queueReviewCount"/);
+  assert.match(app, /filterImagesForQueue/);
+  assert.match(app, /summarizeAssignmentQueue/);
+  assert.match(app, /queueMode: QUEUE_MODES\.ALL/);
+});
+
 test("project creation replaces default project entry path", () => {
   const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
   const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");

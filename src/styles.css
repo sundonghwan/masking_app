@@ -449,10 +449,21 @@ h2 {
   font-size: 12px;
 }
 
-.filter-row {
+.filter-row,
+.queue-filter-row {
   display: flex;
   gap: 6px;
   padding: 0 16px 12px;
+}
+
+.queue-filter-row {
+  padding-top: 0;
+}
+
+.queue-filter-row output {
+  margin-left: 4px;
+  font: inherit;
+  color: inherit;
 }
 
 .chip {
@@ -1275,7 +1286,8 @@ tr:last-child td {
   }
 
   .toolbar-group,
-  .filter-row {
+  .filter-row,
+  .queue-filter-row {
     flex-wrap: wrap;
   }
 

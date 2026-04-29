@@ -111,6 +111,12 @@
           <button class="chip" type="button" data-filter="rejected">반려</button>
         </div>
 
+        <div class="queue-filter-row" role="group" aria-label="배정 큐 필터">
+          <button class="chip active" type="button" data-queue="all">프로젝트 <output id="queueAllCount">0</output></button>
+          <button class="chip" type="button" data-queue="my_work">내 작업 <output id="queueWorkCount">0</output></button>
+          <button class="chip" type="button" data-queue="my_review">내 리뷰 <output id="queueReviewCount">0</output></button>
+        </div>
+
         <div class="image-list" id="imageList" aria-live="polite"></div>
       </aside>
 

@@ -10,6 +10,7 @@ import {
 } from "./export/exporter.js";
 import { createZipBlob } from "./export/zip.js";
 import { createLogger } from "./observability/logger.js";
+import { QUEUE_MODES, filterImagesForQueue, normalizeQueueMode, summarizeAssignmentQueue } from "./assignment/queue.js";
 import { REVIEW_ACTIONS, applyReviewTransition, normalizeReviewerId, reviewReasonLabel } from "./review/policy.js";
 import { createProjectStore } from "./storage/projectStore.js";
 import { UPLOAD_POLICY, formatBytes, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
@@ -27,6 +28,7 @@ const state = {
   images: [],
   selectedId: null,
   filter: "all",
+  queueMode: QUEUE_MODES.ALL,
   savedAt: null,
   autosaveTimer: null,
   backendProjectReady: false,
@@ -74,6 +76,9 @@ const els = {
   projectName: document.querySelector("#projectName"),
   imageList: document.querySelector("#imageList"),
   progressText: document.querySelector("#progressText"),
+  queueAllCount: document.querySelector("#queueAllCount"),
+  queueWorkCount: document.querySelector("#queueWorkCount"),
+  queueReviewCount: document.querySelector("#queueReviewCount"),
   editorCanvas: document.querySelector("#editorCanvas"),
   emptyState: document.querySelector("#emptyState"),
   saveStatus: document.querySelector("#saveStatus"),
@@ -206,6 +211,14 @@ function bindEvents() {
   document.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       state.filter = button.dataset.filter;
+      render();
+    });
+  });
+
+  document.querySelectorAll("[data-queue]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.queueMode = normalizeQueueMode(button.dataset.queue);
+      void persistProject();
       render();
     });
   });
@@ -995,6 +1008,7 @@ async function autosaveCurrentMask() {
 function render() {
   renderScreen();
   renderFilters();
+  renderQueueControls();
   renderUploadRejections();
   renderProjectCreateForm();
   renderProjectSummaries();
@@ -1065,10 +1079,26 @@ function renderFilters() {
   });
 }
 
+function renderQueueControls() {
+  const summary = summarizeAssignmentQueue(state.images, {
+    sessionUserId: state.sessionUserId,
+  });
+  els.queueAllCount.textContent = String(summary.all);
+  els.queueWorkCount.textContent = String(summary.my_work);
+  els.queueReviewCount.textContent = String(summary.my_review);
+  document.querySelectorAll("[data-queue]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.queue === state.queueMode);
+  });
+}
+
 function renderImageList() {
-  const filtered = state.images.filter((image) => state.filter === "all" || image.status === state.filter);
+  const filtered = filterImagesForQueue(state.images, {
+    queueMode: state.queueMode,
+    statusFilter: state.filter,
+    sessionUserId: state.sessionUserId,
+  });
   const submittedCount = state.images.filter((image) => image.status === "submitted").length;
-  els.progressText.textContent = `${submittedCount}/${state.images.length} 제출`;
+  els.progressText.textContent = `${submittedCount}/${state.images.length} 제출 · ${filtered.length}개 표시`;
 
   els.imageList.replaceChildren(...filtered.map((image) => {
     const button = document.createElement("button");
@@ -1634,6 +1664,7 @@ async function persistProject() {
     projectName: state.projectName,
     selectedId: state.selectedId,
     filter: state.filter,
+    queueMode: state.queueMode,
     savedAt: state.savedAt ? state.savedAt.toISOString() : null,
     backendProjectReady: state.backendProjectReady,
     backendProjectError: state.backendProjectError || "",
@@ -1661,6 +1692,7 @@ async function restoreProject() {
     state.projectName = saved.projectName || state.projectName;
     state.selectedId = saved.selectedId || null;
     state.filter = saved.filter || "all";
+    state.queueMode = normalizeQueueMode(saved.queueMode);
     state.savedAt = saved.savedAt ? new Date(saved.savedAt) : null;
     state.backendProjectReady = Boolean(saved.backendProjectReady);
     state.backendProjectError = saved.backendProjectError || "";
@@ -1690,6 +1722,7 @@ async function clearProject() {
   state.projectName = "";
   state.images = [];
   state.selectedId = null;
+  state.queueMode = QUEUE_MODES.ALL;
   state.savedAt = null;
   state.backendProjectReady = false;
   state.backendProjectError = "";
