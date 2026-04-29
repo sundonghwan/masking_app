@@ -360,10 +360,14 @@ Non-goals for the first dashboard design:
 
 Acceptance criteria:
 
-- [ ] dashboard audience is defined: admin, reviewer lead, or operator
-- [ ] dashboard metrics map to existing manifest/export/review data
-- [ ] dashboard does not duplicate workbench editing controls
-- [ ] dashboard links users into actionable queues or project views
+- [x] dashboard audience is defined: admin, reviewer lead, or operator
+- [x] dashboard metrics map to existing manifest/export/review data
+- [x] dashboard does not duplicate workbench editing controls
+- [x] dashboard links users into actionable queues or project views
+
+Design source:
+
+- `docs/DASHBOARD_DESIGN.md`
 
 ## Work To Avoid For Now
 

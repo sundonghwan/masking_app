@@ -600,3 +600,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] rg selectConnectedRegionFromImageData|magicSelectAt|fetch\(|segmentation /tmp/masking-magic-tool-editor.js
 [REVIEW] finding=none-blocking scope=magic-click-tool notes=checked-local-only-implementation-binary-mask-write-fill-cap-and-noop-undo-snapshot-drop
 [CLOSE] status=magic-click-tool-ready-for-commit
+[GIT] commit=369d332 message="Add magic click mask tool"
+[GIT] push=origin/main status=passed range=e4ca03a..369d332
+[START] task=dashboard-planning-design subsystem=product-architecture,operations-dashboard
+[PLAN] scope=dashboard-audience-data-contract-screen-placement-and-implementation-sequence risks=overbuilt-analytics,workbench-duplication,metric-drift
+[DOC] created=docs/DASHBOARD_DESIGN.md note=operations dashboard design source
+[DOC] updated=docs/FEATURE_STATUS.md note=all-current-9-items-complete; dashboard implementation moved to future hardening
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=dashboard planning acceptance checked
+[DOC] updated=docs/superpowers/specs/2026-04-29-operations-revision-editor-roadmap-design.md note=dashboard design source linked
+[CMD] rg "Dashboard planning and design|Operations Dashboard|DASHBOARD_DESIGN|Implement the dashboard" docs harness
+[CMD] git diff --check
+[CMD] ./scripts/harness/smoke-web.sh
+[REVIEW] finding=none-blocking scope=dashboard-planning-design notes=checked-audience-data-source-mapping-workbench-boundary-and-future-implementation-hand-off
+[CLOSE] status=dashboard-planning-design-ready-for-commit

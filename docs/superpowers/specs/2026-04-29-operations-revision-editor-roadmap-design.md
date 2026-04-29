@@ -152,6 +152,7 @@ Decision:
   and recent review/revision activity
 - dashboard should link into concrete work queues or project views rather than
   duplicate editor controls
+- detailed design source: `docs/DASHBOARD_DESIGN.md`
 
 Non-goals:
 

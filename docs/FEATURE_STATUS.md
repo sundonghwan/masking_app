@@ -44,6 +44,7 @@
 - [x] Submitted data edit/revision flow with audit event
 - [x] Zoomed image pan/camera movement controls
 - [x] Magic-click assisted mask tool for local region selection
+- [x] Dashboard planning and design for operational overview
 
 ## In Progress
 
@@ -51,7 +52,7 @@
 
 ## Remaining
 
-- [ ] Dashboard planning and design for operational overview
+- None for the current 9-item planning/development batch.
 
 ## Recommended Development Order
 
@@ -63,13 +64,14 @@
 6. Submitted data edit/rework flow after submission. `[done]`
 7. Pan/camera movement while image is zoomed. `[done]`
 8. Magic-click assisted mask tool for local region selection. `[done]`
-9. Dashboard planning and design for operational overview.
+9. Dashboard planning and design for operational overview. `[done]`
 
 ## Future Hardening
 
 - [ ] Persist session/account storage beyond the current in-memory MVP session map.
 - [ ] Restore server image/mask binaries into IndexedDB for full cross-device editing.
 - [ ] AI-backed segmentation model integration behind the magic-click tool.
+- [ ] Implement the dashboard screen from `docs/DASHBOARD_DESIGN.md`.
 
 ## Hardcoded Runtime Debt
 
