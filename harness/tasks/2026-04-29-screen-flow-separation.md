@@ -113,4 +113,4 @@
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
 - [x] Commit completed: `635640d Add screen flow separation`.
-- [ ] Push completed.
+- [x] Push completed: `origin/main` at `3a89cd8`.

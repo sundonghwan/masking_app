@@ -478,3 +478,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] rg routeToScreen|currentScreen|canEnterWorkbench|openDefaultProject|renderRolePanels /tmp/masking-screen-flow-app.js
 [CLOSE] status=screen-flow-separation-complete
 [GIT] commit=635640d message="Add screen flow separation"
+[GIT] commit=3a89cd8 message="Record screen flow separation closeout"
+[GIT] push=origin/main status=passed range=45a8b0b..3a89cd8
