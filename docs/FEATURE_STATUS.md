@@ -37,6 +37,8 @@
 - [x] Centralized runtime defaults/config for remaining MVP fallbacks
 - [x] Server-owned role resolution with read-only browser role display
 - [x] Authenticated review actor and assignment audit identity
+- [x] Split login, project opening, and workbench into separate screens
+- [x] Role-aware workbench panels for admin, worker, and reviewer
 
 ## In Progress
 
@@ -44,13 +46,24 @@
 
 ## Remaining
 
-- [ ] Split login, project opening, and workbench into separate screens
 - [ ] Project creation/opening flow to replace default `mask_project_001`
-- [ ] Role-aware workbench panels for admin, worker, and reviewer
 - [ ] Assignment queues and per-user task list
 - [ ] Submitted data edit/rework flow after submission
 - [ ] Pan/camera movement while image is zoomed
 - [ ] Magic-click assisted mask tool for local region selection
+- [ ] Dashboard planning and design for operational overview
+
+## Recommended Development Order
+
+1. MVP credential login with ID/password fields and server-owned roles. `[done]`
+2. Split login, project opening, and workbench into separate screens. `[done]`
+3. Project creation/opening flow to replace default `mask_project_001`.
+4. Role-aware workbench panels for admin, worker, and reviewer. `[done]`
+5. Assignment queues and per-user task list.
+6. Submitted data edit/rework flow after submission.
+7. Pan/camera movement while image is zoomed.
+8. Magic-click assisted mask tool for local region selection.
+9. Dashboard planning and design for operational overview.
 
 ## Future Hardening
 

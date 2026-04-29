@@ -60,6 +60,45 @@ test("operation session UI uses credential login and derived reviewer identity",
   assert.doesNotMatch(app, /reviewerId: state\.reviewerId/);
 });
 
+test("screen flow separates login projects and workbench", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="loginScreen"/);
+  assert.match(html, /id="projectsScreen"/);
+  assert.match(html, /id="workbenchScreen"/);
+  assert.match(html, /id="sessionPassword"/);
+  assert.match(html, /id="projectSummaryList"/);
+  assert.match(html, /id="openDefaultProjectButton"/);
+  assert.match(html, /id="editorCanvas"/);
+  assert.match(app, /function routeToScreen\(/);
+  assert.match(app, /function currentScreen\(/);
+  assert.match(app, /function canEnterWorkbench\(/);
+  assert.match(app, /function openDefaultProject\(/);
+});
+
+test("login controls are not embedded in the workbench inspector", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const inspectorStart = html.indexOf('<aside class="sidebar inspector"');
+  const inspectorEnd = html.indexOf("</aside>", inspectorStart);
+  const inspector = html.slice(inspectorStart, inspectorEnd);
+
+  assert.equal(inspector.includes("sessionPassword"), false);
+  assert.equal(inspector.includes("loginButton"), false);
+  assert.equal(inspector.includes("logoutButton"), false);
+});
+
+test("workbench actions are role-marked and shortcut gated to workbench", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="uploadDropzone"[^>]+data-role-panel="admin worker"/);
+  assert.match(html, /id="downloadMaskButton"[^>]+data-role-panel="admin worker"/);
+  assert.match(html, /id="submitButton"[^>]+data-role-panel="admin worker"/);
+  assert.match(html, /id="exportButton"[^>]+data-role-panel="admin reviewer"/);
+  assert.match(app, /currentScreen\(\) !== SCREENS\.WORKBENCH/);
+});
+
 function createRestoredSubmittedRecord(overrides = {}) {
   return createImageRecord(
     {

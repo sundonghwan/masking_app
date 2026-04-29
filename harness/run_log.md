@@ -451,3 +451,28 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=screen-flow-scope-capture-complete
 [GIT] commit=b197ef1 message="Track screen flow separation backlog"
 [GIT] push=origin/main status=passed
+[START] task=screen-flow-separation subsystem=frontend-routing
+[PLAN] scope=login-screen,projects-screen,workbench-screen,role-aware-panels risks=review-route-regression,unauthenticated-project-api-calls,login-controls-in-inspector
+[IMPACT] status=suspected chain=routeToInitialScreen->renderScreen->loginSession
+[IMPACT] status=suspected chain=loadServerProject->restoreServerManifest->routeToScreen
+[IMPACT] status=suspected chain=render->renderRolePanels->workbench-panel-visibility
+[IMPACT_VALIDATE] chain=routeToInitialScreen->renderScreen->loginSession validation=npm test passed; app contract verifies screen containers
+[IMPACT_VALIDATE] chain=loadServerProject->restoreServerManifest->routeToScreen validation=npm test passed; project list is outside workbench
+[IMPACT_VALIDATE] chain=render->renderRolePanels->workbench-panel-visibility validation=npm test passed; login controls are not in inspector
+[DOC] updated=docs/FEATURE_STATUS.md note=screen split and role-aware panels marked complete; dashboard planning remains backlog item 9
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=screen-flow acceptance criteria completed
+[CMD] npm run lint
+[CMD] npm test
+[CMD] git diff --check
+[REVIEW] finding=high fresh-auth-project-screen-dead-end fixed=openDefaultProjectButton-and-openDefaultProject
+[REVIEW] finding=high hidden-workbench-shortcuts fixed=handleShortcut-workbench-visibility-guard
+[REVIEW] finding=high role-aware-actions-incomplete fixed=role-marked-topbar-upload-export-review-and-assignment-panels
+[REVIEW] finding=medium guarded-url-mismatch fixed=renderScreen-replaces-downgraded-hash
+[CMD] ./scripts/harness/lint-all.sh
+[CMD] ./scripts/harness/typecheck-all.sh
+[CMD] ./scripts/harness/test-target.sh
+[CMD] ./scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-screen-flow.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-screen-flow-app.js
+[CMD] rg loginScreen|projectsScreen|workbenchScreen|sessionPassword|projectSummaryList|openDefaultProjectButton|editorCanvas /tmp/masking-screen-flow.html
+[CMD] rg routeToScreen|currentScreen|canEnterWorkbench|openDefaultProject|renderRolePanels /tmp/masking-screen-flow-app.js

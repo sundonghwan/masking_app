@@ -256,14 +256,16 @@ Current hardcoded areas:
 
 Recommended development order:
 
-1. Split `/login`, `/projects`, and `/workbench` so login is not embedded in the
+1. MVP credential login with ID/password fields and server-owned roles.
+2. Split `/login`, `/projects`, and `/workbench` so login is not embedded in the
    annotation tool area.
-2. Project creation/opening flow before entering the workbench.
-3. Role-aware workbench panels for `admin`, `worker`, and `reviewer`.
-4. Assignment queues and per-user task list.
-5. Submitted data edit/rework flow after submission.
-6. Pan/camera movement while image is zoomed.
-7. Magic-click assisted mask tool for local region selection.
+3. Project creation/opening flow before entering the workbench.
+4. Role-aware workbench panels for `admin`, `worker`, and `reviewer`.
+5. Assignment queues and per-user task list.
+6. Submitted data edit/rework flow after submission.
+7. Pan/camera movement while image is zoomed.
+8. Magic-click assisted mask tool for local region selection.
+9. Dashboard planning and design for project/role operational overview.
 
 Acceptance criteria:
 
@@ -272,9 +274,9 @@ Acceptance criteria:
 - [x] server decides `role`; browser no longer chooses role during login
 - [x] default actor IDs are not duplicated across HTML, app state, export, and server code
 - [x] review and assignment actions use authenticated actor identity
-- [ ] login screen is separate from the annotation workbench UI
-- [ ] project selection/opening screen is separate from the annotation workbench UI
-- [ ] workbench hides or deprioritizes role-inappropriate panels
+- [x] login screen is separate from the annotation workbench UI
+- [x] project selection/opening screen is separate from the annotation workbench UI
+- [x] workbench hides or deprioritizes role-inappropriate panels
 - [ ] new users open or create a project instead of silently using `mask_project_001`
 
 MVP accounts:
@@ -327,6 +329,36 @@ Acceptance criteria:
 - [ ] pan state resets or persists by a defined rule when switching images
 - [ ] magic-click action previews or applies a local mask region deterministically
 - [ ] magic-click changes can be undone before save
+
+### 9. Dashboard Planning And Design
+
+Goal: define an operational overview only after the core annotation, review, and
+editor-assist flows are clearer.
+
+Status: planned backlog item. Do not implement the dashboard before the
+login/projects/workbench separation and the core task/review flows are stable.
+
+Likely dashboard scope:
+
+- project-level counts by status
+- assignment workload by worker and reviewer
+- export readiness and validation blockers
+- recent review/revision activity
+- links into the relevant project/workbench views
+
+Non-goals for the first dashboard design:
+
+- analytics warehouse
+- billing or user administration
+- production reporting charts
+- multi-project executive dashboard
+
+Acceptance criteria:
+
+- [ ] dashboard audience is defined: admin, reviewer lead, or operator
+- [ ] dashboard metrics map to existing manifest/export/review data
+- [ ] dashboard does not duplicate workbench editing controls
+- [ ] dashboard links users into actionable queues or project views
 
 ## Work To Avoid For Now
 

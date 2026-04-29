@@ -22,6 +22,7 @@ The remaining product debt falls into three tracks:
 - screen flow separation for login, project opening, and annotation workbench
 - submitted or approved mask revision workflow
 - editor productivity for pan and assisted region selection
+- dashboard planning for operational overview
 
 The main risk is doing these out of order. Revision history needs trustworthy
 actor identity. Editor assistance must not create invalid mask pixels or silently
@@ -139,6 +140,25 @@ Non-goals:
 - SAM-like object prediction
 - multi-class masks
 - brush engine rewrite
+
+### 5. Dashboard Planning And Design
+
+Plan this after the core workbench and role flows are stable.
+
+Decision:
+
+- dashboard is a design/planning item first, not an immediate implementation
+- dashboard should summarize project status, assignment load, export readiness,
+  and recent review/revision activity
+- dashboard should link into concrete work queues or project views rather than
+  duplicate editor controls
+
+Non-goals:
+
+- production analytics stack
+- billing/admin account management
+- chart-heavy executive reporting
+- replacing the project selection screen
 
 ## Recommended Implementation Batches
 

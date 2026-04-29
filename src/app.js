@@ -15,6 +15,12 @@ import { createProjectStore } from "./storage/projectStore.js";
 import { UPLOAD_POLICY, formatBytes, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
 import { DEFAULT_ACTORS, DEFAULT_PROJECT, DEFAULT_SESSION, ROLES, normalizeRole } from "./config/runtimeDefaults.js";
 
+const SCREENS = {
+  LOGIN: "login",
+  PROJECTS: "projects",
+  WORKBENCH: "workbench",
+};
+
 const state = {
   projectId: DEFAULT_PROJECT.id,
   projectName: DEFAULT_PROJECT.name,
@@ -49,10 +55,14 @@ const logger = createLogger({ component: "frontend" });
 const projectStore = createProjectStore();
 
 const els = {
+  loginScreen: document.querySelector("#loginScreen"),
+  projectsScreen: document.querySelector("#projectsScreen"),
+  workbenchScreen: document.querySelector("#workbenchScreen"),
   imageInput: document.querySelector("#imageInput"),
   uploadDropzone: document.querySelector("#uploadDropzone"),
   uploadRejections: document.querySelector("#uploadRejections"),
   refreshProjectsButton: document.querySelector("#refreshProjectsButton"),
+  openDefaultProjectButton: document.querySelector("#openDefaultProjectButton"),
   projectSummaryList: document.querySelector("#projectSummaryList"),
   imageList: document.querySelector("#imageList"),
   progressText: document.querySelector("#progressText"),
@@ -129,10 +139,16 @@ async function init() {
   resizeEditorCanvas();
   await restoreProject();
   await validateRestoredSession();
-  void ensureBackendProject();
+  routeToInitialScreen();
+  if (canEnterProjects()) {
+    void ensureBackendProject();
+  }
   bindEvents();
-  void refreshProjectSummaries();
+  if (canEnterProjects()) {
+    void refreshProjectSummaries();
+  }
   render();
+  renderScreen();
 
   if (state.images.length > 0) {
     const routeImageId = getReviewImageIdFromHash();
@@ -142,6 +158,20 @@ async function init() {
     await selectImage(initialImageId, { updateRoute: false });
   }
   updateReviewRouteLink();
+}
+
+function routeToInitialScreen() {
+  if (window.location.hash) {
+    renderScreen();
+    return;
+  }
+  if (canEnterWorkbench()) {
+    routeToScreen(SCREENS.WORKBENCH);
+  } else if (canEnterProjects()) {
+    routeToScreen(SCREENS.PROJECTS);
+  } else {
+    routeToScreen(SCREENS.LOGIN);
+  }
 }
 
 function bindEvents() {
@@ -216,6 +246,7 @@ function bindEvents() {
   els.clearProjectButton.addEventListener("click", clearProject);
   els.retrySyncButton.addEventListener("click", () => void retrySelectedSync());
   els.refreshProjectsButton.addEventListener("click", () => void refreshProjectSummaries());
+  els.openDefaultProjectButton.addEventListener("click", () => void openDefaultProject());
   els.loginButton.addEventListener("click", () => void loginSession());
   els.logoutButton.addEventListener("click", () => void logoutSession());
   els.approveButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.APPROVE));
@@ -253,6 +284,7 @@ function bindEvents() {
   });
 
   window.addEventListener("hashchange", () => {
+    renderScreen();
     void applyRouteFromHash();
   });
   window.addEventListener("keydown", handleShortcut);
@@ -385,6 +417,8 @@ async function loginSession() {
     state.sessionAuthenticated = Boolean(state.sessionToken);
     await persistProject();
     render();
+    routeToScreen(SCREENS.PROJECTS);
+    void refreshProjectSummaries();
     setSaveState("saved", "로그인됨");
   } catch (error) {
     const normalized = normalizeApiError(error);
@@ -407,6 +441,7 @@ async function logoutSession() {
   state.sessionAuthenticated = false;
   await persistProject();
   render();
+  routeToScreen(SCREENS.LOGIN);
   setSaveState("saved", "로그아웃됨");
 }
 
@@ -930,6 +965,7 @@ async function autosaveCurrentMask() {
 }
 
 function render() {
+  renderScreen();
   renderFilters();
   renderUploadRejections();
   renderProjectSummaries();
@@ -942,7 +978,55 @@ function render() {
   renderReviewIdentity();
   renderExportPolicy();
   renderSyncStatus();
+  renderRolePanels();
   updateStatusbar();
+}
+
+function currentScreen() {
+  const value = window.location.hash.replace(/^#\/?/, "").split("/")[0];
+  if (value === "review") return SCREENS.WORKBENCH;
+  return Object.values(SCREENS).includes(value) ? value : SCREENS.LOGIN;
+}
+
+function canEnterProjects() {
+  return Boolean(state.sessionAuthenticated && state.sessionToken);
+}
+
+function canEnterWorkbench() {
+  return canEnterProjects() && Boolean(state.backendProjectReady || state.images.length > 0);
+}
+
+function routeToScreen(screen) {
+  const next = Object.values(SCREENS).includes(screen) ? screen : SCREENS.LOGIN;
+  if (window.location.hash !== `#/${next}`) {
+    window.location.hash = `#/${next}`;
+  }
+  renderScreen();
+}
+
+function renderScreen() {
+  let screen = currentScreen();
+  const requested = screen;
+  if (screen !== SCREENS.LOGIN && !canEnterProjects()) {
+    screen = SCREENS.LOGIN;
+  }
+  if (screen === SCREENS.WORKBENCH && !canEnterWorkbench()) {
+    screen = SCREENS.PROJECTS;
+  }
+  if (screen !== requested && window.location.hash !== `#/${screen}`) {
+    window.history.replaceState(null, "", `#/${screen}`);
+  }
+
+  els.loginScreen.hidden = screen !== SCREENS.LOGIN;
+  els.projectsScreen.hidden = screen !== SCREENS.PROJECTS;
+  els.workbenchScreen.hidden = screen !== SCREENS.WORKBENCH;
+}
+
+function renderRolePanels() {
+  document.querySelectorAll("[data-role-panel]").forEach((panel) => {
+    const allowed = String(panel.dataset.rolePanel || "").split(/\s+/).filter(Boolean);
+    panel.hidden = allowed.length > 0 && !allowed.includes(state.sessionRole);
+  });
 }
 
 function renderFilters() {
@@ -1017,6 +1101,18 @@ function renderProjectSummaries() {
     items.push(empty);
   }
   els.projectSummaryList.replaceChildren(...items);
+  els.openDefaultProjectButton.disabled = !canEnterProjects();
+}
+
+async function openDefaultProject() {
+  if (!canEnterProjects()) {
+    routeToScreen(SCREENS.LOGIN);
+    return;
+  }
+  const ready = await ensureBackendProject();
+  if (ready) {
+    routeToScreen(SCREENS.WORKBENCH);
+  }
 }
 
 async function loadServerProject(projectId) {
@@ -1025,6 +1121,7 @@ async function loadServerProject(projectId) {
   try {
     const manifest = await apiClient.getProject(projectId);
     await restoreServerManifest(manifest);
+    routeToScreen(SCREENS.WORKBENCH);
     setSaveState("saved", "서버 프로젝트 선택됨");
   } catch (error) {
     const normalized = normalizeApiError(error);
@@ -1250,6 +1347,7 @@ function setTool(tool) {
 
 function handleShortcut(event) {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+  if (currentScreen() !== SCREENS.WORKBENCH || els.workbenchScreen.hidden) return;
 
   const key = event.key.toLowerCase();
   const ctrl = event.metaKey || event.ctrlKey;

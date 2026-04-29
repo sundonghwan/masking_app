@@ -32,6 +32,10 @@ body {
   background: var(--bg-app);
 }
 
+[hidden] {
+  display: none !important;
+}
+
 button,
 input,
 select {
@@ -48,6 +52,44 @@ button {
   grid-template-rows: var(--topbar) minmax(0, 1fr) var(--statusbar);
   height: 100vh;
   overflow: hidden;
+}
+
+.screen {
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--bg-app);
+}
+
+.login-screen,
+.projects-screen {
+  display: grid;
+  place-items: center;
+}
+
+.screen-panel {
+  width: min(520px, 100%);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  padding: 24px;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.projects-panel {
+  display: grid;
+  gap: 18px;
+  width: min(760px, 100%);
+}
+
+.screen-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
 }
 
 .topbar {
