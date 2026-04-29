@@ -480,3 +480,25 @@ chains in `harness/tasks/`; keep this file short.
 [GIT] commit=635640d message="Add screen flow separation"
 [GIT] commit=3a89cd8 message="Record screen flow separation closeout"
 [GIT] push=origin/main status=passed range=45a8b0b..3a89cd8
+[START] task=project-create-open-flow subsystem=frontend-routing,project-api
+[PLAN] scope=explicit-project-create-open-before-workbench risks=default-project-regression,non-admin-create-affordance,upload-without-project
+[IMPACT] status=suspected chain=loginSession->routeToScreen->projects-screen-create-open-ui
+[IMPACT] status=suspected chain=createProjectFromForm->apiClient.createProject->routeApi.POST.projects->storage.ensureProject
+[IMPACT] status=suspected chain=handleFiles->ensureBackendProject->active-project-guard
+[IMPACT_VALIDATE] chain=loginSession->routeToScreen->projects-screen-create-open-ui validation=npm test -- tests/appContracts.test.js tests/serverApi.test.js passed
+[IMPACT_VALIDATE] chain=createProjectFromForm->apiClient.createProject->routeApi.POST.projects->storage.ensureProject validation=npm test -- tests/appContracts.test.js tests/serverApi.test.js passed
+[IMPACT_VALIDATE] chain=handleFiles->ensureBackendProject->active-project-guard validation=npm test -- tests/appContracts.test.js tests/serverApi.test.js passed
+[DOC] updated=docs/FEATURE_STATUS.md note=project creation/opening marked complete; fallback project debt narrowed to helper layers
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=new users create/open project acceptance checked
+[CMD] npm test -- tests/appContracts.test.js tests/serverApi.test.js
+[CMD] npm run lint
+[CMD] git diff --check
+[CMD] ./scripts/harness/lint-all.sh
+[CMD] ./scripts/harness/typecheck-all.sh
+[CMD] ./scripts/harness/test-target.sh
+[CMD] ./scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-project-flow.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-project-flow-app.js
+[CMD] rg projectCreateForm|projectCreateId|projectCreateName|createProjectButton|projectSummaryList|workbenchScreen /tmp/masking-project-flow.html
+[CMD] rg createProjectFromForm|normalizeProjectId|project-required-message|projectId-empty /tmp/masking-project-flow-app.js
+[REVIEW] finding=none-blocking scope=project-create-open-flow notes=diff-review-checked-state-routing-auth-role-and-upload-without-project-guards

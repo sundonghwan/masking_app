@@ -13,7 +13,7 @@ import { createLogger } from "./observability/logger.js";
 import { REVIEW_ACTIONS, applyReviewTransition, normalizeReviewerId, reviewReasonLabel } from "./review/policy.js";
 import { createProjectStore } from "./storage/projectStore.js";
 import { UPLOAD_POLICY, formatBytes, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
-import { DEFAULT_ACTORS, DEFAULT_PROJECT, DEFAULT_SESSION, ROLES, normalizeRole } from "./config/runtimeDefaults.js";
+import { DEFAULT_ACTORS, DEFAULT_SESSION, ROLES, normalizeRole } from "./config/runtimeDefaults.js";
 
 const SCREENS = {
   LOGIN: "login",
@@ -22,8 +22,8 @@ const SCREENS = {
 };
 
 const state = {
-  projectId: DEFAULT_PROJECT.id,
-  projectName: DEFAULT_PROJECT.name,
+  projectId: "",
+  projectName: "",
   images: [],
   selectedId: null,
   filter: "all",
@@ -42,6 +42,9 @@ const state = {
   exportApprovedOnly: false,
   projectSummaries: [],
   projectSummariesError: "",
+  projectCreateId: "",
+  projectCreateName: "",
+  projectCreateMessage: "",
 };
 
 const apiClient = createMaskingApiClient({
@@ -62,8 +65,13 @@ const els = {
   uploadDropzone: document.querySelector("#uploadDropzone"),
   uploadRejections: document.querySelector("#uploadRejections"),
   refreshProjectsButton: document.querySelector("#refreshProjectsButton"),
-  openDefaultProjectButton: document.querySelector("#openDefaultProjectButton"),
+  projectCreateForm: document.querySelector("#projectCreateForm"),
+  projectCreateId: document.querySelector("#projectCreateId"),
+  projectCreateName: document.querySelector("#projectCreateName"),
+  createProjectButton: document.querySelector("#createProjectButton"),
+  projectCreateMessage: document.querySelector("#projectCreateMessage"),
   projectSummaryList: document.querySelector("#projectSummaryList"),
+  projectName: document.querySelector("#projectName"),
   imageList: document.querySelector("#imageList"),
   progressText: document.querySelector("#progressText"),
   editorCanvas: document.querySelector("#editorCanvas"),
@@ -140,9 +148,6 @@ async function init() {
   await restoreProject();
   await validateRestoredSession();
   routeToInitialScreen();
-  if (canEnterProjects()) {
-    void ensureBackendProject();
-  }
   bindEvents();
   if (canEnterProjects()) {
     void refreshProjectSummaries();
@@ -246,7 +251,18 @@ function bindEvents() {
   els.clearProjectButton.addEventListener("click", clearProject);
   els.retrySyncButton.addEventListener("click", () => void retrySelectedSync());
   els.refreshProjectsButton.addEventListener("click", () => void refreshProjectSummaries());
-  els.openDefaultProjectButton.addEventListener("click", () => void openDefaultProject());
+  els.projectCreateForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void createProjectFromForm();
+  });
+  els.projectCreateId.addEventListener("input", () => {
+    state.projectCreateId = els.projectCreateId.value;
+    renderProjectCreateForm();
+  });
+  els.projectCreateName.addEventListener("input", () => {
+    state.projectCreateName = els.projectCreateName.value;
+    renderProjectCreateForm();
+  });
   els.loginButton.addEventListener("click", () => void loginSession());
   els.logoutButton.addEventListener("click", () => void logoutSession());
   els.approveButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.APPROVE));
@@ -313,6 +329,12 @@ function resizeEditorCanvas() {
 
 async function handleFiles(fileList) {
   state.uploadRejections = [];
+  if (!state.projectId) {
+    setSaveState("failed", "프로젝트를 먼저 생성하거나 열어야 합니다");
+    routeToScreen(SCREENS.PROJECTS);
+    return;
+  }
+
   const candidates = Array.from(fileList || []);
   const files = [];
 
@@ -640,6 +662,12 @@ async function syncMaskToBackend(image, dataUrl, status) {
 
 async function ensureBackendProject() {
   if (state.backendProjectReady) return true;
+  if (!state.projectId) {
+    state.backendProjectError = "프로젝트를 먼저 생성하거나 열어야 합니다.";
+    setSaveState("failed", state.backendProjectError);
+    routeToScreen(SCREENS.PROJECTS);
+    return false;
+  }
 
   try {
     await apiClient.createProject({
@@ -968,7 +996,9 @@ function render() {
   renderScreen();
   renderFilters();
   renderUploadRejections();
+  renderProjectCreateForm();
   renderProjectSummaries();
+  renderProjectHeader();
   renderImageList();
   renderMetadata();
   renderValidation();
@@ -1097,21 +1127,75 @@ function renderProjectSummaries() {
   if (items.length === 0) {
     const empty = document.createElement("div");
     empty.className = "project-summary-row";
-    empty.innerHTML = "<span><strong>서버 프로젝트 없음</strong><small>동기화 후 표시됩니다.</small></span>";
+    empty.innerHTML = "<span><strong>서버 프로젝트 없음</strong><small>관리자가 새 프로젝트를 생성하면 표시됩니다.</small></span>";
     items.push(empty);
   }
   els.projectSummaryList.replaceChildren(...items);
-  els.openDefaultProjectButton.disabled = !canEnterProjects();
 }
 
-async function openDefaultProject() {
+function renderProjectCreateForm() {
+  if (document.activeElement !== els.projectCreateId) {
+    els.projectCreateId.value = state.projectCreateId;
+  }
+  if (document.activeElement !== els.projectCreateName) {
+    els.projectCreateName.value = state.projectCreateName;
+  }
+  els.createProjectButton.disabled = state.sessionRole !== ROLES.ADMIN || !canEnterProjects();
+  els.projectCreateMessage.textContent = state.projectCreateMessage
+    || (state.sessionRole === ROLES.ADMIN
+      ? "관리자는 새 프로젝트를 만들고 작업도구로 진입할 수 있습니다."
+      : "프로젝트 생성은 관리자 권한에서만 사용할 수 있습니다.");
+}
+
+function renderProjectHeader() {
+  els.projectName.textContent = state.projectName || "프로젝트 미선택";
+}
+
+async function createProjectFromForm() {
   if (!canEnterProjects()) {
     routeToScreen(SCREENS.LOGIN);
     return;
   }
-  const ready = await ensureBackendProject();
-  if (ready) {
+  if (state.sessionRole !== ROLES.ADMIN) {
+    state.projectCreateMessage = "프로젝트 생성은 관리자 권한에서만 사용할 수 있습니다.";
+    renderProjectCreateForm();
+    return;
+  }
+
+  const projectId = normalizeProjectId(state.projectCreateId || state.projectCreateName);
+  const projectName = String(state.projectCreateName || projectId).trim();
+  if (!projectId) {
+    state.projectCreateMessage = "프로젝트 ID 또는 이름을 입력하세요.";
+    renderProjectCreateForm();
+    return;
+  }
+
+  setSaveState("saving", "프로젝트 생성 중");
+  state.projectCreateMessage = "프로젝트 생성 중";
+  renderProjectCreateForm();
+  try {
+    const manifest = await apiClient.createProject({
+      projectId,
+      name: projectName,
+    });
+    setActiveProjectFromManifest(manifest, {
+      clearImages: true,
+      fallbackId: projectId,
+      fallbackName: projectName,
+    });
+    state.projectCreateId = "";
+    state.projectCreateName = "";
+    state.projectCreateMessage = "프로젝트 생성 완료";
+    await persistProject();
+    void refreshProjectSummaries();
+    render();
     routeToScreen(SCREENS.WORKBENCH);
+    setSaveState("saved", "프로젝트 생성됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.projectCreateMessage = normalized.message;
+    setSaveState("failed", `프로젝트 생성 실패: ${normalized.message}`);
+    renderProjectCreateForm();
   }
 }
 
@@ -1134,13 +1218,10 @@ async function loadServerProject(projectId) {
 async function restoreServerManifest(manifest = {}) {
   revokeImageUrls();
   await projectStore.clearProject();
-  state.projectId = manifest.project_id || state.projectId;
-  state.projectName = manifest.name || manifest.project_name || state.projectId;
+  setActiveProjectFromManifest(manifest);
   state.images = (manifest.images || []).map(rehydrateServerImageRecord);
   state.selectedId = state.images[0]?.id || null;
   state.filter = "all";
-  state.backendProjectReady = true;
-  state.backendProjectError = "";
   state.uploadRejections = [];
   state.savedAt = manifest.updated_at ? new Date(manifest.updated_at) : new Date();
   await persistProject();
@@ -1151,6 +1232,32 @@ async function restoreServerManifest(manifest = {}) {
   } else {
     render();
   }
+}
+
+function setActiveProjectFromManifest(manifest = {}, options = {}) {
+  if (options.clearImages) {
+    revokeImageUrls();
+    editor.clear();
+    state.images = [];
+    state.selectedId = null;
+    state.savedAt = null;
+    state.uploadRejections = [];
+  }
+  state.projectId = manifest.project_id || manifest.id || options.fallbackId || state.projectId;
+  state.projectName = manifest.name || manifest.project_name || options.fallbackName || state.projectId;
+  state.backendProjectReady = Boolean(state.projectId);
+  state.backendProjectError = "";
+}
+
+function normalizeProjectId(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[\\/]+/g, "_")
+    .replace(/^\.+$/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/^[._-]+|[._-]+$/g, "")
+    .replace(/_{2,}/g, "_")
+    .slice(0, 160);
 }
 
 function renderMetadata() {
@@ -1579,6 +1686,8 @@ async function restoreProject() {
 
 async function clearProject() {
   revokeImageUrls();
+  state.projectId = "";
+  state.projectName = "";
   state.images = [];
   state.selectedId = null;
   state.savedAt = null;
@@ -1595,6 +1704,9 @@ async function clearProject() {
   state.assignmentWorkerId = DEFAULT_ACTORS.worker;
   state.assignmentReviewerId = DEFAULT_ACTORS.reviewer;
   state.uploadRejections = [];
+  state.projectCreateId = "";
+  state.projectCreateName = "";
+  state.projectCreateMessage = "";
   await projectStore.clearProject();
   editor.clear();
   els.emptyState.hidden = false;

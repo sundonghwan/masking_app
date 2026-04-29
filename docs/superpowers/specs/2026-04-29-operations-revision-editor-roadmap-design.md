@@ -279,7 +279,9 @@ Acceptance criteria:
 
 ## Risks And Guardrails
 
-- Do not remove `mask_project_001` until project opening is implemented.
+- Do not remove fallback `mask_project_001` defaults from export/API helper
+  layers until every caller requires explicit project identity. The app entry
+  flow itself now requires project create/open before workbench entry.
 - Do not claim server-owned role is complete while browser role selection can
   still change runtime permissions.
 - Do not allow submitted/approved mask saves to silently keep exportable status.

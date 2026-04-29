@@ -48,8 +48,19 @@
           </div>
           <button class="button secondary" id="refreshProjectsButton" type="button">새로고침</button>
         </div>
+        <form class="project-create-form" id="projectCreateForm" data-role-panel="admin">
+          <label class="stacked-field">
+            <span>프로젝트 ID</span>
+            <input class="text-input" id="projectCreateId" type="text" placeholder="rail-mask-0429" autocomplete="off">
+          </label>
+          <label class="stacked-field">
+            <span>프로젝트 이름</span>
+            <input class="text-input" id="projectCreateName" type="text" placeholder="Rail Mask Batch 0429" autocomplete="off">
+          </label>
+          <button class="button primary" id="createProjectButton" type="submit">프로젝트 생성</button>
+          <p class="sync-message" id="projectCreateMessage">관리자는 새 프로젝트를 만들고 작업도구로 진입할 수 있습니다.</p>
+        </form>
         <div class="project-summary-list" id="projectSummaryList" aria-live="polite"></div>
-        <button class="button primary" id="openDefaultProjectButton" type="button">기본 프로젝트 열기</button>
       </div>
     </section>
 

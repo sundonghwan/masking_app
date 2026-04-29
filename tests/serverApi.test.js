@@ -109,6 +109,29 @@ test("project list and manifest endpoints require an authorized session", async 
   assert.equal(manifest.body.project_id, "project-1");
 });
 
+test("admin creates projects and non-admin users cannot create them", async () => {
+  const { route, storage } = createApiHarness();
+  const workerHeaders = await loginHeaders(route, "worker");
+
+  const rejected = await callJson(route, "POST", "/api/projects", {
+    id: "worker-project",
+    name: "Worker Project",
+  }, workerHeaders);
+  assert.equal(rejected.statusCode, 403);
+
+  const adminHeaders = await loginHeaders(route, "admin");
+  const created = await callJson(route, "POST", "/api/projects", {
+    id: "project-created",
+    name: "Created Project",
+  }, adminHeaders);
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.project_id, "project-created");
+  assert.equal(created.body.name, "Created Project");
+
+  const manifest = await storage.readProjectManifest("project-created");
+  assert.equal(manifest.name, "Created Project");
+});
+
 test("review events use authenticated session identity instead of request body reviewer", async () => {
   const { route, storage } = createApiHarness();
   const login = await callJson(route, "POST", "/api/session/login", {

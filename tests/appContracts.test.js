@@ -68,13 +68,19 @@ test("screen flow separates login projects and workbench", () => {
   assert.match(html, /id="projectsScreen"/);
   assert.match(html, /id="workbenchScreen"/);
   assert.match(html, /id="sessionPassword"/);
+  assert.match(html, /id="projectCreateForm"/);
+  assert.match(html, /id="projectCreateId"/);
+  assert.match(html, /id="projectCreateName"/);
+  assert.match(html, /id="createProjectButton"/);
   assert.match(html, /id="projectSummaryList"/);
-  assert.match(html, /id="openDefaultProjectButton"/);
   assert.match(html, /id="editorCanvas"/);
   assert.match(app, /function routeToScreen\(/);
   assert.match(app, /function currentScreen\(/);
   assert.match(app, /function canEnterWorkbench\(/);
-  assert.match(app, /function openDefaultProject\(/);
+  assert.match(app, /function createProjectFromForm\(/);
+  assert.match(app, /function normalizeProjectId\(/);
+  assert.doesNotMatch(app, /openDefaultProjectButton/);
+  assert.doesNotMatch(app, /function openDefaultProject\(/);
 });
 
 test("login controls are not embedded in the workbench inspector", () => {
@@ -97,6 +103,16 @@ test("workbench actions are role-marked and shortcut gated to workbench", () => 
   assert.match(html, /id="submitButton"[^>]+data-role-panel="admin worker"/);
   assert.match(html, /id="exportButton"[^>]+data-role-panel="admin reviewer"/);
   assert.match(app, /currentScreen\(\) !== SCREENS\.WORKBENCH/);
+});
+
+test("project creation replaces default project entry path", () => {
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+
+  assert.match(html, /id="projectCreateForm"[^>]+data-role-panel="admin"/);
+  assert.match(app, /projectId: ""/);
+  assert.match(app, /프로젝트를 먼저 생성하거나 열어야 합니다/);
+  assert.doesNotMatch(app, /projectId: DEFAULT_PROJECT\.id/);
 });
 
 function createRestoredSubmittedRecord(overrides = {}) {

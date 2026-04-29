@@ -85,6 +85,21 @@ button {
   width: min(760px, 100%);
 }
 
+.project-create-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: #fbfcfd;
+}
+
+.project-create-form .sync-message {
+  grid-column: 1 / -1;
+}
+
 .screen-heading {
   display: flex;
   align-items: center;

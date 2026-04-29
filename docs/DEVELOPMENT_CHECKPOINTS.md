@@ -251,8 +251,9 @@ Current hardcoded areas:
 
 - `worker` and `reviewer` remain as default assignment targets until assignment
   queues and a user directory exist.
-- `mask_project_001` and `Masking Project` remain as centralized defaults until
-  project creation/opening is the first-class entry flow.
+- `mask_project_001` and `Masking Project` remain only as fallback defaults for
+  legacy/export/API callers that omit project identity. New app sessions now
+  require explicit project create/open before entering the workbench.
 
 Recommended development order:
 
@@ -277,7 +278,7 @@ Acceptance criteria:
 - [x] login screen is separate from the annotation workbench UI
 - [x] project selection/opening screen is separate from the annotation workbench UI
 - [x] workbench hides or deprioritizes role-inappropriate panels
-- [ ] new users open or create a project instead of silently using `mask_project_001`
+- [x] new users open or create a project instead of silently using `mask_project_001`
 
 MVP accounts:
 

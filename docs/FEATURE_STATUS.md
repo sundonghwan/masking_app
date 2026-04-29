@@ -39,6 +39,7 @@
 - [x] Authenticated review actor and assignment audit identity
 - [x] Split login, project opening, and workbench into separate screens
 - [x] Role-aware workbench panels for admin, worker, and reviewer
+- [x] Project creation/opening flow before entering the workbench
 
 ## In Progress
 
@@ -46,7 +47,6 @@
 
 ## Remaining
 
-- [ ] Project creation/opening flow to replace default `mask_project_001`
 - [ ] Assignment queues and per-user task list
 - [ ] Submitted data edit/rework flow after submission
 - [ ] Pan/camera movement while image is zoomed
@@ -57,7 +57,7 @@
 
 1. MVP credential login with ID/password fields and server-owned roles. `[done]`
 2. Split login, project opening, and workbench into separate screens. `[done]`
-3. Project creation/opening flow to replace default `mask_project_001`.
+3. Project creation/opening flow to replace default workbench entry project. `[done]`
 4. Role-aware workbench panels for admin, worker, and reviewer. `[done]`
 5. Assignment queues and per-user task list.
 6. Submitted data edit/rework flow after submission.
@@ -79,7 +79,7 @@ not implemented yet. They should not be treated as final architecture.
 | Current hardcoded area | Current location | Why it remains | Required feature |
 | --- | --- | --- | --- |
 | `worker` / `reviewer` default assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | There is no user directory, queue, or assignment picker yet. | Assignment queues and per-user task list |
-| `mask_project_001` and `Masking Project` defaults | `src/config/runtimeDefaults.js`, `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | The app still boots into a default local-first project when no project is selected. | Project creation/opening flow |
+| `mask_project_001` and `Masking Project` fallback defaults | `src/config/runtimeDefaults.js`, `src/export/exporter.js`, `src/server/api.js` | Kept only for legacy/export fallback records and API bodies that omit project identity. New app sessions now require explicit project create/open before workbench entry. | Future migration can remove fallback once all callers require explicit project ID |
 
 ## MVP Accounts
 
