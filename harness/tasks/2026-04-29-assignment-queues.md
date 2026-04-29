@@ -83,4 +83,5 @@
 - [x] Review checklist completed.
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
-- [ ] Commit and push completed.
+- [x] Commit completed: `0e43fc5 Add assignment queue filters`.
+- [ ] Push completed.

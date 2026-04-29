@@ -527,3 +527,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] rg data-queue|queueWorkCount|queueReviewCount /tmp/masking-assignment-queue.html
 [CMD] rg filterImagesForQueue|summarizeAssignmentQueue|queueMode|renderQueueControls /tmp/masking-assignment-queue-app.js
 [REVIEW] finding=none-blocking scope=assignment-queues notes=checked-queue-status-composition-review-ready-filter-persistence-and-new-module-lint-coverage
+[CLOSE] status=assignment-queues-complete
+[GIT] commit=0e43fc5 message="Add assignment queue filters"
