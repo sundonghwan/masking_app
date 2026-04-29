@@ -44,7 +44,9 @@
 
 ## Remaining
 
+- [ ] Split login, project opening, and workbench into separate screens
 - [ ] Project creation/opening flow to replace default `mask_project_001`
+- [ ] Role-aware workbench panels for admin, worker, and reviewer
 - [ ] Assignment queues and per-user task list
 - [ ] Submitted data edit/rework flow after submission
 - [ ] Pan/camera movement while image is zoomed
@@ -65,3 +67,13 @@ not implemented yet. They should not be treated as final architecture.
 | --- | --- | --- | --- |
 | `worker` / `reviewer` default assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | There is no user directory, queue, or assignment picker yet. | Assignment queues and per-user task list |
 | `mask_project_001` and `Masking Project` defaults | `src/config/runtimeDefaults.js`, `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | The app still boots into a default local-first project when no project is selected. | Project creation/opening flow |
+
+## MVP Accounts
+
+These accounts are for the current local MVP only.
+
+| Role | User ID | Password | Current purpose |
+| --- | --- | --- | --- |
+| admin | `admin` | `admin123` | Project/admin actions, assignment, review, export |
+| worker | `worker` | `worker123` | Image upload and mask editing/submission |
+| reviewer | `reviewer` | `reviewer123` | Submitted-image review actions |

@@ -442,3 +442,8 @@ chains in `harness/tasks/`; keep this file short.
 [GIT] commit=2f8ae6b message="Add operations foundation auth"
 [GIT] commit=0618cf2 message="Record operations foundation closeout"
 [GIT] push=origin/main status=passed
+[START] task=screen-flow-scope-capture subsystem=docs
+[PLAN] scope=record C-option decision for login/projects/workbench split risks=role-ui-overload,overbuilding-role-pages
+[DOC] updated=docs/FEATURE_STATUS.md note=added login/projects/workbench split and MVP accounts
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=next order starts with screen-flow separation before project opening and queues
+[DOC] updated=docs/superpowers/specs/2026-04-29-operations-revision-editor-roadmap-design.md note=added Batch A3 screen-flow separation

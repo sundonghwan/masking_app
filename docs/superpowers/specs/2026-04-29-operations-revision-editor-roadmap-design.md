@@ -19,6 +19,7 @@ checks, multipart upload, review actions, and assignment updates.
 The remaining product debt falls into three tracks:
 
 - operations/auth hardening
+- screen flow separation for login, project opening, and annotation workbench
 - submitted or approved mask revision workflow
 - editor productivity for pan and assisted region selection
 
@@ -51,9 +52,36 @@ Non-goals:
 - full project opening redesign
 - assignment queues
 
-### 2. Revision State Model
+### 2. Screen Flow Separation
 
-Build after the operations foundation.
+Build this before adding more role-specific behavior.
+
+Decision:
+
+- use a minimal three-screen flow: `/login`, `/projects`, `/workbench`
+- keep login out of the annotation workbench/tool panel
+- keep project selection/opening out of the canvas editing surface
+- keep one workbench for now, but show role-appropriate panels:
+  - `admin`: assignment, review, export, and project operations
+  - `worker`: assigned image editing and submission
+  - `reviewer`: submitted-image review and rework decisions
+
+Why not create every role page immediately:
+
+Full `/worker/tasks`, `/reviewer/queue`, and `/admin/assignments` pages are
+useful later, but they would be overbuilt before the project opening flow and
+basic role-aware panel visibility are stable.
+
+Non-goals:
+
+- full multi-page admin console
+- separate queue pages for every role
+- production account management
+- database-backed user directory
+
+### 3. Revision State Model
+
+Build after the screen-flow separation.
 
 Decision:
 
@@ -85,7 +113,7 @@ Non-goals:
 - concurrent editing conflict handling
 - approving revision work without resubmission
 
-### 3. Editor Pan And Magic-Click Assistance
+### 4. Editor Pan And Magic-Click Assistance
 
 Build after the revision state model unless a small pan-only fix is needed
 earlier.
@@ -154,6 +182,27 @@ Acceptance criteria:
 - remaining fallback defaults are centralized in one runtime config module
 - scattered `local_*` defaults are removed from normal runtime paths or clearly
   marked as compatibility fixtures
+
+### Batch A3: Login, Projects, And Workbench Separation
+
+Files likely touched:
+
+- `index.html`
+- `src/app.js`
+- `src/api/client.js`
+- `tests/appContracts.test.js`
+- `tests/apiClient.test.js`
+
+Acceptance criteria:
+
+- login is a separate first screen and is not embedded in the annotation tool
+  panel
+- project selection/opening is a separate screen before the annotation
+  workbench
+- workbench assumes an authenticated session and selected/open project
+- admin, worker, and reviewer see role-appropriate workbench panels
+- default MVP accounts are documented near the login/project workflow
+- no new route can bypass bearer-session checks for protected API calls
 
 ### Batch C1: Revision State And Export Policy
 

@@ -256,11 +256,14 @@ Current hardcoded areas:
 
 Recommended development order:
 
-1. Project creation/opening flow before entering the workbench.
-2. Assignment queues and per-user task list.
-3. Submitted data edit/rework flow after submission.
-4. Pan/camera movement while image is zoomed.
-5. Magic-click assisted mask tool for local region selection.
+1. Split `/login`, `/projects`, and `/workbench` so login is not embedded in the
+   annotation tool area.
+2. Project creation/opening flow before entering the workbench.
+3. Role-aware workbench panels for `admin`, `worker`, and `reviewer`.
+4. Assignment queues and per-user task list.
+5. Submitted data edit/rework flow after submission.
+6. Pan/camera movement while image is zoomed.
+7. Magic-click assisted mask tool for local region selection.
 
 Acceptance criteria:
 
@@ -269,7 +272,18 @@ Acceptance criteria:
 - [x] server decides `role`; browser no longer chooses role during login
 - [x] default actor IDs are not duplicated across HTML, app state, export, and server code
 - [x] review and assignment actions use authenticated actor identity
+- [ ] login screen is separate from the annotation workbench UI
+- [ ] project selection/opening screen is separate from the annotation workbench UI
+- [ ] workbench hides or deprioritizes role-inappropriate panels
 - [ ] new users open or create a project instead of silently using `mask_project_001`
+
+MVP accounts:
+
+| Role | User ID | Password |
+| --- | --- | --- |
+| admin | `admin` | `admin123` |
+| worker | `worker` | `worker123` |
+| reviewer | `reviewer` | `reviewer123` |
 
 ### 8. Post-Submission Edit And Editor Assist
 
