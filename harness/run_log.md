@@ -554,3 +554,5 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=submitted-revision-flow notes=checked-export-status-transition-audit-sync-and-authenticated-revision-actor-after-fix
 [CLOSE] status=submitted-revision-flow-complete
 [GIT] commit=5b4877b message="Add submitted revision flow"
+[GIT] commit=fdee018 message="Record submitted revision closeout"
+[GIT] push=origin/main status=passed range=69e5f6c..fdee018

@@ -85,4 +85,4 @@
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
 - [x] Commit completed: `5b4877b Add submitted revision flow`.
-- [ ] Push completed.
+- [x] Push completed: `origin/main` at `fdee018`.
