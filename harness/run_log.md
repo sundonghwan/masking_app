@@ -438,3 +438,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] curl -sS -I http://localhost:4173/src/server/auth.js
 [CMD] curl -sS http://localhost:4173/src/config/runtimeDefaults.js
 [REVIEW] subagent=Harvey finding=none-blocking-high scope=operations-foundation-after-fixes
+[CLOSE] status=operations-foundation-complete
+[GIT] commit=2f8ae6b message="Add operations foundation auth"

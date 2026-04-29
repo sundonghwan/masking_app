@@ -125,4 +125,4 @@
 - [x] Validated chains have validation evidence.
 - [x] Relevant commands were run or explicitly skipped with reason.
 - [x] Feature status updated with completed and remaining work.
-- [ ] Commit and push completed.
+- [x] Commit and push completed.
