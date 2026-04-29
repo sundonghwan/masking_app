@@ -322,3 +322,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] rg getReviewImageIdFromHash|updateReviewRoute|normalizeReviewerId|reviewerId /tmp/masking-app-review.js
 [CMD] curl -sS http://localhost:4173/api/health
 [CLOSE] status=three-feature-review-identity-detail-batch-complete
+[GIT] commit=2785f96 message="Add review identity and detail route"
+[GIT] push=origin/main status=passed
