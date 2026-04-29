@@ -346,3 +346,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] rg assignSelectedImage|assignImage|FormData|x-user-role|x-user-id /tmp/masking-app-upload-auth.js /tmp/masking-client-upload-auth.js
 [CMD] curl -sS http://localhost:4173/api/health
 [CLOSE] status=three-feature-upload-auth-assignment-batch-complete
+[GIT] commit=e4217bf message="Add multipart upload RBAC and assignment"
+[GIT] push=origin/main status=passed
