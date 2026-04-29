@@ -615,3 +615,28 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=dashboard-planning-design-ready-for-commit
 [GIT] commit=f9d436e message="Add dashboard planning design"
 [GIT] push=origin/main status=passed range=369d332..f9d436e
+[START] task=edge-aware-magic-tool-and-space-pan subsystem=canvas-mask-editor,keyboard-workflow
+[PLAN] scope=edge-aware-local-magic-selection-and-spacebar-temporary-pan risks=selection-quality,binary-mask-contract,undo-pollution,keyboard-input-conflict
+[IMPACT] status=suspected chain=MaskEditor.bindCanvasEvents->magicSelectAt->selectEdgeAwareRegionFromImageData->mask-bitmap
+[IMPACT] status=suspected chain=handleShortcut->setTemporaryPanActive->MaskEditor.bindCanvasEvents->viewport-offsets
+[IMPACT_VALIDATE] chain=MaskEditor.bindCanvasEvents->magicSelectAt->selectEdgeAwareRegionFromImageData->mask-bitmap validation=npm-test-targeted-passed
+[IMPACT_VALIDATE] chain=handleShortcut->setTemporaryPanActive->MaskEditor.bindCanvasEvents->viewport-offsets validation=app-contract-spacebar-pan-test-passed
+[DOC] updated=docs/FEATURE_STATUS.md note=edge-aware-magic-and-spacebar-pan-complete
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=magic-and-spacebar-acceptance-expanded
+[CMD] npm test -- tests/maskEditor.test.js tests/appContracts.test.js
+[CMD] npm run lint
+[CMD] git diff --check
+[CMD] ./scripts/harness/typecheck-all.sh
+[CMD] ./scripts/harness/test-target.sh
+[CMD] ./scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-edge-magic.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-edge-magic-app.js
+[CMD] curl -sS http://localhost:4173/src/editor/maskEditor.js -o /tmp/masking-edge-magic-editor.js
+[CMD] rg 매직 W|이동 Space|data-tool="magic" /tmp/masking-edge-magic.html
+[CMD] rg event\.code === "Space"|setTemporaryPanActive|key === "w" /tmp/masking-edge-magic-app.js
+[CMD] rg selectEdgeAwareRegionFromImageData|createEdgeMagnitudeMap|Sobel|fetch\(|segmentation /tmp/masking-edge-magic-editor.js
+[REVIEW_FIX] issue=edge-map-border-escape fixed=clamped-sobel-border-and-neighbor-edge-barrier validation=edge-barrier-test-passed
+[REVIEW_FIX] issue=tool-segment-five-buttons fixed=grid-repeat-5-and-static-contract validation=app-contract-test-passed
+[REVIEW_FIX] issue=space-keyup-target-drift fixed=always-release-temporary-pan-on-space-keyup validation=app-contract-test-passed
+[REVIEW] finding=none-blocking scope=edge-aware-magic-tool-and-space-pan notes=checked-binary-mask-output-undo-boundary-no-network-segmentation-spacebar-pan-no-mask-mutation-and-tool-layout
+[CLOSE] status=edge-aware-magic-tool-and-space-pan-ready-for-commit

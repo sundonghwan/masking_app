@@ -149,10 +149,29 @@ test("magic click tool is local deterministic mask assist", () => {
   const editor = fs.readFileSync(new URL("../src/editor/maskEditor.js", import.meta.url), "utf8");
 
   assert.match(html, /data-tool="magic"/);
-  assert.match(app, /setTool\("magic"\)/);
-  assert.match(editor, /function selectConnectedRegionFromImageData/);
+  assert.match(html, /매직 W/);
+  assert.match(app, /key === "w" \|\| key === "m"/);
+  assert.match(editor, /function selectEdgeAwareRegionFromImageData/);
+  assert.match(editor, /createEdgeMagnitudeMap/);
   assert.match(editor, /magicSelectAt\(point/);
   assert.doesNotMatch(editor, /fetch\(|\/api\/.*magic|segmentation/i);
+});
+
+test("spacebar temporarily pans without switching the selected tool", () => {
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const editor = fs.readFileSync(new URL("../src/editor/maskEditor.js", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const styles = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
+
+  assert.match(html, /이동 Space/);
+  assert.match(styles, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(app, /event\.code === "Space"/);
+  assert.match(app, /handleShortcutRelease/);
+  assert.match(app, /setTemporaryPanActive\(true\)/);
+  assert.match(app, /setTemporaryPanActive\(false\)/);
+  assert.match(editor, /setTemporaryPanActive\(active\)/);
+  assert.match(editor, /this\.tool === "pan" \|\| this\.temporaryPanActive/);
+  assert.doesNotMatch(app, /setTool\("pan"\).*Space/s);
 });
 
 test("project creation replaces default project entry path", () => {

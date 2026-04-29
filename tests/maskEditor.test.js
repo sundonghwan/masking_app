@@ -85,6 +85,55 @@ test("selectConnectedRegionFromImageData respects max pixel cap", async () => {
   assert.equal(region.length, 3);
 });
 
+test("selectEdgeAwareRegionFromImageData uses diagonal neighbors for natural expansion", async () => {
+  const { selectEdgeAwareRegionFromImageData } = await import("../src/editor/maskEditor.js");
+  const imageData = new TestImageData(3, 3);
+  imageData.data.set([
+    10, 10, 10, 255,
+    200, 200, 200, 255,
+    200, 200, 200, 255,
+    200, 200, 200, 255,
+    10, 10, 10, 255,
+    200, 200, 200, 255,
+    200, 200, 200, 255,
+    200, 200, 200, 255,
+    10, 10, 10, 255,
+  ]);
+
+  const region = selectEdgeAwareRegionFromImageData(imageData, { x: 0, y: 0 }, {
+    colorTolerance: 0,
+    edgeThreshold: Infinity,
+    smoothIterations: 0,
+  });
+
+  assert.deepEqual(region, [
+    { x: 0, y: 0 },
+    { x: 1, y: 1 },
+    { x: 2, y: 2 },
+  ]);
+});
+
+test("selectEdgeAwareRegionFromImageData stops at strong image edges", async () => {
+  const { selectEdgeAwareRegionFromImageData } = await import("../src/editor/maskEditor.js");
+  const imageData = new TestImageData(7, 5);
+  for (let y = 0; y < imageData.height; y += 1) {
+    for (let x = 0; x < imageData.width; x += 1) {
+      const value = x <= 2 ? 20 : 220;
+      imageData.data.set([value, value, value, 255], (y * imageData.width + x) * 4);
+    }
+  }
+
+  const region = selectEdgeAwareRegionFromImageData(imageData, { x: 1, y: 2 }, {
+    colorTolerance: 255,
+    edgeThreshold: 80,
+    maxPixels: 100,
+    smoothIterations: 0,
+  });
+
+  assert.ok(region.length > 0);
+  assert.equal(region.some((pixel) => pixel.x >= 4), false);
+});
+
 test("constructor rejects missing visible canvas", async () => {
   const { createMaskEditor } = await import("../src/editor/maskEditor.js");
 

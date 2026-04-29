@@ -842,7 +842,7 @@ h2 {
 
 .segmented {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
   border: 1px solid var(--border-subtle);
@@ -854,7 +854,8 @@ h2 {
   height: 30px;
   border-color: transparent;
   background: transparent;
-  font-size: 12px;
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .segment.active {

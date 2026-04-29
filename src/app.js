@@ -319,6 +319,8 @@ function bindEvents() {
     void applyRouteFromHash();
   });
   window.addEventListener("keydown", handleShortcut);
+  window.addEventListener("keyup", handleShortcutRelease);
+  window.addEventListener("blur", () => editor.setTemporaryPanActive(false));
   window.addEventListener("resize", resizeEditorCanvas);
 
   if ("ResizeObserver" in window) {
@@ -1535,7 +1537,7 @@ function setTool(tool) {
 }
 
 function handleShortcut(event) {
-  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
+  if (isEditableShortcutTarget(event.target)) return;
   if (currentScreen() !== SCREENS.WORKBENCH || els.workbenchScreen.hidden) return;
 
   const rawKey = event.key;
@@ -1543,7 +1545,10 @@ function handleShortcut(event) {
   const ctrl = event.metaKey || event.ctrlKey;
   const panDelta = panDeltaForKey(rawKey, event.shiftKey ? 96 : 48);
 
-  if (panDelta) {
+  if (event.code === "Space" && !ctrl) {
+    event.preventDefault();
+    editor.setTemporaryPanActive(true);
+  } else if (panDelta) {
     event.preventDefault();
     editor.panBy(panDelta.dx, panDelta.dy);
     updateStatusbar();
@@ -1562,7 +1567,7 @@ function handleShortcut(event) {
     setTool("brush");
   } else if (key === "e") {
     setTool("erase");
-  } else if (key === "m") {
+  } else if (key === "w" || key === "m") {
     setTool("magic");
   } else if (key === "v") {
     setTool("view");
@@ -1577,6 +1582,17 @@ function handleShortcut(event) {
   } else if (key === "enter") {
     void submitCurrentImage();
   }
+}
+
+function handleShortcutRelease(event) {
+  if (event.code !== "Space") return;
+  editor.setTemporaryPanActive(false);
+}
+
+function isEditableShortcutTarget(target) {
+  return target instanceof HTMLInputElement ||
+    target instanceof HTMLSelectElement ||
+    target instanceof HTMLTextAreaElement;
 }
 
 function selectAdjacentImage(delta) {

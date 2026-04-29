@@ -44,6 +44,8 @@
 - [x] Submitted data edit/revision flow with audit event
 - [x] Zoomed image pan/camera movement controls
 - [x] Magic-click assisted mask tool for local region selection
+- [x] Edge-aware magic tool using local image edge detection
+- [x] Spacebar temporary pan workflow for editor efficiency
 - [x] Dashboard planning and design for operational overview
 
 ## In Progress
@@ -70,7 +72,7 @@
 
 - [ ] Persist session/account storage beyond the current in-memory MVP session map.
 - [ ] Restore server image/mask binaries into IndexedDB for full cross-device editing.
-- [ ] AI-backed segmentation model integration behind the magic-click tool.
+- [ ] AI-backed segmentation model integration behind the magic-click tool after local edge-aware selection reaches its limit.
 - [ ] Implement the dashboard screen from `docs/DASHBOARD_DESIGN.md`.
 
 ## Hardcoded Runtime Debt

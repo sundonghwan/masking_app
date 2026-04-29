@@ -334,6 +334,9 @@ Acceptance criteria:
 - [x] pan state resets or persists by a defined rule when switching images
 - [x] magic-click action previews or applies a local mask region deterministically
 - [x] magic-click changes can be undone before save
+- [x] magic-click uses local edge-aware image processing rather than simple
+  4-way color fill
+- [x] Spacebar temporarily pans the canvas without switching the selected tool
 
 ### 9. Dashboard Planning And Design
 

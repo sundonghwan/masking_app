@@ -1,6 +1,23 @@
 const MASK_COLOR = [229, 72, 77];
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 12;
+const MAGIC_DEFAULTS = {
+  colorTolerance: 42,
+  edgeThreshold: 55,
+  maxPixels: 70000,
+  smoothIterations: 1,
+};
+const FOUR_NEIGHBORS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const EIGHT_NEIGHBORS = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
 
 export const MASK_EDITOR_DEFAULTS = {
   overlayColor: "#E5484D",
@@ -38,13 +55,41 @@ export function panDeltaForKey(key, step = 48) {
 }
 
 export function selectConnectedRegionFromImageData(imageData, start, options = {}) {
+  return growRegionFromImageData(imageData, start, {
+    colorTolerance: options.tolerance ?? options.colorTolerance ?? 36,
+    edgeThreshold: Infinity,
+    maxPixels: options.maxPixels ?? 50000,
+    useEightNeighbors: false,
+    smoothIterations: 0,
+  });
+}
+
+export function selectEdgeAwareRegionFromImageData(imageData, start, options = {}) {
+  const colorTolerance = options.colorTolerance ?? options.tolerance ?? MAGIC_DEFAULTS.colorTolerance;
+  const edgeThreshold = options.edgeThreshold ?? MAGIC_DEFAULTS.edgeThreshold;
+  const maxPixels = options.maxPixels ?? MAGIC_DEFAULTS.maxPixels;
+  const smoothIterations = options.smoothIterations ?? MAGIC_DEFAULTS.smoothIterations;
+  const edgeMap = createEdgeMagnitudeMap(imageData);
+
+  return growRegionFromImageData(imageData, start, {
+    colorTolerance,
+    edgeThreshold,
+    edgeMap,
+    maxPixels,
+    useEightNeighbors: true,
+    smoothIterations,
+  });
+}
+
+function growRegionFromImageData(imageData, start, options = {}) {
   const width = imageData.width;
   const height = imageData.height;
   const startX = Math.floor(start?.x ?? -1);
   const startY = Math.floor(start?.y ?? -1);
   if (startX < 0 || startY < 0 || startX >= width || startY >= height) return [];
 
-  const tolerance = Math.max(0, Number(options.tolerance ?? 36));
+  const tolerance = Math.max(0, Number(options.colorTolerance ?? 36));
+  const edgeThreshold = Number(options.edgeThreshold ?? Infinity);
   const maxPixels = Math.max(1, Number(options.maxPixels ?? 50000));
   const data = imageData.data;
   const startIndex = (startY * width + startX) * 4;
@@ -58,19 +103,28 @@ export function selectConnectedRegionFromImageData(imageData, start, options = {
   while (head < queue.length && region.length < maxPixels) {
     const [x, y] = queue[head];
     head += 1;
-    const index = (y * width + x) * 4;
+    const pixelKey = y * width + x;
+    const index = pixelKey * 4;
     if (colorDistance(seed, [data[index], data[index + 1], data[index + 2]]) > tolerance) continue;
+    if (options.edgeMap && options.edgeMap[pixelKey] > edgeThreshold && !(x === startX && y === startY)) continue;
     region.push({ x, y });
 
-    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+    const neighbors = options.useEightNeighbors ? EIGHT_NEIGHBORS : FOUR_NEIGHBORS;
+    for (const [dx, dy] of neighbors) {
+      const nx = x + dx;
+      const ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
       const key = ny * width + nx;
       if (visited[key]) continue;
+      if (options.edgeMap && Math.max(options.edgeMap[pixelKey], options.edgeMap[key]) > edgeThreshold) continue;
       visited[key] = 1;
       queue.push([nx, ny]);
     }
   }
 
+  if (options.smoothIterations > 0 && region.length > 0 && region.length < maxPixels) {
+    return smoothRegion(region, width, height, options.smoothIterations);
+  }
   return region;
 }
 
@@ -96,6 +150,7 @@ export class MaskEditor {
     this.offsetY = 0;
     this.isPointerDown = false;
     this.isPanning = false;
+    this.temporaryPanActive = false;
     this.lastPoint = null;
     this.cursorPoint = null;
     this.beforeStroke = null;
@@ -324,10 +379,15 @@ export class MaskEditor {
     this.onViewportChange(this.getViewportState());
   }
 
+  setTemporaryPanActive(active) {
+    this.temporaryPanActive = Boolean(active);
+    this.redraw();
+  }
+
   magicSelectAt(point, options = {}) {
     if (!this.image || !inBounds(point, this.image)) return 0;
     const source = this.sourceCtx.getImageData(0, 0, this.sourceCanvas.width, this.sourceCanvas.height);
-    const region = selectConnectedRegionFromImageData(source, point, options);
+    const region = selectEdgeAwareRegionFromImageData(source, point, options);
     if (region.length === 0) return 0;
 
     const mask = this.maskCtx.getImageData(0, 0, this.maskCanvas.width, this.maskCanvas.height);
@@ -448,7 +508,7 @@ export class MaskEditor {
       const point = this.eventToImagePoint(event);
       this.isPointerDown = true;
       this.lastPoint = point;
-      this.isPanning = this.tool === "pan" || event.spaceKey;
+      this.isPanning = this.tool === "pan" || this.temporaryPanActive;
 
       if (["brush", "erase"].includes(this.tool)) {
         this.beforeStroke = this.snapshotMask();
@@ -588,6 +648,106 @@ function loadImage(url) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function createEdgeMagnitudeMap(imageData) {
+  const width = imageData.width;
+  const height = imageData.height;
+  const gray = createBlurredGrayscale(imageData);
+  const edges = new Float32Array(width * height);
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const topLeft = sampleGray(gray, width, height, x - 1, y - 1);
+      const top = sampleGray(gray, width, height, x, y - 1);
+      const topRight = sampleGray(gray, width, height, x + 1, y - 1);
+      const left = sampleGray(gray, width, height, x - 1, y);
+      const right = sampleGray(gray, width, height, x + 1, y);
+      const bottomLeft = sampleGray(gray, width, height, x - 1, y + 1);
+      const bottom = sampleGray(gray, width, height, x, y + 1);
+      const bottomRight = sampleGray(gray, width, height, x + 1, y + 1);
+      const gx = -topLeft + topRight - (2 * left) + (2 * right) - bottomLeft + bottomRight;
+      const gy = -topLeft - (2 * top) - topRight + bottomLeft + (2 * bottom) + bottomRight;
+      edges[y * width + x] = Math.hypot(gx, gy);
+    }
+  }
+
+  return edges;
+}
+
+function sampleGray(gray, width, height, x, y) {
+  const safeX = clamp(x, 0, width - 1);
+  const safeY = clamp(y, 0, height - 1);
+  return gray[safeY * width + safeX];
+}
+
+function createBlurredGrayscale(imageData) {
+  const width = imageData.width;
+  const height = imageData.height;
+  const raw = new Float32Array(width * height);
+  const blurred = new Float32Array(width * height);
+
+  for (let i = 0; i < raw.length; i += 1) {
+    const sourceIndex = i * 4;
+    raw[i] = (0.299 * imageData.data[sourceIndex]) +
+      (0.587 * imageData.data[sourceIndex + 1]) +
+      (0.114 * imageData.data[sourceIndex + 2]);
+  }
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let total = 0;
+      let count = 0;
+      for (let dy = -1; dy <= 1; dy += 1) {
+        for (let dx = -1; dx <= 1; dx += 1) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          total += raw[ny * width + nx];
+          count += 1;
+        }
+      }
+      blurred[y * width + x] = total / count;
+    }
+  }
+
+  return blurred;
+}
+
+function smoothRegion(region, width, height, iterations) {
+  let mask = new Uint8Array(width * height);
+  for (const pixel of region) {
+    mask[pixel.y * width + pixel.x] = 1;
+  }
+
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    const next = new Uint8Array(mask);
+    for (let y = 1; y < height - 1; y += 1) {
+      for (let x = 1; x < width - 1; x += 1) {
+        const key = y * width + x;
+        const activeNeighbors = countActiveNeighbors(mask, width, x, y);
+        if (!mask[key] && activeNeighbors >= 5) next[key] = 1;
+        if (mask[key] && activeNeighbors <= 1) next[key] = 0;
+      }
+    }
+    mask = next;
+  }
+
+  const smoothed = [];
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (mask[y * width + x]) smoothed.push({ x, y });
+    }
+  }
+  return smoothed;
+}
+
+function countActiveNeighbors(mask, width, x, y) {
+  let count = 0;
+  for (const [dx, dy] of EIGHT_NEIGHBORS) {
+    count += mask[(y + dy) * width + x + dx];
+  }
+  return count;
 }
 
 function colorDistance(left, right) {
