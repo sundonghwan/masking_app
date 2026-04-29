@@ -476,3 +476,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-screen-flow-app.js
 [CMD] rg loginScreen|projectsScreen|workbenchScreen|sessionPassword|projectSummaryList|openDefaultProjectButton|editorCanvas /tmp/masking-screen-flow.html
 [CMD] rg routeToScreen|currentScreen|canEnterWorkbench|openDefaultProject|renderRolePanels /tmp/masking-screen-flow-app.js
+[CLOSE] status=screen-flow-separation-complete
+[GIT] commit=635640d message="Add screen flow separation"

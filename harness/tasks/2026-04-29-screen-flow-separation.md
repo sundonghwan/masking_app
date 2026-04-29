@@ -112,4 +112,5 @@
 - [x] Review checklist completed.
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
-- [ ] Commit and push completed.
+- [x] Commit completed: `635640d Add screen flow separation`.
+- [ ] Push completed.
