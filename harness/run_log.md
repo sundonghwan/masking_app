@@ -556,3 +556,23 @@ chains in `harness/tasks/`; keep this file short.
 [GIT] commit=5b4877b message="Add submitted revision flow"
 [GIT] commit=fdee018 message="Record submitted revision closeout"
 [GIT] push=origin/main status=passed range=69e5f6c..fdee018
+[START] task=zoom-pan-controls subsystem=canvas-viewport
+[PLAN] scope=keyboard-camera-pan-and-tested-pan-helper risks=mask-mutation,undo-history-pollution,input-key-conflict
+[IMPACT] status=suspected chain=handleShortcut->panDeltaForKey->MaskEditor.panBy
+[IMPACT] status=suspected chain=MaskEditor.bindCanvasEvents->panning-branch->viewport-state
+[IMPACT_VALIDATE] chain=handleShortcut->panDeltaForKey->MaskEditor.panBy validation=npm test -- tests/maskEditor.test.js tests/appContracts.test.js passed
+[IMPACT_VALIDATE] chain=MaskEditor.bindCanvasEvents->panning-branch->viewport-state validation=full-test-suite-passed; panning-branch-does-not-call-onChange
+[DOC] updated=docs/FEATURE_STATUS.md note=zoom pan controls marked complete
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=pan acceptance checked and reset rule documented as fit-on-load
+[CMD] npm test -- tests/maskEditor.test.js tests/appContracts.test.js
+[CMD] npm run lint
+[CMD] git diff --check
+[CMD] ./scripts/harness/lint-all.sh
+[CMD] ./scripts/harness/typecheck-all.sh
+[CMD] ./scripts/harness/test-target.sh
+[CMD] ./scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-zoom-pan-app.js
+[CMD] curl -sS http://localhost:4173/src/editor/maskEditor.js -o /tmp/masking-zoom-pan-editor.js
+[CMD] rg panDeltaForKey|editor.panBy|shiftKey /tmp/masking-zoom-pan-app.js
+[CMD] rg panDeltaForKey|panBy|onViewportChange /tmp/masking-zoom-pan-editor.js
+[REVIEW] finding=none-blocking scope=zoom-pan-controls notes=checked-pan-does-not-call-onChange-or-undo-and-keyboard-shortcuts-ignore-inputs-through-existing-guard

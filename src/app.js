@@ -1,5 +1,5 @@
 import { createMaskingApiClient, normalizeApiError } from "./api/client.js";
-import { MaskEditor } from "./editor/maskEditor.js";
+import { MaskEditor, panDeltaForKey } from "./editor/maskEditor.js";
 import {
   buildAnnotations,
   buildExportSummary,
@@ -1538,10 +1538,16 @@ function handleShortcut(event) {
   if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return;
   if (currentScreen() !== SCREENS.WORKBENCH || els.workbenchScreen.hidden) return;
 
-  const key = event.key.toLowerCase();
+  const rawKey = event.key;
+  const key = rawKey.toLowerCase();
   const ctrl = event.metaKey || event.ctrlKey;
+  const panDelta = panDeltaForKey(rawKey, event.shiftKey ? 96 : 48);
 
-  if (ctrl && key === "s") {
+  if (panDelta) {
+    event.preventDefault();
+    editor.panBy(panDelta.dx, panDelta.dy);
+    updateStatusbar();
+  } else if (ctrl && key === "s") {
     event.preventDefault();
     void saveCurrentMask();
   } else if (ctrl && key === "z") {

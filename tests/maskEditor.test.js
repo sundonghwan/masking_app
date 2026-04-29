@@ -39,6 +39,16 @@ test("normalizeMaskImageData converts source pixels to binary alpha mask", async
   ]);
 });
 
+test("panDeltaForKey maps arrow keys without touching mask state", async () => {
+  const { panDeltaForKey } = await import("../src/editor/maskEditor.js");
+
+  assert.deepEqual(panDeltaForKey("ArrowLeft", 24), { dx: 24, dy: 0 });
+  assert.deepEqual(panDeltaForKey("ArrowRight", 24), { dx: -24, dy: 0 });
+  assert.deepEqual(panDeltaForKey("ArrowUp", 24), { dx: 0, dy: 24 });
+  assert.deepEqual(panDeltaForKey("ArrowDown", 24), { dx: 0, dy: -24 });
+  assert.equal(panDeltaForKey("a", 24), null);
+});
+
 test("constructor rejects missing visible canvas", async () => {
   const { createMaskEditor } = await import("../src/editor/maskEditor.js");
 

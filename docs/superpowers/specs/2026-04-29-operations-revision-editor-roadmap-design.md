@@ -276,8 +276,9 @@ Files likely touched:
 Acceptance criteria:
 
 - pan tool changes viewport and never changes mask pixels
+- arrow-key camera movement changes viewport and never changes mask pixels
 - brush/erase changes mask pixels and never changes viewport
-- temporary pan modifier does not paint at pointer down
+- image switch resets viewport through the existing fit-on-load behavior
 - view/pan labels and shortcuts are consistent
 
 ### Batch B2: Deterministic Magic-Click

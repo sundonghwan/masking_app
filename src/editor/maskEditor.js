@@ -28,6 +28,15 @@ export function normalizeMaskImageData(imageData) {
   return imageData;
 }
 
+export function panDeltaForKey(key, step = 48) {
+  const amount = Number.isFinite(Number(step)) ? Math.max(1, Math.abs(Number(step))) : 48;
+  if (key === "ArrowLeft") return { dx: amount, dy: 0 };
+  if (key === "ArrowRight") return { dx: -amount, dy: 0 };
+  if (key === "ArrowUp") return { dx: 0, dy: amount };
+  if (key === "ArrowDown") return { dx: 0, dy: -amount };
+  return null;
+}
+
 export class MaskEditor {
   constructor(canvas, options = {}) {
     if (!canvas) {

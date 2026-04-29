@@ -133,6 +133,16 @@ test("submitted revision flow records audit and removes exportable status", () =
   assert.match(server, /function normalizeRevisionEvent/);
 });
 
+test("zoomed image pan controls use viewport movement without mask save", () => {
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const editor = fs.readFileSync(new URL("../src/editor/maskEditor.js", import.meta.url), "utf8");
+
+  assert.match(app, /panDeltaForKey/);
+  assert.match(app, /editor\.panBy\(panDelta\.dx, panDelta\.dy\)/);
+  assert.match(editor, /export function panDeltaForKey/);
+  assert.match(editor, /panBy\(deltaX, deltaY\)/);
+});
+
 test("project creation replaces default project entry path", () => {
   const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
   const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
