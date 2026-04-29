@@ -80,4 +80,4 @@
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
 - [x] Commit completed: `d885879 Add zoom pan controls`.
-- [ ] Push completed.
+- [x] Push completed: `origin/main` at `8be953a`.

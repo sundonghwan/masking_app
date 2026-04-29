@@ -578,3 +578,5 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=zoom-pan-controls notes=checked-pan-does-not-call-onChange-or-undo-and-keyboard-shortcuts-ignore-inputs-through-existing-guard
 [CLOSE] status=zoom-pan-controls-complete
 [GIT] commit=d885879 message="Add zoom pan controls"
+[GIT] commit=8be953a message="Record zoom pan closeout"
+[GIT] push=origin/main status=passed range=02faf05..8be953a
