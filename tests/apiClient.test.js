@@ -53,6 +53,34 @@ test("uploads an image and URL-encodes the project path segment", async () => {
   });
 });
 
+test("uploads an image with multipart form data when a File is provided", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { userId: "worker-1", role: "worker" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ id: "image-1", image_path: "images/image-1.png" }, 201);
+    },
+  });
+  const file = new File([new Uint8Array([1, 2, 3])], "frame.png", { type: "image/png" });
+
+  await client.uploadImage("project-1", {
+    imageId: "image-1",
+    fileName: "frame.png",
+    file,
+    width: 12,
+    height: 8,
+  });
+
+  assert.equal(calls[0].url, "/api/projects/project-1/images");
+  assert.equal(calls[0].options.headers["x-user-id"], "worker-1");
+  assert.equal(calls[0].options.headers["x-user-role"], "worker");
+  assert.equal(Object.hasOwn(calls[0].options.headers, "content-type"), false);
+  assert.equal(calls[0].options.body instanceof FormData, true);
+  assert.equal(calls[0].options.body.get("image_id"), "image-1");
+  assert.equal(calls[0].options.body.get("image").name, "frame.png");
+});
+
 test("lists projects", async () => {
   const client = createMaskingApiClient({
     fetchImpl: async (url, options) => {

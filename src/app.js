@@ -24,14 +24,23 @@ const state = {
   autosaveTimer: null,
   backendProjectReady: false,
   uploadRejections: [],
+  sessionUserId: "local_admin",
+  sessionRole: "admin",
   reviewReasonDraft: "",
   reviewerId: "local_reviewer",
+  assignmentWorkerId: "local_worker",
+  assignmentReviewerId: "local_reviewer",
   exportApprovedOnly: false,
   projectSummaries: [],
   projectSummariesError: "",
 };
 
-const apiClient = createMaskingApiClient();
+const apiClient = createMaskingApiClient({
+  getSession: () => ({
+    userId: state.sessionUserId,
+    role: state.sessionRole,
+  }),
+});
 const logger = createLogger({ component: "frontend" });
 const projectStore = createProjectStore();
 
@@ -66,6 +75,13 @@ const els = {
   metaFilename: document.querySelector("#metaFilename"),
   metaSize: document.querySelector("#metaSize"),
   metaStatus: document.querySelector("#metaStatus"),
+  sessionUserId: document.querySelector("#sessionUserId"),
+  sessionRole: document.querySelector("#sessionRole"),
+  sessionMessage: document.querySelector("#sessionMessage"),
+  assignmentWorkerId: document.querySelector("#assignmentWorkerId"),
+  assignmentReviewerId: document.querySelector("#assignmentReviewerId"),
+  assignButton: document.querySelector("#assignButton"),
+  assignmentMessage: document.querySelector("#assignmentMessage"),
   reviewerId: document.querySelector("#reviewerId"),
   reviewerIdentitySummary: document.querySelector("#reviewerIdentitySummary"),
   reviewDetailLink: document.querySelector("#reviewDetailLink"),
@@ -196,6 +212,25 @@ function bindEvents() {
   els.approveButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.APPROVE));
   els.rejectButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.REJECT));
   els.reworkButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.REWORK));
+  els.assignButton.addEventListener("click", () => void assignSelectedImage());
+  els.sessionUserId.addEventListener("input", () => {
+    state.sessionUserId = normalizeActorId(els.sessionUserId.value);
+    void persistProject();
+    renderSessionPanel();
+  });
+  els.sessionRole.addEventListener("change", () => {
+    state.sessionRole = normalizeRole(els.sessionRole.value);
+    void persistProject();
+    render();
+  });
+  els.assignmentWorkerId.addEventListener("input", () => {
+    state.assignmentWorkerId = normalizeActorId(els.assignmentWorkerId.value);
+    void persistProject();
+  });
+  els.assignmentReviewerId.addEventListener("input", () => {
+    state.assignmentReviewerId = normalizeActorId(els.assignmentReviewerId.value);
+    void persistProject();
+  });
   els.reviewReason.addEventListener("input", () => {
     state.reviewReasonDraft = els.reviewReason.value;
   });
@@ -284,6 +319,8 @@ async function selectImage(imageId, options = {}) {
 
   state.selectedId = image.id;
   state.reviewReasonDraft = image.reject_reason || "";
+  state.assignmentWorkerId = image.worker_id || state.assignmentWorkerId;
+  state.assignmentReviewerId = image.reviewer_id || state.assignmentReviewerId || state.reviewerId;
   image.status = image.status === "not_started" ? "in_progress" : image.status;
   setSaveState("saving", "이미지 로딩");
   await ensureObjectUrls(image);
@@ -439,7 +476,7 @@ async function syncUploadedImage(image, file) {
     const uploaded = await apiClient.uploadImage(state.projectId, {
       imageId: image.id,
       fileName: image.original_file_name || image.fileName,
-      dataUrl: await blobToDataUrl(file),
+      file,
       width: image.width,
       height: image.height,
     });
@@ -554,9 +591,42 @@ async function retrySelectedSync() {
   if (image.review_server_synced === false) {
     await syncReviewToBackend(image);
   }
+  if (image.assignment_server_synced === false) {
+    await syncAssignmentToBackend(image);
+  }
 
   render();
   setSaveState(hasSyncIssue(image) ? "failed" : "saved", hasSyncIssue(image) ? "동기화 확인 필요" : "동기화 완료");
+}
+
+async function syncAssignmentToBackend(image) {
+  try {
+    const response = await apiClient.assignImage(state.projectId, image.id, {
+      workerId: image.worker_id || state.assignmentWorkerId,
+      reviewerId: image.reviewer_id || state.assignmentReviewerId,
+    });
+    Object.assign(image, {
+      ...response.image,
+      fileName: image.fileName,
+      imagePath: response.image.image_path || image.imagePath,
+      maskPath: response.image.current_mask_path || image.maskPath,
+      assignment_server_synced: true,
+      server_sync_error: "",
+    });
+    await persistProject();
+    return true;
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    image.assignment_server_synced = false;
+    image.server_sync_error = normalized.message;
+    logger.warn("assignment.sync.retry.failed", {
+      project_id: state.projectId,
+      image_id: image.id,
+      error: normalized,
+    });
+    await persistProject();
+    return false;
+  }
 }
 
 async function syncReviewToBackend(image) {
@@ -672,6 +742,71 @@ async function reviewSelectedImage(action) {
   }
 }
 
+async function assignSelectedImage() {
+  const image = getSelectedImage();
+  if (!image) {
+    setAssignmentMessage("배정할 이미지를 선택하세요.", true);
+    return;
+  }
+  if (state.sessionRole !== "admin") {
+    setAssignmentMessage("admin 역할에서만 배정할 수 있습니다.", true);
+    return;
+  }
+
+  const workerId = normalizeActorId(state.assignmentWorkerId || image.worker_id || "local_worker");
+  const reviewerId = normalizeActorId(state.assignmentReviewerId || image.reviewer_id || state.reviewerId);
+  if (!workerId || !reviewerId) {
+    setAssignmentMessage("작업자와 리뷰어 ID가 필요합니다.", true);
+    return;
+  }
+
+  Object.assign(image, {
+    worker_id: workerId,
+    reviewer_id: reviewerId,
+    assignment_server_synced: false,
+    server_sync_error: "",
+    updated_at: new Date().toISOString(),
+  });
+  state.savedAt = new Date();
+  await persistProject();
+  render();
+
+  try {
+    const ready = await ensureBackendProject();
+    if (!ready) {
+      setAssignmentMessage("로컬 배정으로 저장됨. 서버 연결 후 동기화 필요", true);
+      return;
+    }
+    const response = await apiClient.assignImage(state.projectId, image.id, {
+      workerId,
+      reviewerId,
+    });
+    Object.assign(image, {
+      ...response.image,
+      fileName: image.fileName,
+      imagePath: response.image.image_path || image.imagePath,
+      maskPath: response.image.current_mask_path || image.maskPath,
+      assignment_server_synced: true,
+      server_sync_error: "",
+    });
+    await persistProject();
+    render();
+    setAssignmentMessage("배정 저장됨", false);
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    image.assignment_server_synced = false;
+    image.server_sync_error = normalized.message;
+    logger.warn("assignment.failed", {
+      project_id: state.projectId,
+      image_id: image.id,
+      error: normalized,
+    });
+    await persistProject();
+    render();
+    setAssignmentMessage(`배정 동기화 실패: ${normalized.message}`, true);
+  }
+}
+
 function inferReviewAction(image) {
   if (image.status === "approved") return REVIEW_ACTIONS.APPROVE;
   if (image.status === "rejected") return REVIEW_ACTIONS.REJECT;
@@ -737,6 +872,8 @@ function render() {
   renderImageList();
   renderMetadata();
   renderValidation();
+  renderSessionPanel();
+  renderAssignmentPanel();
   renderReviewPanel();
   renderReviewIdentity();
   renderExportPolicy();
@@ -822,6 +959,35 @@ function renderMetadata() {
   els.metaFilename.textContent = image?.fileName || "-";
   els.metaSize.textContent = image ? `${image.width}×${image.height}` : "-";
   els.metaStatus.textContent = image ? statusLabel(image.status) : "-";
+}
+
+function renderSessionPanel() {
+  if (document.activeElement !== els.sessionUserId) {
+    els.sessionUserId.value = state.sessionUserId;
+  }
+  els.sessionRole.value = state.sessionRole;
+  els.sessionMessage.textContent = `${state.sessionUserId || "미설정"} / ${state.sessionRole || "role 없음"}`;
+  els.sessionMessage.classList.toggle("warning", !state.sessionUserId || !state.sessionRole);
+}
+
+function renderAssignmentPanel() {
+  const image = getSelectedImage();
+  if (document.activeElement !== els.assignmentWorkerId) {
+    els.assignmentWorkerId.value = state.assignmentWorkerId || image?.worker_id || "";
+  }
+  if (document.activeElement !== els.assignmentReviewerId) {
+    els.assignmentReviewerId.value = state.assignmentReviewerId || image?.reviewer_id || state.reviewerId || "";
+  }
+  els.assignButton.disabled = !image || state.sessionRole !== "admin";
+  if (!image) {
+    setAssignmentMessage("이미지를 선택하면 배정할 수 있습니다.", false);
+  } else if (state.sessionRole !== "admin") {
+    setAssignmentMessage("admin 역할에서만 배정할 수 있습니다.", true);
+  } else if (image.assignment_server_synced === false) {
+    setAssignmentMessage("배정 서버 동기화가 필요합니다.", true);
+  } else {
+    setAssignmentMessage(`작업자 ${image.worker_id || "미배정"} · 리뷰어 ${image.reviewer_id || "미배정"}`, false);
+  }
 }
 
 function renderReviewPanel() {
@@ -1026,6 +1192,11 @@ function setReviewMessage(message, warning = false) {
   els.reviewMessage.classList.toggle("warning", warning);
 }
 
+function setAssignmentMessage(message, warning = false) {
+  els.assignmentMessage.textContent = message;
+  els.assignmentMessage.classList.toggle("warning", warning);
+}
+
 function reviewStatusMessage(image) {
   return {
     approved: "승인 완료",
@@ -1053,7 +1224,8 @@ function hasSyncIssue(image) {
     image.server_sync_error ||
     !image.server_image_synced ||
     (image.current_mask_path && !image.server_mask_synced) ||
-    image.review_server_synced === false
+    image.review_server_synced === false ||
+    image.assignment_server_synced === false
   ));
 }
 
@@ -1114,7 +1286,11 @@ async function persistProject() {
     lastExportMode: state.lastExportMode || "",
     lastExportMessage: state.lastExportMessage || "",
     exportApprovedOnly: Boolean(state.exportApprovedOnly),
+    sessionUserId: state.sessionUserId,
+    sessionRole: state.sessionRole,
     reviewerId: state.reviewerId,
+    assignmentWorkerId: state.assignmentWorkerId,
+    assignmentReviewerId: state.assignmentReviewerId,
     uploadRejections: state.uploadRejections || [],
     images: state.images.map(toSerializableImage),
   };
@@ -1136,7 +1312,11 @@ async function restoreProject() {
     state.lastExportMode = saved.lastExportMode || "";
     state.lastExportMessage = saved.lastExportMessage || "";
     state.exportApprovedOnly = Boolean(saved.exportApprovedOnly);
+    state.sessionUserId = normalizeActorId(saved.sessionUserId) || state.sessionUserId;
+    state.sessionRole = normalizeRole(saved.sessionRole) || state.sessionRole;
     state.reviewerId = normalizeReviewerId(saved.reviewerId) || state.reviewerId;
+    state.assignmentWorkerId = normalizeActorId(saved.assignmentWorkerId) || state.assignmentWorkerId;
+    state.assignmentReviewerId = normalizeActorId(saved.assignmentReviewerId) || state.assignmentReviewerId;
     state.uploadRejections = Array.isArray(saved.uploadRejections) ? saved.uploadRejections : [];
     state.images = await Promise.all((saved.images || []).map(rehydrateImageRecord));
     setSaveState("saved", "작업 복구됨");
@@ -1161,7 +1341,11 @@ async function clearProject() {
   state.lastExportMode = "";
   state.lastExportMessage = "";
   state.exportApprovedOnly = false;
+  state.sessionUserId = "local_admin";
+  state.sessionRole = "admin";
   state.reviewerId = "local_reviewer";
+  state.assignmentWorkerId = "local_worker";
+  state.assignmentReviewerId = "local_reviewer";
   state.uploadRejections = [];
   await projectStore.clearProject();
   editor.clear();
@@ -1226,6 +1410,15 @@ function statusLabel(status) {
     approved: "승인",
     rejected: "반려",
   }[status] || status;
+}
+
+function normalizeActorId(value) {
+  return String(value || "").trim();
+}
+
+function normalizeRole(value) {
+  const role = String(value || "").trim().toLowerCase();
+  return ["admin", "worker", "reviewer"].includes(role) ? role : "worker";
 }
 
 function escapeHtml(value) {

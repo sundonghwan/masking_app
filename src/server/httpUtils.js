@@ -1,6 +1,18 @@
 export const JSON_LIMIT_BYTES = 25 * 1024 * 1024;
 
 export async function readJsonBody(request, limit = JSON_LIMIT_BYTES) {
+  const body = await readRawBody(request, limit);
+
+  if (body.length === 0) return {};
+
+  try {
+    return JSON.parse(body.toString("utf8"));
+  } catch (error) {
+    throw createHttpError(400, `Invalid JSON body: ${error.message}`);
+  }
+}
+
+export async function readRawBody(request, limit = JSON_LIMIT_BYTES) {
   const chunks = [];
   let size = 0;
 
@@ -12,13 +24,7 @@ export async function readJsonBody(request, limit = JSON_LIMIT_BYTES) {
     chunks.push(chunk);
   }
 
-  if (chunks.length === 0) return {};
-
-  try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  } catch (error) {
-    throw createHttpError(400, `Invalid JSON body: ${error.message}`);
-  }
+  return chunks.length > 0 ? Buffer.concat(chunks) : Buffer.alloc(0);
 }
 
 export function sendJson(response, statusCode, value) {

@@ -27,6 +27,9 @@
 - [x] Local reviewer identity field
 - [x] Required reviewer ID in review audit events
 - [x] Hash-based review detail route
+- [x] Multipart/FormData image upload
+- [x] Role-aware API request headers and server RBAC checks
+- [x] Admin image assignment workflow
 
 ## In Progress
 
@@ -34,6 +37,5 @@
 
 ## Remaining
 
-- [ ] Real auth/session/RBAC
-- [ ] Multipart/streaming upload
-- [ ] Admin/assignment workflow
+- [ ] Project selection/restore from server project list
+- [ ] Hard login/session store beyond local role headers

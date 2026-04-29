@@ -8,11 +8,17 @@ import {
   createValidationSummary,
   serializeJson,
 } from "../export/exporter.js";
-import { createHttpError, methodNotAllowed, notFound, readJsonBody, sendBuffer, sendJson } from "./httpUtils.js";
-import { parseImageMetadataFromDataUrl, validateClientDimensions } from "./imageMetadata.js";
+import { createHttpError, methodNotAllowed, notFound, readJsonBody, readRawBody, sendBuffer, sendJson } from "./httpUtils.js";
+import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimensions } from "./imageMetadata.js";
 import { validateMaskContract } from "./maskValidation.js";
 import { applyReviewTransition } from "../review/policy.js";
-import { UPLOAD_REASONS, validateImageDataUrlUpload } from "../upload/policy.js";
+import { UPLOAD_REASONS, validateImageDataUrlUpload, validateUploadCandidate } from "../upload/policy.js";
+
+const ROLES = {
+  WORKER: "worker",
+  REVIEWER: "reviewer",
+  ADMIN: "admin",
+};
 
 export function createApiRouter({ storage, logger = null }) {
   return async function routeApi(request, response, url, context = {}) {
@@ -63,11 +69,20 @@ export function createApiRouter({ storage, logger = null }) {
     }
 
     if (parts.length === 2 && parts[1] === "images" && request.method === "POST") {
-      const body = await readJsonBody(request);
-      const uploadValidation = validateImageDataUrlUpload({
-        fileName: body.file_name || `${body.image_id || "image"}.png`,
-        dataUrl: body.data_url,
-      });
+      const session = readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.ADMIN])) return;
+
+      const upload = await readImageUpload(request);
+      const uploadValidation = upload.file
+        ? validateUploadCandidate({
+            fileName: upload.fileName || `${upload.imageId || "image"}.png`,
+            mimeType: upload.mimeType,
+            sizeBytes: upload.buffer.length,
+          })
+        : validateImageDataUrlUpload({
+            fileName: upload.fileName || `${upload.imageId || "image"}.png`,
+            dataUrl: upload.dataUrl,
+          });
       if (!uploadValidation.valid) {
         logger?.warn("image.upload.validation_failed", {
           request_id: context.requestId,
@@ -81,7 +96,9 @@ export function createApiRouter({ storage, logger = null }) {
           validation: uploadValidation,
         });
       }
-      const imageMetadata = parseImageMetadataFromDataUrl(body.data_url);
+      const imageMetadata = upload.file
+        ? { ...parseImageMetadata(upload.buffer, upload.mimeType), mimeType: upload.mimeType, sizeBytes: upload.buffer.length }
+        : parseImageMetadataFromDataUrl(upload.dataUrl);
       if (!imageMetadata.valid) {
         logger?.warn("image.upload.metadata_failed", {
           request_id: context.requestId,
@@ -95,8 +112,8 @@ export function createApiRouter({ storage, logger = null }) {
         });
       }
       const dimensionValidation = validateClientDimensions({
-        width: body.width,
-        height: body.height,
+        width: upload.width,
+        height: upload.height,
       }, imageMetadata);
       if (!dimensionValidation.valid) {
         logger?.warn("image.upload.dimension_mismatch", {
@@ -112,17 +129,20 @@ export function createApiRouter({ storage, logger = null }) {
         });
       }
 
-      const manifest = await storage.ensureProject(projectId, { name: body.project_name });
-      const imageId = body.image_id || `image_${String((manifest.images || []).length + 1).padStart(4, "0")}`;
-      const written = await storage.writeImageFromDataUrl(projectId, imageId, body.file_name || `${imageId}.png`, body.data_url);
+      const manifest = await storage.ensureProject(projectId, { name: upload.projectName });
+      const nextImageId = upload.imageId || `image_${String((manifest.images || []).length + 1).padStart(4, "0")}`;
+      const written = upload.file
+        ? await storage.writeImageBuffer(projectId, nextImageId, upload.fileName || `${nextImageId}.png`, upload.buffer, { mimeType: upload.mimeType })
+        : await storage.writeImageFromDataUrl(projectId, nextImageId, upload.fileName || `${nextImageId}.png`, upload.dataUrl);
       const image = createImageRecord({
-        id: imageId,
+        id: nextImageId,
         projectId,
-        originalFileName: body.file_name || `${imageId}.png`,
+        originalFileName: upload.fileName || `${nextImageId}.png`,
         imagePath: written.relativePath,
         width: imageMetadata.width,
         height: imageMetadata.height,
         status: "not_started",
+        workerId: session.userId || "local_worker",
       });
       manifest.images = [...(manifest.images || []).filter((item) => item.id !== image.id), image];
       manifest.updated_at = new Date().toISOString();
@@ -131,6 +151,8 @@ export function createApiRouter({ storage, logger = null }) {
     }
 
     if (parts.length === 2 && parts[1] === "export" && request.method === "GET") {
+      const session = readSession(request);
+      if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       return exportProject(response, projectId, context, {
         approvedOnly: url.searchParams.get("approved_only") === "1",
       });
@@ -143,6 +165,8 @@ export function createApiRouter({ storage, logger = null }) {
     const imageId = parts[0];
 
     if (parts.length === 2 && parts[1] === "mask" && request.method === "PUT") {
+      const session = readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.ADMIN])) return;
       const body = await readJsonBody(request);
       const projectId = body.project_id;
       const manifest = await storage.readProjectManifest(projectId);
@@ -197,6 +221,8 @@ export function createApiRouter({ storage, logger = null }) {
     }
 
     if (parts.length === 2 && parts[1] === "review" && request.method === "PUT") {
+      const session = readSession(request);
+      if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       const body = await readJsonBody(request);
       const projectId = body.project_id;
       const manifest = await storage.readProjectManifest(projectId);
@@ -238,7 +264,139 @@ export function createApiRouter({ storage, logger = null }) {
       return sendJson(response, 200, { image: result.image, validation: result.validation });
     }
 
+    if (parts.length === 2 && parts[1] === "assignment" && request.method === "PUT") {
+      const session = readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const projectId = body.project_id;
+      const manifest = await storage.readProjectManifest(projectId);
+      if (!manifest) throw createHttpError(404, "Project not found");
+      const image = (manifest.images || []).find((item) => item.id === imageId);
+      if (!image) throw createHttpError(404, "Image not found");
+
+      const now = new Date().toISOString();
+      const updated = {
+        ...image,
+        worker_id: normalizeActorId(body.worker_id || image.worker_id || "local_worker"),
+        reviewer_id: normalizeActorId(body.reviewer_id || image.reviewer_id || ""),
+        assigned_by: session.userId,
+        assigned_at: now,
+        updated_at: now,
+      };
+      manifest.images = manifest.images.map((item) => item.id === imageId ? updated : item);
+      manifest.updated_at = now;
+      await storage.writeProjectManifest(projectId, manifest);
+      logger?.info("assignment.completed", {
+        request_id: context.requestId,
+        project_id: projectId,
+        image_id: imageId,
+        worker_id: updated.worker_id,
+        reviewer_id: updated.reviewer_id,
+      });
+      return sendJson(response, 200, { image: updated });
+    }
+
     return notFound(response);
+  }
+
+  function readSession(request) {
+    const role = String(request.headers["x-user-role"] || ROLES.ADMIN).trim().toLowerCase();
+    const userId = normalizeActorId(request.headers["x-user-id"] || "local_admin");
+    return {
+      userId,
+      role: Object.values(ROLES).includes(role) ? role : "",
+    };
+  }
+
+  function requireRole(response, session, allowedRoles) {
+    if (session.userId && allowedRoles.includes(session.role)) return true;
+    sendJson(response, 403, {
+      error: "forbidden",
+      message: "The current role cannot perform this action",
+      required_roles: allowedRoles,
+      role: session.role || "",
+    });
+    return false;
+  }
+
+  async function readImageUpload(request) {
+    const contentType = String(request.headers["content-type"] || "");
+    if (contentType.toLowerCase().startsWith("multipart/form-data")) {
+      return readMultipartImageUpload(request, contentType);
+    }
+    const body = await readJsonBody(request);
+    return {
+      file: false,
+      imageId: body.image_id,
+      fileName: body.file_name,
+      dataUrl: body.data_url,
+      width: body.width,
+      height: body.height,
+      projectName: body.project_name,
+    };
+  }
+
+  async function readMultipartImageUpload(request, contentType) {
+    const boundary = multipartBoundary(contentType);
+    if (!boundary) throw createHttpError(400, "Multipart boundary is required");
+    const body = await readRawBody(request);
+    const parts = parseMultipartBody(body, boundary);
+    const fields = {};
+    let file = null;
+    for (const part of parts) {
+      if (part.filename) {
+        file = part;
+      } else {
+        fields[part.name] = part.data.toString("utf8");
+      }
+    }
+    if (!file) throw createHttpError(400, "Multipart image file is required");
+    return {
+      file: true,
+      imageId: fields.image_id,
+      fileName: fields.file_name || file.filename,
+      width: fields.width,
+      height: fields.height,
+      projectName: fields.project_name,
+      mimeType: file.contentType,
+      buffer: file.data,
+    };
+  }
+
+  function multipartBoundary(contentType) {
+    const match = String(contentType).match(/boundary=(?:"([^"]+)"|([^;]+))/i);
+    return match ? (match[1] || match[2] || "").trim() : "";
+  }
+
+  function parseMultipartBody(body, boundary) {
+    const marker = Buffer.from(`--${boundary}`);
+    const parts = [];
+    let offset = 0;
+    while (offset < body.length) {
+      const start = body.indexOf(marker, offset);
+      if (start < 0) break;
+      let partStart = start + marker.length;
+      if (body.subarray(partStart, partStart + 2).toString() === "--") break;
+      if (body.subarray(partStart, partStart + 2).toString() === "\r\n") partStart += 2;
+      const headerEnd = body.indexOf(Buffer.from("\r\n\r\n"), partStart);
+      if (headerEnd < 0) break;
+      const next = body.indexOf(marker, headerEnd + 4);
+      if (next < 0) break;
+      const headers = body.subarray(partStart, headerEnd).toString("utf8");
+      let data = body.subarray(headerEnd + 4, next);
+      if (data.subarray(data.length - 2).toString() === "\r\n") data = data.subarray(0, data.length - 2);
+      const disposition = headers.match(/content-disposition:[^\r\n]+/i)?.[0] || "";
+      const name = disposition.match(/name="([^"]+)"/i)?.[1] || "";
+      const filename = disposition.match(/filename="([^"]*)"/i)?.[1] || "";
+      const contentType = headers.match(/content-type:\s*([^\r\n]+)/i)?.[1]?.trim().toLowerCase() || "application/octet-stream";
+      if (name) parts.push({ name, filename, contentType, data });
+      offset = next;
+    }
+    return parts;
+  }
+
+  function normalizeActorId(value) {
+    return String(value || "").trim();
   }
 
   function maskValidationStatusCode(validation) {

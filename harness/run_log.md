@@ -324,3 +324,25 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=three-feature-review-identity-detail-batch-complete
 [GIT] commit=2785f96 message="Add review identity and detail route"
 [GIT] push=origin/main status=passed
+[START] task=upload-auth-assignment-batch subsystem=upload-auth-admin
+[PLAN] scope=multipart upload + request role headers/RBAC + admin image assignment risks=binary-boundary-corruption,default-role-breakage,assignment-state-overwrite
+[IMPACT] status=suspected chain=syncUploadedImage->apiClient.uploadImage->routeProject.images->writeImageBuffer
+[IMPACT] status=suspected chain=apiClient.reviewImage->requireRole->applyReviewTransition
+[IMPACT] status=suspected chain=assignSelectedImage->apiClient.assignImage->routeImage.assignment->writeProjectManifest
+[IMPACT_VALIDATE] chain=syncUploadedImage->apiClient.uploadImage->routeProject.images->writeImageBuffer validation=npm test; multipart upload preserved binary payload and wrote image manifest
+[IMPACT_VALIDATE] chain=apiClient.reviewImage->requireRole->applyReviewTransition validation=npm test; worker review returned 403 and manifest remained unchanged
+[IMPACT_VALIDATE] chain=assignSelectedImage->apiClient.assignImage->routeImage.assignment->writeProjectManifest validation=npm test; admin assignment updated ownership without changing status
+[REVIEW] finding=none-blocking scope=multipart-upload,role-headers,server-rbac,admin-assignment risk=local-role-headers-not-hard-session-store
+[CMD] npm run lint
+[CMD] npm test
+[CMD] scripts/harness/lint-all.sh
+[CMD] scripts/harness/typecheck-all.sh
+[CMD] scripts/harness/test-target.sh
+[CMD] scripts/harness/smoke-web.sh
+[CMD] curl -sS http://localhost:4173/ -o /tmp/masking-index-upload-auth.html
+[CMD] rg sessionUserId|sessionRole|assignmentWorkerId|assignmentReviewerId|assignButton /tmp/masking-index-upload-auth.html
+[CMD] curl -sS http://localhost:4173/src/app.js -o /tmp/masking-app-upload-auth.js
+[CMD] curl -sS http://localhost:4173/src/api/client.js -o /tmp/masking-client-upload-auth.js
+[CMD] rg assignSelectedImage|assignImage|FormData|x-user-role|x-user-id /tmp/masking-app-upload-auth.js /tmp/masking-client-upload-auth.js
+[CMD] curl -sS http://localhost:4173/api/health
+[CLOSE] status=three-feature-upload-auth-assignment-batch-complete

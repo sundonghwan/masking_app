@@ -127,14 +127,16 @@ Current status:
 
 - shared browser/server upload policy implemented in `src/upload/policy.js`
 - browser rejects unsupported file type, extension, empty file, and oversized file before ingest
-- server rejects invalid JSON data URL uploads before image storage or manifest mutation
+- browser uses `FormData` multipart upload for image sync
+- server accepts multipart image uploads and JSON data URL uploads during transition
+- server rejects invalid image uploads before image storage or manifest mutation
 - server extracts uploaded image dimensions from the image payload and rejects
   client/server dimension mismatches
-- full multipart or streaming upload remains the production target
+- full streaming upload remains the production target for very large datasets
 
 Implementation targets:
 
-- server upload parsing
+- server upload parsing - multipart implemented, streaming remains future work
 - image MIME and size checks
 - server-side dimension extraction
 - API client upload method
@@ -142,7 +144,8 @@ Implementation targets:
 Acceptance criteria:
 
 - [x] client dimensions are not trusted blindly
-- large file memory use is bounded
+- [x] JSON data URL is no longer required for normal browser image upload
+- [x] multipart uploads preserve binary image payloads
 - [x] invalid image content is rejected before manifest update
 
 ### 4. Logging And Operational Visibility
@@ -188,10 +191,31 @@ Completed:
 - [x] full backend PNG binary mask pixel validation is active
 - [x] reviewer identity is explicit in local UI and review audit events
 - [x] review detail hash route can reopen a selected review image
+- [x] server rejects reviewer actions from worker role
+- [x] admin can assign worker/reviewer ownership without changing mask status
 
 Remaining:
 
-- [ ] real auth/session/RBAC beyond the local reviewer id
+- [ ] hard login/session store beyond local role headers
+- [ ] project selection/restore from server project list
+
+### 6. Admin And Assignment MVP
+
+Goal: make ownership explicit before project selection and multi-user restore.
+
+Status: implemented at the local-header MVP boundary.
+
+Completed:
+
+- [x] frontend session panel sends `x-user-id` and `x-user-role`
+- [x] server RBAC checks protect upload, mask save, review, export, and assignment actions
+- [x] admin assignment endpoint updates `worker_id`, `reviewer_id`, `assigned_by`, and `assigned_at`
+- [x] assignment UI saves selected image worker/reviewer fields
+
+Remaining:
+
+- [ ] hard login/session store
+- [ ] assignment queues and per-user task list
 
 ## Work To Avoid For Now
 

@@ -33,6 +33,31 @@ test("valid image upload writes file and appends manifest image", async () => {
   assert.equal(manifest.images[0].original_file_name, "frame.png");
 });
 
+test("multipart image upload writes file and appends manifest image", async () => {
+  const { route, storage } = createApiHarness();
+  const png = createGrayscalePng({ width: 2, height: 2, pixels: [0, 0, 0, 0] });
+  const boundary = "----masking-app-test";
+  const body = createMultipartBody(boundary, [
+    { name: "image_id", value: "image-1" },
+    { name: "file_name", value: "frame.png" },
+    { name: "width", value: "2" },
+    { name: "height", value: "2" },
+    { name: "image", fileName: "frame.png", contentType: "image/png", value: png },
+  ]);
+
+  const response = await callJson(route, "POST", "/api/projects/project-1/images", body, {
+    "content-type": `multipart/form-data; boundary=${boundary}`,
+    "x-user-role": "worker",
+    "x-user-id": "worker-1",
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.id, "image-1");
+  assert.equal(response.body.worker_id, "worker-1");
+  assert.equal(storage.imageWrites[0].relativePath, "images/image-1_frame.png");
+  assert.deepEqual(storage.imageWrites[0].buffer, png);
+});
+
 test("image upload uses server-extracted dimensions and rejects mismatches", async () => {
   const { route, storage } = createApiHarness();
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -51,6 +76,30 @@ test("image upload uses server-extracted dimensions and rejects mismatches", asy
   assert.deepEqual(response.body.validation.server, { width: 2, height: 2 });
   assert.deepEqual(await storage.readProjectManifest("project-1"), before);
   assert.equal(storage.imageWrites.length, 0);
+});
+
+test("worker role cannot review submitted images", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    status: "submitted",
+    current_mask_path: "masks/image-1_mask.png",
+  });
+  const before = await storage.readProjectManifest("project-1");
+
+  const response = await callJson(route, "PUT", "/api/images/image-1/review", {
+    project_id: "project-1",
+    action: "approve",
+    reviewer_id: "reviewer-1",
+  }, {
+    "x-user-role": "worker",
+    "x-user-id": "worker-1",
+  });
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.error, "forbidden");
+  assert.deepEqual(await storage.readProjectManifest("project-1"), before);
 });
 
 test("unsupported image upload returns 400 before mutating manifest", async () => {
@@ -173,6 +222,31 @@ test("review rework moves rejected image back to in progress", async () => {
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.image.status, "in_progress");
   assert.ok(response.body.image.rework_started_at);
+});
+
+test("admin assignment updates worker and reviewer without changing status", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", { ...baseImage(), status: "submitted" });
+
+  const response = await callJson(route, "PUT", "/api/images/image-1/assignment", {
+    project_id: "project-1",
+    worker_id: "worker-7",
+    reviewer_id: "reviewer-2",
+  }, {
+    "x-user-role": "admin",
+    "x-user-id": "admin-1",
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.image.status, "submitted");
+  assert.equal(response.body.image.worker_id, "worker-7");
+  assert.equal(response.body.image.reviewer_id, "reviewer-2");
+  assert.equal(response.body.image.assigned_by, "admin-1");
+
+  const manifest = await storage.readProjectManifest("project-1");
+  assert.equal(manifest.images[0].worker_id, "worker-7");
+  assert.equal(manifest.images[0].reviewer_id, "reviewer-2");
 });
 
 test("valid mask save updates current mask and submitted status without claiming pixel validation", async () => {
@@ -447,6 +521,11 @@ function createMemoryStorage() {
     },
     async writeImageFromDataUrl(projectId, imageId, fileName, dataUrl) {
       const buffer = Buffer.from(String(dataUrl).split(",")[1] || "", "base64");
+      return this.writeImageBuffer(projectId, imageId, fileName, buffer, {
+        mimeType: String(dataUrl).slice(5, String(dataUrl).indexOf(";")),
+      });
+    },
+    async writeImageBuffer(projectId, imageId, fileName, buffer, options = {}) {
       const safeFileName = String(fileName).replace(/[^a-zA-Z0-9._-]/g, "_");
       const relativePath = `images/${imageId}_${safeFileName}`;
       imageWrites.push({ projectId, imageId, fileName, relativePath, buffer });
@@ -455,7 +534,7 @@ function createMemoryStorage() {
         buffer,
         relativePath,
         archivePath: relativePath,
-        mimeType: String(dataUrl).slice(5, String(dataUrl).indexOf(";")),
+        mimeType: options.mimeType || "image/png",
         size: buffer.length,
       };
     },
@@ -490,18 +569,19 @@ function createMemoryStorage() {
   };
 }
 
-async function callJson(route, method, pathname, body) {
-  const response = await callRoute(route, method, pathname, body);
+async function callJson(route, method, pathname, body, headers = {}) {
+  const response = await callRoute(route, method, pathname, body, headers);
   return {
     ...response,
     body: response.text ? JSON.parse(response.text) : null,
   };
 }
 
-async function callRoute(route, method, pathname, body) {
-  const request = Readable.from([Buffer.from(JSON.stringify(body || {}))]);
+async function callRoute(route, method, pathname, body, headers = {}) {
+  const payload = Buffer.isBuffer(body) ? body : Buffer.from(JSON.stringify(body || {}));
+  const request = Readable.from([payload]);
   request.method = method;
-  request.headers = { host: "localhost:4173" };
+  request.headers = { host: "localhost:4173", ...headers };
   request.url = pathname;
 
   const response = createMemoryResponse();
@@ -553,6 +633,23 @@ function baseImage() {
 
 function toPngDataUrl(buffer) {
   return `data:image/png;base64,${Buffer.from(buffer).toString("base64")}`;
+}
+
+function createMultipartBody(boundary, parts) {
+  const chunks = [];
+  for (const part of parts) {
+    chunks.push(Buffer.from(`--${boundary}\r\n`));
+    if (part.fileName) {
+      chunks.push(Buffer.from(`Content-Disposition: form-data; name="${part.name}"; filename="${part.fileName}"\r\n`));
+      chunks.push(Buffer.from(`Content-Type: ${part.contentType || "application/octet-stream"}\r\n\r\n`));
+      chunks.push(Buffer.from(part.value));
+      chunks.push(Buffer.from("\r\n"));
+    } else {
+      chunks.push(Buffer.from(`Content-Disposition: form-data; name="${part.name}"\r\n\r\n${part.value}\r\n`));
+    }
+  }
+  chunks.push(Buffer.from(`--${boundary}--\r\n`));
+  return Buffer.concat(chunks);
 }
 
 function createGrayscalePng({ width, height, pixels }) {

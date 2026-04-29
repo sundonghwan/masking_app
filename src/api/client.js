@@ -1,6 +1,7 @@
 export function createMaskingApiClient(options = {}) {
   const fetchImpl = options.fetchImpl || globalThis.fetch;
   const baseUrl = String(options.baseUrl || "").replace(/\/+$/, "");
+  const getSession = options.getSession || (() => options.session || {});
 
   if (typeof fetchImpl !== "function") {
     throw new TypeError("fetch implementation is required");
@@ -25,7 +26,20 @@ export function createMaskingApiClient(options = {}) {
     },
     uploadImage(projectId, input = {}) {
       assertRequired(projectId, "projectId");
-      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/images`, {
+      const path = `/api/projects/${encodeURIComponent(projectId)}/images`;
+      if (input.file) {
+        const form = new FormData();
+        form.set("image_id", input.imageId || input.id || "");
+        form.set("file_name", input.fileName || input.file_name || input.file.name);
+        form.set("width", String(input.width || ""));
+        form.set("height", String(input.height || ""));
+        form.set("image", input.file, input.fileName || input.file_name || input.file.name);
+        return requestJson(path, {
+          method: "POST",
+          form,
+        });
+      }
+      return requestJson(path, {
         method: "POST",
         body: {
           image_id: input.imageId || input.id,
@@ -62,6 +76,18 @@ export function createMaskingApiClient(options = {}) {
         },
       });
     },
+    assignImage(projectId, imageId, input = {}) {
+      assertRequired(projectId, "projectId");
+      assertRequired(imageId, "imageId");
+      return requestJson(`/api/images/${encodeURIComponent(imageId)}/assignment`, {
+        method: "PUT",
+        body: {
+          project_id: projectId,
+          worker_id: input.workerId || input.worker_id,
+          reviewer_id: input.reviewerId || input.reviewer_id,
+        },
+      });
+    },
     async downloadProjectExport(projectId, options = {}) {
       assertRequired(projectId, "projectId");
       const query = options.approvedOnly ? "?approved_only=1" : "";
@@ -78,10 +104,11 @@ export function createMaskingApiClient(options = {}) {
       method: options.method || "GET",
       headers: {
         accept: "application/json",
+        ...sessionHeaders(getSession()),
         ...(options.body ? { "content-type": "application/json" } : {}),
         ...(options.headers || {}),
       },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: options.form || (options.body ? JSON.stringify(options.body) : undefined),
     });
 
     if (!response.ok) {
@@ -90,6 +117,15 @@ export function createMaskingApiClient(options = {}) {
 
     return response.json();
   }
+}
+
+function sessionHeaders(session = {}) {
+  const userId = String(session.userId || session.user_id || "").trim();
+  const role = String(session.role || "").trim();
+  return {
+    ...(userId ? { "x-user-id": userId } : {}),
+    ...(role ? { "x-user-role": role } : {}),
+  };
 }
 
 export function normalizeApiError(error) {

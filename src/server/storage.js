@@ -63,25 +63,30 @@ export function createFileStorage({ rootDir = "data" } = {}) {
       return manifest;
     },
     async writeImageFromDataUrl(projectId, imageId, fileName, dataUrl) {
-      const safeProjectId = sanitizeSegment(projectId, "projectId");
-      const safeImageId = sanitizeSegment(imageId, "imageId");
-      const storedFileName = createStoredImageFileName(safeImageId, fileName);
-      const relativePath = toArchivePath("images", storedFileName);
       const { buffer, mimeType } = decodeDataUrl(dataUrl, {
         label: "image data URL",
         expectedPrefix: "image/",
       });
+      return this.writeImageBuffer(projectId, imageId, fileName, buffer, { mimeType });
+    },
+    async writeImageBuffer(projectId, imageId, fileName, buffer, options = {}) {
+      const safeProjectId = sanitizeSegment(projectId, "projectId");
+      const safeImageId = sanitizeSegment(imageId, "imageId");
+      const storedFileName = createStoredImageFileName(safeImageId, fileName);
+      const relativePath = toArchivePath("images", storedFileName);
+      const safeBuffer = Buffer.from(buffer || []);
+      const mimeType = options.mimeType || "application/octet-stream";
       const absolutePath = safeJoin(projectPath(safeProjectId), relativePath);
 
       await mkdir(safeJoin(projectPath(safeProjectId), "images"), { recursive: true });
-      await writeFile(absolutePath, buffer);
+      await writeFile(absolutePath, safeBuffer);
       return {
-        buffer,
+        buffer: safeBuffer,
         path: absolutePath,
         archivePath: relativePath,
         mimeType,
         relativePath,
-        size: buffer.length,
+        size: safeBuffer.length,
       };
     },
     async writeMaskFromDataUrl(projectId, imageId, dataUrl) {
@@ -159,6 +164,10 @@ export function ensureProject(projectId) {
 
 export function writeImageFromDataUrl(projectId, imageId, fileName, dataUrl) {
   return defaultStorage.writeImageFromDataUrl(projectId, imageId, fileName, dataUrl);
+}
+
+export function writeImageBuffer(projectId, imageId, fileName, buffer, options = {}) {
+  return defaultStorage.writeImageBuffer(projectId, imageId, fileName, buffer, options);
 }
 
 export function writeMaskFromDataUrl(projectId, imageId, dataUrl) {

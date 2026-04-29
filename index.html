@@ -141,6 +141,37 @@
         </section>
 
         <section class="panel-section">
+          <h2>운영 세션</h2>
+          <label class="stacked-field">
+            <span>사용자 ID</span>
+            <input class="text-input" id="sessionUserId" type="text" value="local_admin" autocomplete="off">
+          </label>
+          <label class="stacked-field">
+            <span>역할</span>
+            <select class="select full-width" id="sessionRole">
+              <option value="admin">admin</option>
+              <option value="worker">worker</option>
+              <option value="reviewer">reviewer</option>
+            </select>
+          </label>
+          <p class="sync-message" id="sessionMessage">현재 세션 권한으로 API 요청을 보냅니다.</p>
+        </section>
+
+        <section class="panel-section">
+          <h2>배정</h2>
+          <label class="stacked-field">
+            <span>작업자 ID</span>
+            <input class="text-input" id="assignmentWorkerId" type="text" value="local_worker" autocomplete="off">
+          </label>
+          <label class="stacked-field">
+            <span>리뷰어 ID</span>
+            <input class="text-input" id="assignmentReviewerId" type="text" value="local_reviewer" autocomplete="off">
+          </label>
+          <button class="button secondary rework-button" id="assignButton" type="button">배정 저장</button>
+          <p class="sync-message" id="assignmentMessage">admin 역할에서 선택 이미지 배정을 저장할 수 있습니다.</p>
+        </section>
+
+        <section class="panel-section">
           <h2>리뷰</h2>
           <label class="stacked-field">
             <span>리뷰어 ID</span>
