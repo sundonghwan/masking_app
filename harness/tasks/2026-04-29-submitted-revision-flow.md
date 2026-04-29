@@ -84,4 +84,5 @@
 - [x] Review checklist completed.
 - [x] Validated chains have validation evidence.
 - [x] Feature status updated with completed and remaining work.
-- [ ] Commit and push completed.
+- [x] Commit completed: `5b4877b Add submitted revision flow`.
+- [ ] Push completed.

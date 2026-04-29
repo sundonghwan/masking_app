@@ -552,3 +552,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] rg reviseButton|수정 시작 /tmp/masking-revision-flow.html
 [CMD] rg startRevisionMode|pending_revision_event|revision_start|canStartRevision /tmp/masking-revision-flow-app.js
 [REVIEW] finding=none-blocking scope=submitted-revision-flow notes=checked-export-status-transition-audit-sync-and-authenticated-revision-actor-after-fix
+[CLOSE] status=submitted-revision-flow-complete
+[GIT] commit=5b4877b message="Add submitted revision flow"
