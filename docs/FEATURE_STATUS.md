@@ -1,0 +1,37 @@
+# Feature Status
+
+## Completed
+
+- [x] Local-first mask editor
+- [x] IndexedDB local persistence
+- [x] Backend filesystem sync mirror
+- [x] Mask save validation
+- [x] Export policy unification
+- [x] Sync visibility and selected retry
+- [x] Upload policy and rejection UI
+- [x] Server upload pre-mutation validation
+- [x] Logging policy and structured runtime logs
+- [x] Review approve/reject/rework MVP
+- [x] Approved-only export option
+- [x] Review history/audit records in manifest
+- [x] Dedicated feature status document
+- [x] Server-side image dimension extraction
+- [x] Client/server upload dimension mismatch rejection
+- [x] Full backend PNG binary mask pixel validation
+- [x] Validate masks before filesystem write
+- [x] Server project list API
+- [x] Project summary list in workbench
+- [x] Export readiness summary
+- [x] Export exclusion reason list
+- [x] Export ZIP structure preview
+
+## In Progress
+
+- None.
+
+## Remaining
+
+- [ ] Reviewer identity/auth
+- [ ] Dedicated review detail route
+- [ ] Multipart/streaming upload
+- [ ] Admin/assignment workflow

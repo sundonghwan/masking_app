@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Masking App</title>
+    <link rel="stylesheet" href="./src/styles.css">
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="app-mark" aria-hidden="true">M</div>
+          <div>
+            <div class="app-name">Masking App</div>
+            <div class="project-name" id="projectName">Rail Defect Masking</div>
+          </div>
+        </div>
+        <div class="topbar-status">
+          <span class="save-dot" id="saveDot"></span>
+          <span id="saveStatus">저장 대기</span>
+        </div>
+        <div class="topbar-actions" aria-label="작업 도구">
+          <button class="icon-button" id="undoButton" type="button" title="실행 취소" aria-label="실행 취소">↶</button>
+          <button class="icon-button" id="redoButton" type="button" title="다시 실행" aria-label="다시 실행">↷</button>
+          <button class="button secondary" id="downloadMaskButton" type="button">마스크 저장</button>
+          <button class="button primary" id="submitButton" type="button">제출</button>
+          <button class="button secondary" id="exportButton" type="button">내보내기</button>
+        </div>
+      </header>
+
+      <aside class="sidebar left-panel" aria-label="이미지 목록">
+        <div class="panel-heading">
+          <div>
+            <h1>이미지 목록</h1>
+            <p id="progressText">0개 이미지</p>
+          </div>
+          <button class="icon-button" id="clearProjectButton" type="button" title="초기화" aria-label="프로젝트 초기화">×</button>
+        </div>
+
+        <label class="upload-dropzone" for="imageInput" id="uploadDropzone">
+          <input id="imageInput" type="file" accept="image/png,image/jpeg,image/bmp,image/webp" multiple>
+          <span class="upload-icon" aria-hidden="true">↑</span>
+          <strong>이미지 업로드</strong>
+          <small>PNG, JPG, BMP, WEBP</small>
+        </label>
+        <ul class="upload-rejections" id="uploadRejections" aria-live="polite"></ul>
+
+        <section class="project-browser" aria-label="서버 프로젝트 목록">
+          <div class="project-browser-heading">
+            <strong>프로젝트</strong>
+            <button class="icon-button small" id="refreshProjectsButton" type="button" title="프로젝트 새로고침" aria-label="프로젝트 새로고침">↻</button>
+          </div>
+          <div class="project-summary-list" id="projectSummaryList" aria-live="polite"></div>
+        </section>
+
+        <div class="filter-row" role="group" aria-label="상태 필터">
+          <button class="chip active" type="button" data-filter="all">전체</button>
+          <button class="chip" type="button" data-filter="in_progress">작업중</button>
+          <button class="chip" type="button" data-filter="submitted">제출</button>
+          <button class="chip" type="button" data-filter="approved">승인</button>
+          <button class="chip" type="button" data-filter="rejected">반려</button>
+        </div>
+
+        <div class="image-list" id="imageList" aria-live="polite"></div>
+      </aside>
+
+      <main class="workspace" aria-label="마스크 편집 작업 영역">
+        <div class="workspace-toolbar">
+          <div class="toolbar-group">
+            <span class="toolbar-label">보기</span>
+            <button class="tool-button" id="fitButton" type="button">맞춤</button>
+            <button class="tool-button" id="zoomOutButton" type="button">−</button>
+            <button class="tool-button" id="zoomInButton" type="button">＋</button>
+          </div>
+          <div class="toolbar-group">
+            <span class="toolbar-label">표시</span>
+            <select id="displayMode" class="select">
+              <option value="overlay">오버레이</option>
+              <option value="original">원본</option>
+              <option value="mask">마스크만</option>
+            </select>
+          </div>
+        </div>
+
+        <section class="canvas-stage" id="canvasStage">
+          <canvas id="editorCanvas" width="960" height="640" aria-label="마스크 편집 캔버스"></canvas>
+          <div class="empty-state" id="emptyState">
+            <strong>이미지를 업로드하세요</strong>
+            <span>브러시로 마스크 영역을 칠하고 PNG/metadata로 내보낼 수 있습니다.</span>
+          </div>
+        </section>
+      </main>
+
+      <aside class="sidebar inspector" aria-label="도구 패널">
+        <section class="panel-section">
+          <h2>도구</h2>
+          <div class="segmented" role="group" aria-label="편집 모드">
+            <button class="segment active" type="button" data-tool="brush">브러시</button>
+            <button class="segment" type="button" data-tool="erase">지우개</button>
+            <button class="segment" type="button" data-tool="view">보기</button>
+            <button class="segment" type="button" data-tool="pan">이동</button>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>브러시</h2>
+          <label class="field-row">
+            <span>크기</span>
+            <output id="brushSizeValue">32</output>
+          </label>
+          <input id="brushSize" class="range" type="range" min="4" max="120" value="32">
+          <label class="field-row">
+            <span>오버레이</span>
+            <output id="opacityValue">55%</output>
+          </label>
+          <input id="overlayOpacity" class="range" type="range" min="0" max="100" value="55">
+          <div class="field-row">
+            <span>마스크 색상</span>
+            <span class="color-swatch" aria-label="마스크 색상"></span>
+          </div>
+        </section>
+
+        <section class="panel-section">
+          <h2>검증</h2>
+          <ul class="check-list" id="validationList">
+            <li data-check="dimensions"><span></span>해상도 일치</li>
+            <li data-check="notEmpty"><span></span>빈 마스크 아님</li>
+            <li data-check="pixelValues"><span></span>픽셀값 정상</li>
+          </ul>
+        </section>
+
+        <section class="panel-section">
+          <h2>메타데이터</h2>
+          <dl class="metadata-list">
+            <div><dt>이미지 ID</dt><dd id="metaImageId">-</dd></div>
+            <div><dt>파일명</dt><dd id="metaFilename">-</dd></div>
+            <div><dt>크기</dt><dd id="metaSize">-</dd></div>
+            <div><dt>상태</dt><dd id="metaStatus">-</dd></div>
+          </dl>
+        </section>
+
+        <section class="panel-section">
+          <h2>리뷰</h2>
+          <textarea class="review-reason" id="reviewReason" rows="3" placeholder="반려 사유"></textarea>
+          <div class="review-actions">
+            <button class="button primary" id="approveButton" type="button">승인</button>
+            <button class="button danger" id="rejectButton" type="button">반려</button>
+          </div>
+          <button class="button secondary rework-button" id="reworkButton" type="button">재작업 시작</button>
+          <p class="review-message" id="reviewMessage">제출된 이미지를 선택하면 리뷰할 수 있습니다.</p>
+        </section>
+
+        <section class="panel-section">
+          <h2>내보내기</h2>
+          <label class="toggle-row">
+            <input id="approvedOnlyExport" type="checkbox">
+            <span>승인 항목만 내보내기</span>
+          </label>
+          <dl class="export-summary-grid">
+            <div><dt>대상</dt><dd id="exportIncludedCount">0</dd></div>
+            <div><dt>제외</dt><dd id="exportExcludedCount">0</dd></div>
+          </dl>
+          <ul class="export-error-list" id="exportErrorList" aria-live="polite"></ul>
+          <div class="export-preview" aria-label="ZIP 구조 미리보기">
+            <strong>ZIP</strong>
+            <code id="exportFilePreview">annotations.json&#10;export_summary.json</code>
+          </div>
+          <p class="export-policy-message" id="exportPolicyMessage">제출/승인 항목을 내보냅니다.</p>
+        </section>
+
+        <section class="panel-section">
+          <h2>서버 동기화</h2>
+          <dl class="metadata-list">
+            <div><dt>프로젝트</dt><dd id="syncProjectStatus">-</dd></div>
+            <div><dt>원본</dt><dd id="syncImageStatus">-</dd></div>
+            <div><dt>마스크</dt><dd id="syncMaskStatus">-</dd></div>
+            <div><dt>Export</dt><dd id="syncExportStatus">-</dd></div>
+          </dl>
+          <p class="sync-message" id="syncMessage">서버 동기화 상태가 여기에 표시됩니다.</p>
+          <button class="button secondary sync-retry-button" id="retrySyncButton" type="button">동기화 재시도</button>
+        </section>
+      </aside>
+
+      <footer class="statusbar">
+        <span id="statusImageIndex">이미지 0 / 0</span>
+        <span id="statusZoom">확대 100%</span>
+        <span id="statusCoords">좌표 -</span>
+        <span id="statusMask">마스크 0%</span>
+        <span id="statusSavedAt">저장 기록 없음</span>
+      </footer>
+    </div>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>
