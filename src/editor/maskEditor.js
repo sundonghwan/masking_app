@@ -156,6 +156,8 @@ export class MaskEditor {
     this.lastPoint = null;
     this.cursorPoint = null;
     this.beforeStroke = null;
+    this.maskMoveStartPoint = null;
+    this.maskMoveSource = null;
     this.undoStack = [];
     this.redoStack = [];
     this.maxHistory = 30;
@@ -289,7 +291,7 @@ export class MaskEditor {
     const data = source.data;
 
     for (let i = 0; i < data.length; i += 4) {
-      const value = data[i + 3] > 0 || data[i] > 0 ? 255 : 0;
+      const value = maskPixelActive(data, i) ? 255 : 0;
       data[i] = value;
       data[i + 1] = value;
       data[i + 2] = value;
@@ -309,7 +311,7 @@ export class MaskEditor {
     const data = source.data;
 
     for (let i = 0; i < data.length; i += 4) {
-      const value = data[i + 3] > 0 || data[i] > 0 ? 255 : 0;
+      const value = maskPixelActive(data, i) ? 255 : 0;
       data[i] = value;
       data[i + 1] = value;
       data[i + 2] = value;
@@ -325,7 +327,7 @@ export class MaskEditor {
     const imageData = this.maskCtx.getImageData(0, 0, this.maskCanvas.width, this.maskCanvas.height);
     let masked = 0;
     for (let i = 0; i < imageData.data.length; i += 4) {
-      if (imageData.data[i + 3] > 0 || imageData.data[i] > 0) masked += 1;
+      if (maskPixelActive(imageData.data, i)) masked += 1;
     }
     return masked / (this.maskCanvas.width * this.maskCanvas.height);
   }
@@ -355,6 +357,56 @@ export class MaskEditor {
 
   getMaskCanvas() {
     return this.maskCanvas;
+  }
+
+  replaceMaskFromImageData(imageData, options = {}) {
+    if (!this.image) throw new Error("Cannot replace mask before an image is loaded");
+    if (imageData.width !== this.maskCanvas.width || imageData.height !== this.maskCanvas.height) {
+      throw new Error("Mask dimensions must match current image");
+    }
+    const before = this.snapshotMask();
+    this.maskCtx.putImageData(normalizeMaskImageData(imageData), 0, 0);
+    if (options.recordHistory !== false && before) {
+      this.undoStack.push(before);
+      if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
+      this.redoStack = [];
+    }
+    this.redraw();
+    return true;
+  }
+
+  async replaceMaskFromDataUrl(maskDataUrl, options = {}) {
+    if (!this.image) throw new Error("Cannot replace mask before an image is loaded");
+    const mask = await loadImage(maskDataUrl);
+    if (mask.naturalWidth !== this.maskCanvas.width || mask.naturalHeight !== this.maskCanvas.height) {
+      throw new Error("Mask dimensions must match current image");
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = this.maskCanvas.width;
+    canvas.height = this.maskCanvas.height;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(mask, 0, 0, canvas.width, canvas.height);
+    return this.replaceMaskFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height), options);
+  }
+
+  translateMaskBy(deltaX, deltaY, options = {}) {
+    if (!this.image) return false;
+    const dx = Math.round(deltaX);
+    const dy = Math.round(deltaY);
+    if (dx === 0 && dy === 0) return false;
+    const source = options.source || this.snapshotMask();
+    const translated = translateMaskImageData(source, dx, dy);
+    if (options.recordHistory !== false) {
+      const before = this.snapshotMask();
+      if (before) {
+        this.undoStack.push(before);
+        if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
+        this.redoStack = [];
+      }
+    }
+    this.maskCtx.putImageData(translated, 0, 0);
+    this.redraw();
+    return true;
   }
 
   markSaved() {
@@ -502,7 +554,7 @@ export class MaskEditor {
     const overlay = new ImageData(this.maskCanvas.width, this.maskCanvas.height);
 
     for (let i = 0; i < mask.data.length; i += 4) {
-      const active = mask.data[i + 3] > 0 || mask.data[i] > 0;
+      const active = maskPixelActive(mask.data, i);
       if (!active) continue;
       overlay.data[i] = MASK_COLOR[0];
       overlay.data[i + 1] = MASK_COLOR[1];
@@ -546,6 +598,11 @@ export class MaskEditor {
         return;
       }
 
+      if (this.tool === "mask_move") {
+        this.beginMaskMove(point);
+        return;
+      }
+
       if (["brush", "erase"].includes(this.tool)) {
         this.activePointerMode = this.tool === "erase" ? "erase" : "paint";
         this.beforeStroke = this.snapshotMask();
@@ -575,6 +632,11 @@ export class MaskEditor {
 
       if (this.isPointerDown && this.activePointerMode === "camera_pan") {
         this.updateCameraPan(event);
+        return;
+      }
+
+      if (this.isPointerDown && this.activePointerMode === "mask_move") {
+        this.updateMaskMove(point);
         return;
       }
 
@@ -618,6 +680,27 @@ export class MaskEditor {
     this.updateCanvasCursor();
   }
 
+  beginMaskMove(point) {
+    this.activePointerMode = "mask_move";
+    this.maskMoveStartPoint = point;
+    this.maskMoveSource = this.snapshotMask();
+    this.beforeStroke = this.maskMoveSource;
+    this.redoStack = [];
+    this.updateCanvasCursor();
+    this.redraw();
+  }
+
+  updateMaskMove(point) {
+    if (!this.maskMoveStartPoint || !this.maskMoveSource) return;
+    const dx = point.x - this.maskMoveStartPoint.x;
+    const dy = point.y - this.maskMoveStartPoint.y;
+    const changed = this.translateMaskBy(dx, dy, {
+      source: this.maskMoveSource,
+      recordHistory: false,
+    });
+    if (changed) this.onChange();
+  }
+
   endPointer(event) {
     if (!this.isPointerDown) return;
     const finishedPointerMode = this.activePointerMode;
@@ -630,11 +713,13 @@ export class MaskEditor {
       this.updateCanvasCursor();
     }
 
-    if (this.beforeStroke && ["paint", "erase", "magic"].includes(finishedPointerMode)) {
+    if (this.beforeStroke && ["paint", "erase", "magic", "mask_move"].includes(finishedPointerMode)) {
       this.undoStack.push(this.beforeStroke);
       if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
       this.beforeStroke = null;
     }
+    this.maskMoveStartPoint = null;
+    this.maskMoveSource = null;
 
     if (event.pointerId != null) {
       try {
@@ -704,8 +789,12 @@ export class MaskEditor {
     if (!this.canvas?.style) return;
     if (this.activePointerMode === "camera_pan") {
       this.canvas.style.cursor = "grabbing";
+    } else if (this.activePointerMode === "mask_move") {
+      this.canvas.style.cursor = "grabbing";
     } else if (this.spacePanHeld || this.tool === "pan") {
       this.canvas.style.cursor = "grab";
+    } else if (this.tool === "mask_move") {
+      this.canvas.style.cursor = "move";
     } else if (["brush", "erase"].includes(this.tool)) {
       this.canvas.style.cursor = "crosshair";
     } else {
@@ -725,6 +814,29 @@ function loadImage(url) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function maskPixelActive(data, index) {
+  return data[index + 3] > 0;
+}
+
+function translateMaskImageData(source, deltaX, deltaY) {
+  const output = new ImageData(source.width, source.height);
+  for (let y = 0; y < source.height; y += 1) {
+    const targetY = y + deltaY;
+    if (targetY < 0 || targetY >= source.height) continue;
+    for (let x = 0; x < source.width; x += 1) {
+      const targetX = x + deltaX;
+      if (targetX < 0 || targetX >= source.width) continue;
+      const sourceIndex = (y * source.width + x) * 4;
+      const targetIndex = (targetY * source.width + targetX) * 4;
+      output.data[targetIndex] = source.data[sourceIndex];
+      output.data[targetIndex + 1] = source.data[sourceIndex + 1];
+      output.data[targetIndex + 2] = source.data[sourceIndex + 2];
+      output.data[targetIndex + 3] = source.data[sourceIndex + 3];
+    }
+  }
+  return normalizeMaskImageData(output);
 }
 
 function createEdgeMagnitudeMap(imageData) {

@@ -89,6 +89,8 @@ const state = {
   trainingSplitTest: 0.1,
   trainingSplitSeed: 42,
   trainingSetMessage: "",
+  maskTransferMessage: "",
+  maskTransferWarning: false,
   projectSettingsMessage: "",
   settingsAllowedFormats: "image/png,image/jpeg,image/bmp,image/webp",
   settingsMagicTolerance: 42,
@@ -167,6 +169,8 @@ const els = {
   reviseButton: document.querySelector("#reviseButton"),
   submitButton: document.querySelector("#submitButton"),
   exportButton: document.querySelector("#exportButton"),
+  copyPreviousMaskButton: document.querySelector("#copyPreviousMaskButton"),
+  maskTransferMessage: document.querySelector("#maskTransferMessage"),
   clearProjectButton: document.querySelector("#clearProjectButton"),
   fitButton: document.querySelector("#fitButton"),
   zoomInButton: document.querySelector("#zoomInButton"),
@@ -401,6 +405,7 @@ function bindEvents() {
   els.reviseButton.addEventListener("click", () => void startSelectedRevision());
   els.submitButton.addEventListener("click", () => void submitCurrentImage());
   els.exportButton.addEventListener("click", () => void exportProject());
+  els.copyPreviousMaskButton.addEventListener("click", () => void copyMaskFromPreviousImage());
   els.clearProjectButton.addEventListener("click", clearProject);
   els.retrySyncButton.addEventListener("click", () => void retrySelectedSync());
   els.refreshProjectsButton.addEventListener("click", () => void refreshProjectSummaries());
@@ -635,6 +640,8 @@ async function selectImage(imageId, options = {}) {
   state.reviewReasonCode = image.reject_reason_code || state.reviewReasonCode || REJECTION_REASON_CODES.ROUGH_BOUNDARY;
   state.assignmentWorkerId = image.worker_id || state.assignmentWorkerId;
   state.assignmentReviewerId = image.reviewer_id || state.assignmentReviewerId;
+  state.maskTransferMessage = "";
+  state.maskTransferWarning = false;
   if (options.markInProgress !== false) {
     image.status = image.status === "not_started" ? "in_progress" : image.status;
   }
@@ -1124,6 +1131,42 @@ async function startSelectedRevision() {
   await persistProject();
   render();
   setSaveState("dirty", "수정 모드 시작됨");
+}
+
+async function copyMaskFromPreviousImage() {
+  const image = getSelectedImage();
+  const source = previousMaskSourceImage();
+  if (!image || !source) {
+    setMaskTransferMessage("이전 프레임 마스크가 없습니다.", true);
+    return;
+  }
+  if (Number(source.width) !== Number(image.width) || Number(source.height) !== Number(image.height)) {
+    setMaskTransferMessage("이전 프레임과 현재 이미지 해상도가 달라 적용할 수 없습니다.", true);
+    return;
+  }
+  if (canStartRevision(image) && !window.confirm("제출/승인된 마스크를 수정 모드로 전환하고 이전 프레임 마스크를 적용할까요?")) {
+    return;
+  }
+  if (!canStartRevision(image) && hasExistingMask(image) && !window.confirm("현재 마스크를 이전 프레임 마스크로 교체할까요?")) {
+    return;
+  }
+
+  setSaveState("saving", "이전 마스크 적용 중");
+  try {
+    const maskDataUrl = await maskDataUrlForImage(source);
+    if (!maskDataUrl) {
+      setMaskTransferMessage("이전 프레임에 저장된 마스크가 없습니다.", true);
+      setSaveState("failed", "이전 마스크 없음");
+      return;
+    }
+    await editor.replaceMaskFromDataUrl(maskDataUrl);
+    handleEditorChange();
+    setTool("mask_move");
+    setMaskTransferMessage(`이전 마스크 적용됨: ${source.original_file_name || source.fileName || source.id}. 마스크 이동 M으로 위치를 보정하세요.`);
+  } catch (error) {
+    setMaskTransferMessage(error.message || "이전 마스크 적용 실패", true);
+    setSaveState("failed", `이전 마스크 적용 실패: ${error.message || "unknown"}`);
+  }
 }
 
 function startRevisionMode(image, options = {}) {
@@ -1766,6 +1809,7 @@ function render() {
   renderAssignmentPanel();
   renderReviewPanel();
   renderReviewIdentity();
+  renderMaskTransferPanel();
   renderExportPolicy();
   renderTrainingSourcePicker();
   renderTrainingSetPanel();
@@ -2501,6 +2545,17 @@ function getReviewActorId() {
   return normalizeReviewerId(state.sessionUserId);
 }
 
+function renderMaskTransferPanel() {
+  const source = previousMaskSourceImage();
+  const canEdit = [ROLES.ADMIN, ROLES.WORKER].includes(state.sessionRole);
+  els.copyPreviousMaskButton.disabled = !canEdit || !getSelectedImage() || !source;
+  const message = state.maskTransferMessage || (source
+    ? `이전 source: ${source.original_file_name || source.fileName || source.id}`
+    : "이전 프레임 마스크가 있으면 Shift + V로 가져올 수 있습니다.");
+  els.maskTransferMessage.textContent = message;
+  els.maskTransferMessage.classList.toggle("warning", state.maskTransferWarning);
+}
+
 function renderExportPolicy() {
   els.approvedOnlyExport.checked = Boolean(state.exportApprovedOnly);
   const exportState = getExportState();
@@ -2801,8 +2856,13 @@ function handleShortcut(event) {
     setTool("brush");
   } else if (key === "e") {
     setTool("erase");
-  } else if (key === "w" || key === "m") {
+  } else if (key === "w") {
     setTool("magic");
+  } else if (key === "m") {
+    setTool("mask_move");
+  } else if (event.shiftKey && key === "v") {
+    event.preventDefault();
+    void copyMaskFromPreviousImage();
   } else if (key === "v") {
     setTool("view");
   } else if (key === "n") {
@@ -2860,6 +2920,13 @@ function setSaveState(kind, label) {
 function setReviewMessage(message, warning = false) {
   els.reviewMessage.textContent = message;
   els.reviewMessage.classList.toggle("warning", warning);
+}
+
+function setMaskTransferMessage(message, warning = false) {
+  state.maskTransferMessage = message;
+  state.maskTransferWarning = warning;
+  els.maskTransferMessage.textContent = message;
+  els.maskTransferMessage.classList.toggle("warning", warning);
 }
 
 function setAssignmentMessage(message, warning = false) {
@@ -3074,6 +3141,41 @@ function replaceSelectOptions(select, items = [], options = {}) {
 
 function selectedVersionSummary() {
   return state.versionSummaries.find((version) => version.version_id === state.versionId) || null;
+}
+
+function previousMaskSourceImage() {
+  const image = getSelectedImage();
+  if (!image) return null;
+  const images = activeImages();
+  const index = images.findIndex((item) => item.id === image.id);
+  if (index <= 0) return null;
+  return images
+    .slice(0, index)
+    .reverse()
+    .find((candidate) => hasExistingMask(candidate)) || null;
+}
+
+function hasExistingMask(image = {}) {
+  return Boolean(
+    image.maskDataUrl ||
+    image.mask_data_url ||
+    image.maskObjectUrl ||
+    image.current_mask_path ||
+    image.maskPath ||
+    image.maskRatio > 0 ||
+    image.mask_ratio > 0,
+  );
+}
+
+async function maskDataUrlForImage(image) {
+  if (image.maskDataUrl || image.mask_data_url) return image.maskDataUrl || image.mask_data_url;
+  const stored = await maskDataUrlFromStore(image.id);
+  if (stored) return stored;
+  if (image.current_mask_path && state.projectId) {
+    await restoreServerMaskBlob(image);
+    return image.maskDataUrl || image.mask_data_url || "";
+  }
+  return "";
 }
 
 function selectedTrainingSources() {

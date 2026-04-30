@@ -297,20 +297,23 @@ MVP accounts:
 Goal: improve annotation correction speed without breaking review auditability or
 mask/export contracts.
 
-Status: requested improvement backlog. These items are not implemented yet.
+Status: implemented for the planned local editor-assist scope.
 
 Requested improvements:
 
 - submitted data can be opened for additional edits after submission
 - zoomed images can be panned with camera movement
 - clicking part of an image can invoke a magic-tool-like assisted mask action
+- previous-frame masks can be copied and position-adjusted for sequential
+  annotation work
 
 Recommended development order:
 
 1. Submitted data edit/rework flow.
 2. Zoom-state pan/camera movement.
 3. Magic-click assisted mask tool with deterministic local behavior first.
-4. Optional AI-backed segmentation integration only after the local tool contract
+4. Previous-frame mask copy with a dedicated mask move adjustment tool.
+5. Optional AI-backed segmentation integration only after the local tool contract
    is stable.
 
 Implementation notes:
@@ -337,6 +340,10 @@ Acceptance criteria:
 - [x] magic-click uses local edge-aware image processing rather than simple
   4-way color fill
 - [x] Spacebar temporarily pans the canvas without switching the selected tool
+- [x] previous-frame masks can be copied into the current frame for sequential
+  annotation work
+- [x] copied masks can be repositioned with a dedicated mask move tool without
+  moving the camera
 
 ### 9. Dashboard Planning And Design
 

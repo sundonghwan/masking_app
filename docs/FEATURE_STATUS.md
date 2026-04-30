@@ -82,6 +82,7 @@
 - [x] Server revision guard for risky project/version mutations
 - [x] Physical purge maintenance for soft-deleted version files
 - [x] Saved training set management with deterministic split, list, re-export, archive, and restore
+- [x] Previous-frame mask copy with draggable mask-position adjustment
 
 ## In Progress
 

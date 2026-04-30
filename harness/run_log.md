@@ -933,3 +933,24 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=prevented-silent-overwrite scope=training-set-management note=duplicate-id-conflict-added-before-closeout
 [CLOSE] status=ready-for-commit server=http://localhost:4173
 [GIT] commit=2c86372 push=origin/main status=passed
+[START] task=previous-frame-mask-copy subsystem=editor-efficiency
+[PLAN] scope=previous-mask-copy-plus-mask-drag-adjust risks=undo-history,review-state,dimension-mismatch,camera-pan-conflict
+[IMPACT] status=suspected chain=copyMaskFromPreviousImage(src/app.js:*)->projectStore.loadMaskBlob(src/storage/projectStore.js:*)->MaskEditor.loadMaskFromDataUrl(src/editor/maskEditor.js:*)->handleEditorChange(src/app.js:*)
+[IMPACT] status=suspected chain=MaskEditor.bindCanvasEvents(src/editor/maskEditor.js:*)->beginMaskMove/updateMaskMove/endPointer(src/editor/maskEditor.js:*)->undoRedoHistory
+[FIX] scope=editor-efficiency note=previous-frame-mask-copy-button-shift-v-shortcut-and-mask-move-tool-added
+[FIX] scope=mask-editor note=replace-mask-from-data-url-dimension-validation-and-undo-history-added
+[FIX] scope=mask-active-detection note=transparent-white-inactive-pixels-now-treated-as-inactive-by-alpha-only-check
+[DOC] updated=docs/FEATURE_STATUS.md note=previous-frame-mask-copy-marked-complete
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=editor-assist-checkpoint-updated-with-previous-frame-copy
+[IMPACT_VALIDATE] task=previous-frame-mask-copy chain=copy-previous-mask-load-replace-change validation=maskEditor-appContracts-and-full-test-target-passed
+[IMPACT_VALIDATE] task=previous-frame-mask-copy chain=mask-move-pointer-mode-undo validation=maskEditor-appContracts-and-full-test-target-passed
+[IMPACT_VALIDATE] task=previous-frame-mask-copy chain=shift-v-shortcut-copy-and-tool-switch validation=appContracts-passed
+[CMD] node --test tests/maskEditor.test.js tests/appContracts.test.js status=passed tests=40
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=207
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health,admin-login,index-head
+[REVIEW] finding=resolved-before-closeout scope=previous-frame-mask-copy note=render-side-effect-removed-and-alpha-only-mask-active-check-added
+[CLOSE] status=ready-for-commit server=http://localhost:4173

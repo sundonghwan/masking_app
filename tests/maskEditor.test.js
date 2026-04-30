@@ -321,3 +321,94 @@ test("spacebar pressed during an active brush stroke does not convert that strok
     restoreDocument();
   }
 });
+
+test("mask move tool drags the current mask without moving the camera", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    let changeCount = 0;
+    let viewportCount = 0;
+    const editor = new MaskEditor(canvas, {
+      onChange: () => { changeCount += 1; },
+      onViewportChange: () => { viewportCount += 1; },
+    });
+    editor.image = { naturalWidth: 6, naturalHeight: 4 };
+    editor.maskCanvas.width = 6;
+    editor.maskCanvas.height = 4;
+    editor.scale = 1;
+    editor.offsetX = 0;
+    editor.offsetY = 0;
+    const seed = new TestImageData(6, 4);
+    seed.data.set([255, 255, 255, 255], 0);
+    editor.maskCtx.putImageData(seed, 0, 0);
+    editor.setTool("mask_move");
+
+    canvas.dispatchPointer("pointerdown", { offsetX: 0, offsetY: 0 });
+    canvas.dispatchPointer("pointermove", { offsetX: 2, offsetY: 1, movementX: 2, movementY: 1 });
+    canvas.dispatchPointer("pointerup");
+
+    const moved = editor.maskCtx.getImageData(0, 0, 6, 4);
+    assert.equal(moved.data[3], 0);
+    assert.equal(moved.data[((1 * 6 + 2) * 4) + 3], 255);
+    assert.deepEqual(editor.getViewportState(), { scale: 1, offsetX: 0, offsetY: 0 });
+    assert.equal(changeCount, 1);
+    assert.equal(viewportCount, 0);
+    assert.equal(editor.getState().canUndo, true);
+
+    editor.undo();
+    const restored = editor.maskCtx.getImageData(0, 0, 6, 4);
+    assert.equal(restored.data[3], 255);
+    assert.equal(restored.data[((1 * 6 + 2) * 4) + 3], 0);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("loading a copied mask validates dimensions and records undo history", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const editor = new MaskEditor(new TestCanvas());
+    editor.image = { naturalWidth: 4, naturalHeight: 3 };
+    editor.maskCanvas.width = 4;
+    editor.maskCanvas.height = 3;
+    const copied = new TestImageData(4, 3);
+    copied.data.set([255, 255, 255, 255], ((2 * 4 + 1) * 4));
+
+    editor.replaceMaskFromImageData(copied);
+
+    const loaded = editor.maskCtx.getImageData(0, 0, 4, 3);
+    assert.equal(loaded.data[((2 * 4 + 1) * 4)], 255);
+    assert.equal(editor.getState().canUndo, true);
+
+    assert.throws(
+      () => editor.replaceMaskFromImageData(new TestImageData(5, 3)),
+      /Mask dimensions must match current image/,
+    );
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("mask ratio treats transparent white pixels as inactive", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const editor = new MaskEditor(new TestCanvas());
+    editor.image = { naturalWidth: 2, naturalHeight: 1 };
+    editor.maskCanvas.width = 2;
+    editor.maskCanvas.height = 1;
+    const mask = new TestImageData(2, 1);
+    mask.data.set([
+      255, 255, 255, 0,
+      255, 255, 255, 255,
+    ]);
+
+    editor.maskCtx.putImageData(mask, 0, 0);
+
+    assert.equal(editor.getMaskRatio(), 0.5);
+  } finally {
+    restoreDocument();
+  }
+});

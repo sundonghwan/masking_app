@@ -318,7 +318,7 @@ test("magic click tool is local deterministic mask assist", () => {
   assert.match(html, /매직 W/);
   assert.match(html, /id="magicTolerance"/);
   assert.match(html, /id="magicEdge"/);
-  assert.match(app, /key === "w" \|\| key === "m"/);
+  assert.match(app, /key === "w"/);
   assert.match(app, /setMagicOptions/);
   assert.match(editor, /function selectEdgeAwareRegionFromImageData/);
   assert.match(editor, /createEdgeMagnitudeMap/);
@@ -334,7 +334,7 @@ test("spacebar temporarily pans without switching the selected tool", () => {
   const styles = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 
   assert.match(html, /이동 Space/);
-  assert.match(styles, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/);
   assert.match(app, /event\.code === "Space"/);
   assert.match(app, /activateSpacePan/);
   assert.match(app, /deactivateSpacePan/);
@@ -349,6 +349,23 @@ test("spacebar temporarily pans without switching the selected tool", () => {
   assert.match(editor, /activePointerMode = "camera_pan"/);
   assert.doesNotMatch(editor, /this\.tool === "pan" \|\| this\.temporaryPanActive/);
   assert.doesNotMatch(app, /setTool\("pan"\).*Space/s);
+});
+
+test("workbench exposes previous-frame mask copy and mask move adjustment", () => {
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const editor = fs.readFileSync(new URL("../src/editor/maskEditor.js", import.meta.url), "utf8");
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+
+  assert.match(html, /id="copyPreviousMaskButton"/);
+  assert.match(html, /data-tool="mask_move"/);
+  assert.match(html, /마스크 이동/);
+  assert.match(app, /copyMaskFromPreviousImage/);
+  assert.match(app, /previousMaskSourceImage/);
+  assert.match(app, /Shift \+ V/);
+  assert.match(app, /setTool\("mask_move"\)/);
+  assert.match(editor, /replaceMaskFromImageData/);
+  assert.match(editor, /beginMaskMove/);
+  assert.match(editor, /activePointerMode = "mask_move"/);
 });
 
 test("project creation replaces default project entry path", () => {
