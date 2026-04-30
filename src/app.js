@@ -12,7 +12,14 @@ import {
 import { createZipBlob } from "./export/zip.js";
 import { createLogger } from "./observability/logger.js";
 import { QUEUE_MODES, filterImagesForQueue, normalizeQueueMode, summarizeAssignmentQueue } from "./assignment/queue.js";
-import { REVIEW_ACTIONS, applyReviewTransition, normalizeReviewerId, reviewReasonLabel } from "./review/policy.js";
+import {
+  REJECTION_REASON_CODES,
+  REVIEW_ACTIONS,
+  applyReviewTransition,
+  normalizeReviewerId,
+  rejectionReasonCodeLabel,
+  reviewReasonLabel,
+} from "./review/policy.js";
 import { createProjectStore } from "./storage/projectStore.js";
 import { UPLOAD_POLICY, formatBytes, normalizeUploadPolicy, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
 import { DEFAULT_ACTORS, DEFAULT_SESSION, ROLES, normalizeRole } from "./config/runtimeDefaults.js";
@@ -30,6 +37,7 @@ const state = {
   images: [],
   selectedId: null,
   filter: "all",
+  imageSearch: "",
   queueMode: QUEUE_MODES.ALL,
   savedAt: null,
   autosaveTimer: null,
@@ -42,6 +50,7 @@ const state = {
   sessionToken: "",
   sessionAuthenticated: false,
   reviewReasonDraft: "",
+  reviewReasonCode: REJECTION_REASON_CODES.ROUGH_BOUNDARY,
   assignmentWorkerId: DEFAULT_ACTORS.worker,
   assignmentReviewerId: DEFAULT_ACTORS.reviewer,
   assignmentUsers: {
@@ -52,6 +61,7 @@ const state = {
   exportApprovedOnly: false,
   projectSummaries: [],
   projectSummariesError: "",
+  projectSearch: "",
   projectCreateId: "",
   projectCreateName: "",
   projectUploadLimitMb: 15,
@@ -83,6 +93,7 @@ const els = {
   projectUploadLimitMb: document.querySelector("#projectUploadLimitMb"),
   createProjectButton: document.querySelector("#createProjectButton"),
   projectCreateMessage: document.querySelector("#projectCreateMessage"),
+  projectSearchInput: document.querySelector("#projectSearchInput"),
   projectSummaryList: document.querySelector("#projectSummaryList"),
   dashboardProjectName: document.querySelector("#dashboardProjectName"),
   dashboardProjectsButton: document.querySelector("#dashboardProjectsButton"),
@@ -90,11 +101,15 @@ const els = {
   dashboardHealthGrid: document.querySelector("#dashboardHealthGrid"),
   dashboardWorkloadBody: document.querySelector("#dashboardWorkloadBody"),
   dashboardExportReadiness: document.querySelector("#dashboardExportReadiness"),
+  dashboardReviewQuality: document.querySelector("#dashboardReviewQuality"),
   dashboardBlockers: document.querySelector("#dashboardBlockers"),
   dashboardActivityList: document.querySelector("#dashboardActivityList"),
   projectName: document.querySelector("#projectName"),
   imageList: document.querySelector("#imageList"),
+  imageSearchInput: document.querySelector("#imageSearchInput"),
   progressText: document.querySelector("#progressText"),
+  workbenchProjectsButton: document.querySelector("#workbenchProjectsButton"),
+  workbenchDashboardButton: document.querySelector("#workbenchDashboardButton"),
   queueAllCount: document.querySelector("#queueAllCount"),
   queueWorkCount: document.querySelector("#queueWorkCount"),
   queueReviewCount: document.querySelector("#queueReviewCount"),
@@ -139,6 +154,7 @@ const els = {
   reviewerIdentitySummary: document.querySelector("#reviewerIdentitySummary"),
   reviewDetailLink: document.querySelector("#reviewDetailLink"),
   reviewReason: document.querySelector("#reviewReason"),
+  reviewReasonCode: document.querySelector("#reviewReasonCode"),
   approveButton: document.querySelector("#approveButton"),
   rejectButton: document.querySelector("#rejectButton"),
   reworkButton: document.querySelector("#reworkButton"),
@@ -236,8 +252,15 @@ function bindEvents() {
   document.querySelectorAll("[data-filter]").forEach((button) => {
     button.addEventListener("click", () => {
       state.filter = button.dataset.filter;
+      void persistProject();
       render();
     });
+  });
+
+  els.imageSearchInput.addEventListener("input", () => {
+    state.imageSearch = els.imageSearchInput.value;
+    void persistProject();
+    renderImageList();
   });
 
   document.querySelectorAll("[data-queue]").forEach((button) => {
@@ -302,6 +325,8 @@ function bindEvents() {
   els.clearProjectButton.addEventListener("click", clearProject);
   els.retrySyncButton.addEventListener("click", () => void retrySelectedSync());
   els.refreshProjectsButton.addEventListener("click", () => void refreshProjectSummaries());
+  els.workbenchProjectsButton.addEventListener("click", () => routeToScreen(SCREENS.PROJECTS));
+  els.workbenchDashboardButton.addEventListener("click", () => routeToScreen(SCREENS.DASHBOARD));
   els.dashboardProjectsButton.addEventListener("click", () => routeToScreen(SCREENS.PROJECTS));
   els.dashboardWorkbenchButton.addEventListener("click", () => routeToScreen(SCREENS.WORKBENCH));
   els.projectCreateForm.addEventListener("submit", (event) => {
@@ -319,6 +344,10 @@ function bindEvents() {
   els.projectUploadLimitMb.addEventListener("input", () => {
     state.projectUploadLimitMb = Number(els.projectUploadLimitMb.value || 15);
     renderProjectCreateForm();
+  });
+  els.projectSearchInput.addEventListener("input", () => {
+    state.projectSearch = els.projectSearchInput.value;
+    renderProjectSummaries();
   });
   els.loginButton.addEventListener("click", () => void loginSession());
   els.logoutButton.addEventListener("click", () => void logoutSession());
@@ -351,6 +380,9 @@ function bindEvents() {
   });
   els.reviewReason.addEventListener("input", () => {
     state.reviewReasonDraft = els.reviewReason.value;
+  });
+  els.reviewReasonCode.addEventListener("change", () => {
+    state.reviewReasonCode = els.reviewReasonCode.value;
   });
   els.approvedOnlyExport.addEventListener("change", () => {
     state.exportApprovedOnly = els.approvedOnlyExport.checked;
@@ -444,6 +476,7 @@ async function selectImage(imageId, options = {}) {
 
   state.selectedId = image.id;
   state.reviewReasonDraft = image.reject_reason || "";
+  state.reviewReasonCode = image.reject_reason_code || state.reviewReasonCode || REJECTION_REASON_CODES.ROUGH_BOUNDARY;
   state.assignmentWorkerId = image.worker_id || state.assignmentWorkerId;
   state.assignmentReviewerId = image.reviewer_id || state.assignmentReviewerId;
   if (options.markInProgress !== false) {
@@ -896,6 +929,7 @@ async function syncReviewToBackend(image) {
     const response = await apiClient.reviewImage(state.projectId, image.id, {
       action,
       reason: image.reject_reason || state.reviewReasonDraft,
+      reasonCode: image.reject_reason_code || state.reviewReasonCode,
     });
     Object.assign(image, {
       ...response.image,
@@ -947,6 +981,7 @@ async function reviewSelectedImage(action) {
   const result = applyReviewTransition(image, {
     action,
     reason: state.reviewReasonDraft,
+    reasonCode: state.reviewReasonCode,
     reviewerId: reviewActorId,
   });
   if (!result.valid) {
@@ -963,6 +998,7 @@ async function reviewSelectedImage(action) {
     server_sync_error: "",
   });
   state.reviewReasonDraft = image.reject_reason || "";
+  state.reviewReasonCode = image.reject_reason_code || state.reviewReasonCode;
   state.savedAt = new Date();
   await persistProject();
   render();
@@ -976,6 +1012,7 @@ async function reviewSelectedImage(action) {
     const response = await apiClient.reviewImage(state.projectId, image.id, {
       action,
       reason: state.reviewReasonDraft,
+      reasonCode: state.reviewReasonCode,
     });
     Object.assign(image, {
       ...response.image,
@@ -1211,7 +1248,7 @@ function renderFilters() {
 }
 
 function renderQueueControls() {
-  const summary = summarizeAssignmentQueue(state.images, {
+  const summary = summarizeAssignmentQueue(activeImages(), {
     sessionUserId: state.sessionUserId,
   });
   els.queueAllCount.textContent = String(summary.all);
@@ -1223,29 +1260,62 @@ function renderQueueControls() {
 }
 
 function renderImageList() {
-  const filtered = filterImagesForQueue(state.images, {
+  const deletedOnly = state.filter === "deleted";
+  const sourceImages = deletedOnly ? state.images.filter(isDeletedImage) : activeImages();
+  const queueFiltered = filterImagesForQueue(sourceImages, {
     queueMode: state.queueMode,
-    statusFilter: state.filter,
+    statusFilter: state.filter === "sync_needed" || deletedOnly ? "all" : state.filter,
     sessionUserId: state.sessionUserId,
   });
-  const submittedCount = state.images.filter((image) => image.status === "submitted").length;
-  els.progressText.textContent = `${submittedCount}/${state.images.length} 제출 · ${filtered.length}개 표시`;
+  const filtered = filterImagesByDiscovery(queueFiltered, {
+    search: state.imageSearch,
+    syncNeededOnly: state.filter === "sync_needed",
+  });
+  const activeCount = activeImages().length;
+  const deletedCount = state.images.filter(isDeletedImage).length;
+  const submittedCount = activeImages().filter((image) => image.status === "submitted").length;
+  els.progressText.textContent = `${submittedCount}/${activeCount} 제출 · ${filtered.length}개 표시${deletedCount ? ` · 삭제 ${deletedCount}` : ""}`;
+  if (document.activeElement !== els.imageSearchInput) {
+    els.imageSearchInput.value = state.imageSearch;
+  }
 
-  els.imageList.replaceChildren(...filtered.map((image) => {
+  const rows = filtered.map((image) => {
+    const row = document.createElement("div");
+    row.className = "image-row-shell";
     const button = document.createElement("button");
     button.type = "button";
-    button.className = `image-row ${image.id === state.selectedId ? "selected" : ""}`;
+    button.className = `image-row ${image.id === state.selectedId ? "selected" : ""} ${isDeletedImage(image) ? "deleted" : ""}`;
     button.addEventListener("click", () => void selectImage(image.id));
     button.innerHTML = `
       <img src="${image.objectUrl}" alt="">
       <span class="image-row-main">
         <strong>${escapeHtml(image.fileName)}</strong>
-        <small>${image.width}×${image.height} · ${syncListLabel(image)}</small>
+        <small>${image.width}×${image.height} · ${isDeletedImage(image) ? "삭제됨" : syncListLabel(image)}</small>
       </span>
       <span class="status-chip ${image.status}">${statusLabel(image.status)}</span>
     `;
-    return button;
-  }));
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = `icon-button small image-row-action ${isDeletedImage(image) ? "restore" : "danger"}`;
+    action.title = isDeletedImage(image) ? "이미지 복원" : "이미지 제거";
+    action.setAttribute("aria-label", `${image.fileName || image.id} ${isDeletedImage(image) ? "복원" : "제거"}`);
+    action.textContent = isDeletedImage(image) ? "↺" : "×";
+    action.disabled = !canEditImageCollection();
+    action.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void toggleImageRemoval(image.id);
+    });
+    row.replaceChildren(button, action);
+    return row;
+  });
+
+  if (rows.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-list-row";
+    empty.innerHTML = "<strong>표시할 이미지 없음</strong><small>검색어 또는 필터를 조정하세요.</small>";
+    rows.push(empty);
+  }
+  els.imageList.replaceChildren(...rows);
 }
 
 function renderUploadRejections() {
@@ -1270,7 +1340,11 @@ function renderProjectSummaries() {
     return;
   }
 
-  const items = (state.projectSummaries || []).slice(0, 4).map((project) => {
+  if (document.activeElement !== els.projectSearchInput) {
+    els.projectSearchInput.value = state.projectSearch;
+  }
+  const filteredProjects = filterProjectsBySearch(state.projectSummaries || [], state.projectSearch);
+  const items = filteredProjects.map((project) => {
     const row = document.createElement("button");
     row.type = "button";
     row.className = `project-summary-row ${project.project_id === state.projectId ? "current" : ""}`;
@@ -1288,7 +1362,9 @@ function renderProjectSummaries() {
   if (items.length === 0) {
     const empty = document.createElement("div");
     empty.className = "project-summary-row";
-    empty.innerHTML = "<span><strong>서버 프로젝트 없음</strong><small>관리자가 새 프로젝트를 생성하면 표시됩니다.</small></span>";
+    empty.innerHTML = state.projectSearch
+      ? "<span><strong>검색 결과 없음</strong><small>프로젝트 이름 또는 ID를 다시 확인하세요.</small></span>"
+      : "<span><strong>서버 프로젝트 없음</strong><small>관리자가 새 프로젝트를 생성하면 표시됩니다.</small></span>";
     items.push(empty);
   }
   els.projectSummaryList.replaceChildren(...items);
@@ -1340,6 +1416,12 @@ function renderDashboard() {
     dashboardDefinition("승인만", `${summary.exportReadiness.approvedOnlyPolicy.included}/${summary.exportReadiness.approvedOnlyPolicy.total}`),
     dashboardDefinition("동기화", `${summary.exportReadiness.syncBlockers.length}건`),
   );
+  els.dashboardReviewQuality.replaceChildren(
+    dashboardDefinition("승인율", formatRate(summary.reviewQuality.approvalRate)),
+    dashboardDefinition("반려율", formatRate(summary.reviewQuality.rejectionRate)),
+    dashboardDefinition("반려 이벤트", String(summary.reviewQuality.rejections)),
+    dashboardDefinition("주요 사유", summary.reviewQuality.topRejectReasons[0]?.reasonLabel || "-"),
+  );
   els.dashboardBlockers.replaceChildren(...summary.blockers.slice(0, 6).map((blocker) => {
     const item = document.createElement("li");
     item.innerHTML = `<strong>${escapeHtml(blocker.imageName || blocker.imageId || "-")}</strong><span>${escapeHtml(blocker.label)}</span>`;
@@ -1377,6 +1459,10 @@ function dashboardDefinition(label, value) {
   const item = document.createElement("div");
   item.innerHTML = `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`;
   return item;
+}
+
+function formatRate(value) {
+  return `${Math.round(Number(value || 0) * 100)}%`;
 }
 
 function dashboardWorkloadRows(workload) {
@@ -1498,6 +1584,7 @@ async function restoreServerManifest(manifest = {}) {
   state.images = (manifest.images || []).map(rehydrateServerImageRecord);
   state.selectedId = state.images[0]?.id || null;
   state.filter = "all";
+  state.imageSearch = "";
   state.uploadRejections = [];
   state.savedAt = manifest.updated_at ? new Date(manifest.updated_at) : new Date();
   await persistProject();
@@ -1516,6 +1603,8 @@ function setActiveProjectFromManifest(manifest = {}, options = {}) {
     editor.clear();
     state.images = [];
     state.selectedId = null;
+    state.filter = "all";
+    state.imageSearch = "";
     state.savedAt = null;
     state.uploadRejections = [];
   }
@@ -1619,6 +1708,10 @@ function renderReviewPanel() {
   if (document.activeElement !== els.reviewReason) {
     els.reviewReason.value = state.reviewReasonDraft || image?.reject_reason || "";
   }
+  if (document.activeElement !== els.reviewReasonCode) {
+    els.reviewReasonCode.value = image?.reject_reason_code || state.reviewReasonCode || REJECTION_REASON_CODES.ROUGH_BOUNDARY;
+  }
+  els.reviewReasonCode.disabled = !canReview;
   els.reviewReason.disabled = !image || image.status === "approved";
   els.approveButton.disabled = !canReview || !reviewerReady;
   els.rejectButton.disabled = !canReview || !reviewerReady;
@@ -1635,7 +1728,9 @@ function renderReviewPanel() {
   } else if (image.status === "rejected" && image.review_server_synced === false) {
     setReviewMessage("반려 상태 서버 동기화 후 재작업할 수 있습니다.", true);
   } else if (image.status === "rejected") {
-    setReviewMessage(image.reject_reason ? `반려: ${image.reject_reason}` : "반려됨. 재작업을 시작할 수 있습니다.", true);
+    const label = image.reject_reason_label || rejectionReasonCodeLabel(image.reject_reason_code);
+    const detail = [label, image.reject_reason].filter(Boolean).join(" · ");
+    setReviewMessage(detail ? `반려: ${detail}` : "반려됨. 재작업을 시작할 수 있습니다.", true);
   } else if (image.status === "approved") {
     setReviewMessage("승인 완료", false);
   } else {
@@ -1866,6 +1961,91 @@ function reviewStatusMessage(image) {
   }[image.status] || "리뷰 상태 저장됨";
 }
 
+function canEditImageCollection() {
+  return state.sessionAuthenticated && [ROLES.ADMIN, ROLES.WORKER].includes(state.sessionRole);
+}
+
+async function toggleImageRemoval(imageId) {
+  const image = state.images.find((item) => item.id === imageId);
+  if (!image || !canEditImageCollection()) return;
+
+  if (isDeletedImage(image)) {
+    await restoreImage(image);
+    return;
+  }
+  const reason = window.prompt(`"${image.fileName || image.id}" 이미지를 삭제 항목으로 이동합니다. 사유를 입력하세요.`, "wrong_upload");
+  if (reason === null) return;
+  if (!window.confirm("이 이미지는 목록과 export에서 제외됩니다. 파일은 물리 삭제하지 않고 복원할 수 있습니다. 진행할까요?")) return;
+  await softRemoveImage(image, reason);
+}
+
+async function softRemoveImage(image, reason = "") {
+  setSaveState("saving", "이미지 제거 중");
+  try {
+    let updated = {
+      ...image,
+      deleted_at: image.deleted_at || new Date().toISOString(),
+      deleted_by: state.sessionUserId,
+      delete_reason: String(reason || ""),
+      updated_at: new Date().toISOString(),
+    };
+    if (state.backendProjectReady && image.server_image_synced !== false) {
+      const response = await apiClient.removeImage(state.projectId, image.id, { reason });
+      updated = { ...updated, ...(response.image || {}) };
+    }
+    updateImageRecord(updated);
+    if (state.selectedId === image.id) {
+      state.selectedId = nextSelectableImageId(image.id);
+      if (state.selectedId) {
+        await selectImage(state.selectedId, { updateRoute: false, markInProgress: false });
+      } else {
+        editor.clear();
+        els.emptyState.hidden = false;
+      }
+    }
+    await persistProject();
+    render();
+    setSaveState("saved", "이미지 제거됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `이미지 제거 실패: ${normalized.message}`);
+  }
+}
+
+async function restoreImage(image) {
+  setSaveState("saving", "이미지 복원 중");
+  try {
+    let updated = {
+      ...image,
+      deleted_at: "",
+      deleted_by: "",
+      delete_reason: "",
+      updated_at: new Date().toISOString(),
+    };
+    if (state.backendProjectReady && image.server_image_synced !== false) {
+      const response = await apiClient.restoreImage(state.projectId, image.id);
+      updated = { ...updated, ...(response.image || {}) };
+    }
+    updateImageRecord(updated);
+    state.selectedId = image.id;
+    await persistProject();
+    await selectImage(image.id, { updateRoute: false, markInProgress: false });
+    render();
+    setSaveState("saved", "이미지 복원됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `이미지 복원 실패: ${normalized.message}`);
+  }
+}
+
+function updateImageRecord(updated) {
+  state.images = state.images.map((image) => image.id === updated.id ? { ...image, ...updated } : image);
+}
+
+function nextSelectableImageId(currentId) {
+  return activeImages().find((image) => image.id !== currentId)?.id || null;
+}
+
 async function validateRestoredSession() {
   if (!state.sessionToken || !state.sessionAuthenticated) return false;
   return ensureAuthenticatedSession();
@@ -1901,7 +2081,46 @@ async function ensureAuthenticatedSession() {
 }
 
 function getSelectedImage() {
-  return state.images.find((image) => image.id === state.selectedId) || null;
+  const image = state.images.find((item) => item.id === state.selectedId) || null;
+  return image && !isDeletedImage(image) ? image : null;
+}
+
+function activeImages() {
+  return state.images.filter((image) => !isDeletedImage(image));
+}
+
+function isDeletedImage(image = {}) {
+  return Boolean(image.deleted_at || image.deletedAt);
+}
+
+function filterImagesByDiscovery(images = [], options = {}) {
+  const query = normalizeSearchQuery(options.search);
+  return images
+    .filter((image) => !options.syncNeededOnly || hasSyncIssue(image))
+    .filter((image) => {
+      if (!query) return true;
+      return [
+        image.id,
+        image.fileName,
+        image.original_file_name,
+        image.image_path,
+      ].some((value) => normalizeSearchQuery(value).includes(query));
+    });
+}
+
+function filterProjectsBySearch(projects = [], search = "") {
+  const query = normalizeSearchQuery(search);
+  if (!query) return projects;
+  return projects.filter((project) => [
+    project.project_id,
+    project.id,
+    project.name,
+    project.project_name,
+  ].some((value) => normalizeSearchQuery(value).includes(query)));
+}
+
+function normalizeSearchQuery(value) {
+  return String(value || "").trim().toLocaleLowerCase();
 }
 
 function syncLabel(value) {
@@ -1975,6 +2194,7 @@ async function persistProject() {
     projectName: state.projectName,
     selectedId: state.selectedId,
     filter: state.filter,
+    imageSearch: state.imageSearch,
     queueMode: state.queueMode,
     savedAt: state.savedAt ? state.savedAt.toISOString() : null,
     backendProjectReady: state.backendProjectReady,
@@ -2004,6 +2224,7 @@ async function restoreProject() {
     state.projectName = saved.projectName || state.projectName;
     state.selectedId = saved.selectedId || null;
     state.filter = saved.filter || "all";
+    state.imageSearch = String(saved.imageSearch || "");
     state.queueMode = normalizeQueueMode(saved.queueMode);
     state.savedAt = saved.savedAt ? new Date(saved.savedAt) : null;
     state.backendProjectReady = Boolean(saved.backendProjectReady);
@@ -2035,6 +2256,8 @@ async function clearProject() {
   state.projectName = "";
   state.images = [];
   state.selectedId = null;
+  state.filter = "all";
+  state.imageSearch = "";
   state.queueMode = QUEUE_MODES.ALL;
   state.savedAt = null;
   state.backendProjectReady = false;
@@ -2053,6 +2276,7 @@ async function clearProject() {
   state.uploadPolicy = { ...UPLOAD_POLICY };
   state.projectCreateId = "";
   state.projectCreateName = "";
+  state.projectSearch = "";
   state.projectCreateMessage = "";
   await projectStore.clearProject();
   editor.clear();

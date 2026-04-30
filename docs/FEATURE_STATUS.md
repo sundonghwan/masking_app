@@ -60,14 +60,29 @@
 - [x] Training set export for selected project/task/version sources
 - [x] Spacebar hold-to-camera-pan override
 - [x] Expanded lint/typecheck coverage for new runtime modules
+- [x] Workbench navigation back to project list and dashboard
+- [x] Single-image soft remove and restore API
+- [x] Deleted image exclusion from active lists, dashboard counts, and export payloads
+- [x] Project/task/version API foundation for list/create/read flows
+- [x] Browser API client task/version methods
+- [x] Image search and operational filters for not-started, sync-needed, and deleted items
+- [x] Searchable full project list instead of a capped project summary view
+- [x] Structured review rejection reason codes
+- [x] Dashboard review quality metrics from structured review events
 
 ## In Progress
 
-- None.
+- Next batch planning: version-scoped workbench wiring and operational admin surfaces.
 
 ## Remaining
 
-- None for the current 12-item implementation batch.
+- Task/version selector in the workbench so normal editing is version-scoped.
+- Version clone/delete/restore UI on top of the storage hierarchy primitives.
+- Server revision or optimistic concurrency guard for multi-user edits.
+- Project settings edit UI/API for upload limits, allowed formats, and tool presets.
+- Account administration UI for local users, disabled state, and password rotation.
+- Training-set export source picker tied directly to selected task/version snapshots.
+- Optional physical purge maintenance for soft-deleted files.
 
 ## Recommended Development Order
 
@@ -88,6 +103,8 @@
 - [ ] Add project settings edit screen for changing upload formats and limits after project creation.
 - [ ] Wire project/task/version selectors throughout the workbench instead of using legacy project-only routes.
 - [ ] Add version clone/delete/restore UI on top of the storage hierarchy primitives.
+- [ ] Add server revision or optimistic concurrency checks before multi-user editing expands.
+- [ ] Promote training-set export source selection into the main workbench/project flow.
 - [ ] Add physical purge maintenance for deleted version files if operations needs it.
 
 ## Hardcoded Runtime Debt

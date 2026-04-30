@@ -11,11 +11,15 @@ import {
   ensureProject,
   listProjectFiles,
   listProjects,
+  listProjectTasks,
+  listTaskVersions,
   readProjectManifest,
   writeMaskBuffer,
   writeImageFromDataUrl,
   writeMaskFromDataUrl,
   writeProjectManifest,
+  softDeleteProjectImage,
+  restoreProjectImage,
 } from "../src/server/storage.js";
 
 const PNG_DATA_URL = "data:image/png;base64,cG5nLWJ5dGVz";
@@ -117,6 +121,7 @@ test("lists project summaries from manifests", async () => {
       { id: "submitted", status: "submitted" },
       { id: "approved", status: "approved" },
       { id: "rejected", status: "rejected" },
+      { id: "deleted-submitted", status: "submitted", deleted_at: "2026-04-30T00:00:00.000Z" },
     ],
     created_at: "2026-04-29T00:00:00.000Z",
     updated_at: "2026-04-29T00:00:00.000Z",
@@ -174,9 +179,60 @@ test("module-level default APIs are exported for server integration", () => {
   assert.equal(typeof writeMaskBuffer, "function");
   assert.equal(typeof readProjectManifest, "function");
   assert.equal(typeof writeProjectManifest, "function");
+  assert.equal(typeof softDeleteProjectImage, "function");
+  assert.equal(typeof restoreProjectImage, "function");
+  assert.equal(typeof listProjectTasks, "function");
+  assert.equal(typeof listTaskVersions, "function");
   assert.equal(typeof listProjectFiles, "function");
   assert.equal(typeof listProjects, "function");
   assert.equal(typeof clearStorageForTests, "function");
+});
+
+test("soft deletes and restores legacy project image metadata without moving files", async () => {
+  const { storage, rootDir } = await createTempStorage();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  const image = await storage.writeImageFromDataUrl("project-1", "image-1", "raw.png", PNG_DATA_URL);
+  const mask = await storage.writeMaskFromDataUrl("project-1", "image-1", PNG_DATA_URL);
+  await storage.writeProjectManifest("project-1", {
+    project_id: "project-1",
+    images: [
+      {
+        id: "image-1",
+        image_path: image.relativePath,
+        current_mask_path: mask.relativePath,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+      },
+    ],
+  });
+
+  const deleted = await storage.softDeleteProjectImage("project-1", "image-1", {
+    deletedBy: "worker",
+    reason: "wrong frame",
+    now: "2026-04-30T01:00:00.000Z",
+  });
+
+  assert.equal(deleted.deleted_at, "2026-04-30T01:00:00.000Z");
+  assert.equal(deleted.deleted_by, "worker");
+  assert.equal(deleted.delete_reason, "wrong frame");
+  assert.equal(deleted.image_path, image.relativePath);
+  assert.equal(deleted.current_mask_path, mask.relativePath);
+  assert.equal(await readFile(image.path, "utf8"), "png-bytes");
+  assert.equal(await readFile(mask.path, "utf8"), "png-bytes");
+  assertStoragePath(rootDir, image.path);
+  assertStoragePath(rootDir, mask.path);
+
+  const restored = await storage.restoreProjectImage("project-1", "image-1", {
+    now: "2026-04-30T01:10:00.000Z",
+  });
+
+  assert.equal(restored.deleted_at, "");
+  assert.equal(restored.deleted_by, "");
+  assert.equal(restored.delete_reason, "");
+  assert.equal(restored.updated_at, "2026-04-30T01:10:00.000Z");
+  assert.equal(await readFile(image.path, "utf8"), "png-bytes");
+  assert.equal(await readFile(mask.path, "utf8"), "png-bytes");
 });
 
 test("ensures project task and version metadata in hierarchical storage", async () => {
@@ -276,6 +332,41 @@ test("keeps existing flat project manifest compatibility", async () => {
   assert.deepEqual(await storage.readProjectManifest("legacy-project"), manifest);
   assert.equal(await storage.readVersionManifest("legacy-project", "default_task", "v1"), null);
   await assertStatDirectory(path.join(rootDir, "legacy-project", "images"));
+});
+
+test("lists task and version metadata summaries from hierarchy", async () => {
+  const { storage } = await createTempStorage();
+
+  await storage.ensureTaskMetadata("project-1", "task-old", {
+    name: "Old Task",
+    now: "2026-04-30T00:00:00.000Z",
+  });
+  await storage.ensureVersionManifest("project-1", "task-old", "v1", {
+    status: "approved",
+    now: "2026-04-30T00:00:01.000Z",
+    images: [{ id: "image-1", status: "approved" }],
+  });
+  await storage.ensureTaskMetadata("project-1", "task-new", {
+    name: "New Task",
+    now: "2026-04-30T01:00:00.000Z",
+  });
+  await storage.ensureVersionManifest("project-1", "task-new", "v2", {
+    status: "in_progress",
+    now: "2026-04-30T01:00:01.000Z",
+    images: [{ id: "image-2", status: "submitted" }, { id: "image-3", deleted_at: "2026-04-30T01:05:00.000Z" }],
+  });
+
+  const tasks = await storage.listProjectTasks("project-1");
+  const versions = await storage.listTaskVersions("project-1", "task-new");
+
+  assert.deepEqual(tasks.map((task) => task.task_id), ["task-new", "task-old"]);
+  assert.equal(tasks[0].name, "New Task");
+  assert.equal(tasks[0].current_version, "v1");
+  assert.deepEqual(versions.map((version) => version.version_id), ["v2"]);
+  assert.equal(versions[0].status, "in_progress");
+  assert.equal(versions[0].total_images, 2);
+  assert.equal(versions[0].active_images, 1);
+  assert.equal(versions[0].submitted_images, 1);
 });
 
 test("soft deletes and restores version image files without changing original relative paths", async () => {

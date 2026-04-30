@@ -128,6 +128,52 @@ test("summarizes valid exports and exclusion reasons", () => {
   ]);
 });
 
+test("deleted images are excluded from export validation and metadata by default", () => {
+  const project = createProjectRecord({ id: "project-1", name: "Rail Masks" }, { now: NOW });
+  const active = createImageRecord(
+    {
+      id: "image-1",
+      projectId: "project-1",
+      originalFileName: "active.png",
+      imagePath: "/server/active.png",
+      maskPath: "/server/active_mask.png",
+      width: 10,
+      height: 10,
+      status: "submitted",
+    },
+    { now: NOW },
+  );
+  const deleted = createImageRecord(
+    {
+      id: "image-2",
+      projectId: "project-1",
+      originalFileName: "deleted.png",
+      imagePath: "/server/deleted.png",
+      maskPath: "/server/deleted_mask.png",
+      width: 10,
+      height: 10,
+      status: "submitted",
+      deletedAt: "2026-04-30T00:00:00.000Z",
+      deletedBy: "worker",
+      deleteReason: "wrong frame",
+    },
+    { now: NOW },
+  );
+
+  const validation = createValidationSummary(project, [active, deleted], { now: NOW });
+  const annotations = createAnnotationsJson(project, [active, deleted], { now: NOW });
+  const exportSummary = createExportSummaryJson(project, [active, deleted], { now: NOW, validationSummary: validation });
+
+  assert.equal(deleted.deleted_at, "2026-04-30T00:00:00.000Z");
+  assert.equal(validation.total_images, 1);
+  assert.equal(validation.exportable_images, 1);
+  assert.deepEqual(validation.items.map((item) => item.image_id), ["image-1"]);
+  assert.deepEqual(annotations.annotations.map((item) => item.image_id), ["image-1"]);
+  assert.equal(exportSummary.total_images, 1);
+  assert.equal(exportSummary.exported_images, 1);
+  assert.deepEqual(exportSummary.validation_errors, []);
+});
+
 test("creates annotations.json with archive-relative paths only", () => {
   const project = createProjectRecord({ id: "project-1", name: "Rail Masks" }, { now: NOW });
   const images = [

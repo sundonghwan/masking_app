@@ -154,6 +154,79 @@ test("lists assignment users with optional role filter", async () => {
   assert.equal(result.users[0].user_id, "worker");
 });
 
+test("lists, creates, and reads project tasks", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { token: "sess_admin" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      if (url.endsWith("/tasks") && options.method === "POST") {
+        return jsonResponse({ task: { task_id: "task-1" } }, 201);
+      }
+      if (url.endsWith("/tasks/task-1")) {
+        return jsonResponse({ task: { task_id: "task-1" } }, 200);
+      }
+      return jsonResponse({ tasks: [{ task_id: "task-1" }], total_tasks: 1 }, 200);
+    },
+  });
+
+  const listed = await client.listProjectTasks("project 1");
+  const created = await client.createProjectTask("project 1", {
+    taskId: "task-1",
+    name: "Task 1",
+    description: "Binary mask task",
+  });
+  const read = await client.getProjectTask("project 1", "task-1");
+
+  assert.equal(listed.total_tasks, 1);
+  assert.equal(created.task.task_id, "task-1");
+  assert.equal(read.task.task_id, "task-1");
+  assert.equal(calls[0].url, "/api/projects/project%201/tasks");
+  assert.equal(calls[0].options.method, "GET");
+  assert.equal(calls[0].options.headers.authorization, "Bearer sess_admin");
+  assert.equal(calls[1].url, "/api/projects/project%201/tasks");
+  assert.deepEqual(JSON.parse(calls[1].options.body), {
+    task_id: "task-1",
+    name: "Task 1",
+    description: "Binary mask task",
+  });
+  assert.equal(calls[2].url, "/api/projects/project%201/tasks/task-1");
+});
+
+test("lists, creates, and reads task versions", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      if (url.endsWith("/versions") && options.method === "POST") {
+        return jsonResponse({ version: { version_id: "v2" } }, 201);
+      }
+      if (url.endsWith("/versions/v2")) {
+        return jsonResponse({ version: { version_id: "v2", images: [] } }, 200);
+      }
+      return jsonResponse({ versions: [{ version_id: "v2" }], total_versions: 1 }, 200);
+    },
+  });
+
+  const listed = await client.listTaskVersions("project-1", "task 1");
+  const created = await client.createTaskVersion("project-1", "task 1", {
+    versionId: "v2",
+    status: "draft",
+  });
+  const read = await client.getTaskVersion("project-1", "task 1", "v2");
+
+  assert.equal(listed.total_versions, 1);
+  assert.equal(created.version.version_id, "v2");
+  assert.deepEqual(read.version.images, []);
+  assert.equal(calls[0].url, "/api/projects/project-1/tasks/task%201/versions");
+  assert.equal(calls[1].url, "/api/projects/project-1/tasks/task%201/versions");
+  assert.deepEqual(JSON.parse(calls[1].options.body), {
+    version_id: "v2",
+    status: "draft",
+  });
+  assert.equal(calls[2].url, "/api/projects/project-1/tasks/task%201/versions/v2");
+});
+
 test("logs in and sends bearer token on protected requests", async () => {
   const calls = [];
   let token = "";
@@ -274,6 +347,35 @@ test("submits review transitions with project id and reason", async () => {
     project_id: "project 1",
     action: "reject",
     reason: "Needs tighter edge",
+  });
+});
+
+test("removes and restores images with project id and delete metadata", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { token: "sess_worker" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ image: { id: "image-1" } }, 200);
+    },
+  });
+
+  await client.removeImage("project 1", "image 1", {
+    reason: "wrong frame",
+  });
+  await client.restoreImage("project 1", "image 1");
+
+  assert.equal(calls[0].url, "/api/images/image%201");
+  assert.equal(calls[0].options.method, "DELETE");
+  assert.equal(calls[0].options.headers.authorization, "Bearer sess_worker");
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    project_id: "project 1",
+    delete_reason: "wrong frame",
+  });
+  assert.equal(calls[1].url, "/api/images/image%201/restore");
+  assert.equal(calls[1].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].options.body), {
+    project_id: "project 1",
   });
 });
 

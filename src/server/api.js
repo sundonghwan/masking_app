@@ -3,6 +3,7 @@ import { createTrainingSetZipEntries } from "../export/trainingSet.js";
 import {
   createAnnotationsJson,
   createExportPaths,
+  filterActiveImages,
   createExportSummaryJson,
   createImageRecord,
   createProjectRecord,
@@ -151,6 +152,10 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       return sendJson(response, 200, manifest);
     }
 
+    if (parts[1] === "tasks") {
+      return routeProjectTasks(request, response, projectId, parts.slice(2));
+    }
+
     if (parts.length === 2 && parts[1] === "images" && request.method === "POST") {
       const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.WORKER, ROLES.ADMIN])) return;
@@ -272,8 +277,139 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     return notFound(response);
   }
 
+  async function routeProjectTasks(request, response, projectId, parts) {
+    if (parts.length === 0 && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+
+      const tasks = await storage.listProjectTasks(projectId);
+      return sendJson(response, 200, {
+        tasks,
+        total_tasks: tasks.length,
+      });
+    }
+
+    if (parts.length === 0 && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+
+      const body = await readJsonBody(request);
+      const taskId = body.task_id || body.taskId || body.id;
+      if (!taskId) {
+        return sendJson(response, 400, {
+          error: "task_id_required",
+          message: "Task ID is required",
+        });
+      }
+      const task = await storage.ensureTaskMetadata(projectId, taskId, {
+        name: body.name || body.task_name || taskId,
+        description: body.description || "",
+        createdBy: session.userId,
+        currentVersion: body.current_version || body.currentVersion,
+      });
+      return sendJson(response, 201, { task });
+    }
+
+    const taskId = decodePathSegment(parts[0]);
+    if (parts.length === 1 && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+
+      const task = await storage.readTaskMetadata(projectId, taskId);
+      if (!task) throw createHttpError(404, "Task not found");
+      return sendJson(response, 200, { task });
+    }
+
+    if (parts[1] === "versions") {
+      return routeTaskVersions(request, response, projectId, taskId, parts.slice(2));
+    }
+
+    return notFound(response);
+  }
+
+  async function routeTaskVersions(request, response, projectId, taskId, parts) {
+    if (parts.length === 0 && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+
+      const versions = await storage.listTaskVersions(projectId, taskId);
+      return sendJson(response, 200, {
+        versions,
+        total_versions: versions.length,
+      });
+    }
+
+    if (parts.length === 0 && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+
+      const body = await readJsonBody(request);
+      const versionId = body.version_id || body.versionId || body.id;
+      if (!versionId) {
+        return sendJson(response, 400, {
+          error: "version_id_required",
+          message: "Version ID is required",
+        });
+      }
+      const version = await storage.ensureVersionManifest(projectId, taskId, versionId, {
+        status: body.status || "in_progress",
+        createdBy: session.userId,
+      });
+      return sendJson(response, 201, { version });
+    }
+
+    if (parts.length === 1 && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+
+      const version = await storage.readVersionManifest(projectId, taskId, decodePathSegment(parts[0]));
+      if (!version) throw createHttpError(404, "Version not found");
+      return sendJson(response, 200, { version });
+    }
+
+    return notFound(response);
+  }
+
   async function routeImage(request, response, parts, context) {
     const imageId = parts[0];
+
+    if (parts.length === 1 && request.method === "DELETE") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const projectId = body.project_id;
+      const image = await updateProjectImageDeletion(response, projectId, imageId, {
+        mode: "delete",
+        actor: session.userId,
+        reason: body.delete_reason || body.deleteReason || body.reason,
+      });
+      if (!image) return;
+      logger?.info("image.soft_delete.completed", {
+        request_id: context.requestId,
+        project_id: projectId,
+        image_id: imageId,
+        deleted_by: image.deleted_by,
+      });
+      return sendJson(response, 200, { image });
+    }
+
+    if (parts.length === 2 && parts[1] === "restore" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const projectId = body.project_id;
+      const image = await updateProjectImageDeletion(response, projectId, imageId, {
+        mode: "restore",
+      });
+      if (!image) return;
+      logger?.info("image.restore.completed", {
+        request_id: context.requestId,
+        project_id: projectId,
+        image_id: imageId,
+        restored_by: session.userId,
+      });
+      return sendJson(response, 200, { image });
+    }
 
     if (parts.length === 2 && parts[1] === "mask" && request.method === "PUT") {
       const session = await readSession(request);
@@ -358,6 +494,7 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       const result = applyReviewTransition(image, {
         action: body.action,
         reason: body.reason || body.reject_reason,
+        reason_code: body.reason_code || body.reasonCode,
         reviewer_id: session.userId,
       });
       if (!result.valid) {
@@ -510,6 +647,14 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     return match ? match[1].trim() : "";
   }
 
+  function decodePathSegment(value) {
+    try {
+      return decodeURIComponent(String(value || ""));
+    } catch {
+      return String(value || "");
+    }
+  }
+
   function fileContentType(relativePath) {
     const lower = String(relativePath || "").toLowerCase();
     if (lower.endsWith(".png")) return "image/png";
@@ -630,6 +775,56 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     };
   }
 
+  async function updateProjectImageDeletion(response, projectId, imageId, operation) {
+    if (!projectId) {
+      return sendJson(response, 400, {
+        error: "project_id_required",
+        message: "Project ID is required",
+      });
+    }
+    const manifest = await storage.readProjectManifest(projectId);
+    if (!manifest) throw createHttpError(404, "Project not found");
+    const existing = (manifest.images || []).find((item) => item.id === imageId);
+    if (!existing) throw createHttpError(404, "Image not found");
+
+    if (operation.mode === "delete") {
+      if (storage.softDeleteProjectImage) {
+        return storage.softDeleteProjectImage(projectId, imageId, {
+          deletedBy: operation.actor,
+          reason: operation.reason,
+        });
+      }
+      const now = new Date().toISOString();
+      const updated = {
+        ...existing,
+        deleted_at: existing.deleted_at || now,
+        deleted_by: String(operation.actor || ""),
+        delete_reason: String(operation.reason || ""),
+        updated_at: now,
+      };
+      manifest.images = manifest.images.map((item) => item.id === imageId ? updated : item);
+      manifest.updated_at = now;
+      await storage.writeProjectManifest(projectId, manifest);
+      return updated;
+    }
+
+    if (storage.restoreProjectImage) {
+      return storage.restoreProjectImage(projectId, imageId);
+    }
+    const now = new Date().toISOString();
+    const updated = {
+      ...existing,
+      deleted_at: "",
+      deleted_by: "",
+      delete_reason: "",
+      updated_at: now,
+    };
+    manifest.images = manifest.images.map((item) => item.id === imageId ? updated : item);
+    manifest.updated_at = now;
+    await storage.writeProjectManifest(projectId, manifest);
+    return updated;
+  }
+
   async function exportProject(response, projectId, context, options = {}) {
     const manifest = await storage.readProjectManifest(projectId);
     if (!manifest) throw createHttpError(404, "Project not found");
@@ -640,7 +835,7 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       createdAt: manifest.created_at,
       updatedAt: manifest.updated_at,
     });
-    const images = manifest.images || [];
+    const images = filterActiveImages(manifest.images || []);
     const validationSummary = createValidationSummary(project, images, { approvedOnly: options.approvedOnly });
     const annotations = createAnnotationsJson(project, images, { approvedOnly: options.approvedOnly });
     const summary = createExportSummaryJson(project, images, { validationSummary, approvedOnly: options.approvedOnly });

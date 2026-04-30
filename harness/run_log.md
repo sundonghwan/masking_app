@@ -754,6 +754,40 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/typecheck-all.sh status=passed
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
+[START] task=worker-c-task-version-foundation subsystem=project-task-version-api
+[PLAN] scope=minimal-task-version-list-read-create-foundation risks=legacy-project-route-interception,hierarchy-metadata-drift,client-server-field-drift
+[IMPACT] status=suspected chain=routeProject->storage.ensureTaskMetadata->task-json
+[IMPACT] status=suspected chain=routeProject->storage.ensureVersionManifest->version-manifest-json
+[IMPACT] status=suspected chain=listProjectTasks/listTaskVersions->routeProject-task-version-routes->apiClient-methods
+[CMD] node --test tests/serverStorage.test.js tests/serverApi.test.js tests/apiClient.test.js status=expected-red failures=5 missing-storage-api-client-surfaces
+[CMD] node --test tests/serverStorage.test.js tests/serverApi.test.js tests/apiClient.test.js status=passed tests=77
+[CMD] node --check src/server/storage.js status=passed
+[CMD] node --check src/server/api.js status=passed
+[CMD] node --check src/api/client.js status=passed
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] scripts/harness/test-target.sh status=failed tests=175/176 note=external-discovery-controls-appContracts-failure-outside-worker-c-scope
+[IMPACT_VALIDATE] chain=listProjectTasks/listTaskVersions->routeProject-task-version-routes->apiClient-methods validation=focused-storage-server-api-api-client-tests-passed
+[IMPACT_VALIDATE] chain=routeProject->storage.ensureTaskMetadata->task-json validation=server-api-task-create-read-list-tests-passed
+[IMPACT_VALIDATE] chain=routeProject->storage.ensureVersionManifest->version-manifest-json validation=server-api-version-create-read-list-tests-passed
+[REVIEW] finding=none-blocking scope=worker-c-task-version-foundation note=legacy-project-route-guard-covered-no-workbench-conversion
+[CLOSE] status=worker-c-task-version-foundation-complete commit=skipped-per-user
+[START] task=worker-e-review-quality-metrics subsystem=review-policy,dashboard-summary
+[PLAN] scope=structured-reject-reason-codes-and-dashboard-review-quality-metrics risks=free-text-reason-compatibility,event-metric-double-counting
+[IMPACT] status=suspected chain=validateReviewTransition (src/review/policy.js:56-94) -> applyReviewTransition (src/review/policy.js:96-149) -> review_events[].reason_code
+[IMPACT] status=suspected chain=createDashboardSummary (src/dashboard/summary.js:19-57) -> createReviewQualityMetrics (src/dashboard/summary.js:175-226) -> dashboard summary contract
+[FIX] scope=review-policy note=added-normalized-rejection-reason-codes-labels-aliases-and-text-fallback-preserving-free-text-reasons
+[FIX] scope=dashboard-summary note=added-reviewQuality-metrics-and-recentActivity-reason-code-label-fields-from-review-events
+[IMPACT_VALIDATE] chain=validateReviewTransition->applyReviewTransition->reason-code-events validation=tests/reviewPolicy.test.js,tests/dashboardSummary.test.js passed
+[IMPACT_VALIDATE] chain=createDashboardSummary->createReviewQualityMetrics->dashboard-contract validation=tests/dashboardSummary.test.js passed
+[CMD] node --test tests/reviewPolicy.test.js tests/dashboardSummary.test.js status=passed tests=11
+[CMD] node --check src/review/policy.js status=passed
+[CMD] node --check src/dashboard/summary.js status=passed
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=worker-e-review-quality-metrics note=pure-helper-change-no-app-or-api-route-edits
+[CLOSE] status=complete commit=skipped-per-user
 [REVIEW] finding=none-blocking scope=12-feature-implementation-batch note=post-fix-review-confirmed-no-open-blocking-code-issues
 [CLOSE] status=ready-for-review commit=pending-push
 [START] task=dashboard-layout-regression subsystem=frontend-dashboard-css
@@ -769,6 +803,12 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=dashboard-layout-regression note=visual-overlap-root-cause-fixed-and-contract-test-added
 [CLOSE] status=ready-for-commit
+[START] task=12-gap-implementation-batch subsystem=product-workflow,storage-versioning,review-quality
+[PLAN] scope=12 missing product/system gaps risks=shared-app-controller,soft-delete-semantics,version-route-migration
+[IMPACT] status=suspected chain=renderImageList (src/app.js:*) -> selectImage (src/app.js:*) -> routeToScreen (src/app.js:*)
+[IMPACT] status=suspected chain=routeProject (src/server/api.js:*) -> storage.read/write manifest (src/server/storage.js:*) -> validateExportItem (src/export/exporter.js:*)
+[IMPACT] status=suspected chain=routeProjectTasksVersions (src/server/api.js:*) -> storage.ensureVersionManifest (src/server/storage.js:*) -> apiClient task/version methods (src/api/client.js:*)
+[IMPACT] status=suspected chain=reviewSelectedImage (src/app.js:*) -> applyReviewTransition (src/review/policy.js:*) -> createDashboardSummary (src/dashboard/summary.js:*)
 [DOC] updated=docs/FEATURE_STATUS.md note=12-feature-batch-completed-and-next-hardening-updated
 [REVIEW] finding=important scope=upload-policy note=browser-upload-validation-used-active-policy-but-needed-persistence-and-contract-coverage
 [REVIEW] finding=important scope=project-upload-api note=missing-project-upload-implicitly-created-project-via-ensureProject
@@ -781,3 +821,37 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/typecheck-all.sh status=passed
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
+[START] task=worker-b-single-image-soft-remove subsystem=server-storage,api,export,api-client
+[PLAN] scope=legacy-single-image-soft-delete-restore risks=manifest-metadata,export-filtering,summary-counts no-goals=physical-purge,task-version-route-migration
+[IMPACT] status=suspected chain=routeImage(src/server/api.js:276-315)->storage.softDeleteProjectImage(src/server/storage.js:347-403)->writeProjectManifest(src/server/storage.js:397-401)
+[IMPACT] status=suspected chain=routeImage(src/server/api.js:276-315)->storage.restoreProjectImage(src/server/storage.js:347-403)->writeProjectManifest(src/server/storage.js:397-401)
+[IMPACT] status=suspected chain=exportProject(src/server/api.js:722-746)->filterActiveImages(src/export/exporter.js:218-221)->createValidationSummary/createAnnotationsJson/createExportSummaryJson(src/export/exporter.js:82-215)
+[IMPACT] status=suspected chain=listProjects(src/server/storage.js:411-427)->createProjectSummary(src/server/storage.js:646-654)
+[CMD] node --test tests/serverStorage.test.js tests/exporter.test.js tests/serverApi.test.js tests/apiClient.test.js status=failed note=unrelated-task-version-route-list-tests-outside-worker-b-scope
+[CMD] node --test --test-name-pattern "soft remove|soft deletes and restores legacy|deleted images are excluded|removes and restores images|project export writes files only|lists project summaries" tests/serverStorage.test.js tests/exporter.test.js tests/serverApi.test.js tests/apiClient.test.js status=passed tests=7
+[CMD] node --check src/server/storage.js status=passed
+[CMD] node --check src/server/api.js status=passed
+[CMD] node --check src/export/exporter.js status=passed
+[CMD] node --check src/api/client.js status=passed
+[CMD] git diff --check status=passed
+[IMPACT_VALIDATE] task=worker-b-single-image-soft-remove chain=single-image-soft-delete-restore validation=focused-node-tests-passed
+[IMPACT_VALIDATE] task=worker-b-single-image-soft-remove chain=deleted-image-export-filter validation=focused-node-tests-passed
+[IMPACT_VALIDATE] task=worker-b-single-image-soft-remove chain=project-summary-active-counts validation=focused-node-tests-passed
+[REVIEW] finding=none-blocking scope=worker-b-single-image-soft-remove note=metadata-only-legacy-delete-no-file-move-export-summary-filtered-by-active-images
+[CLOSE] status=worker-b-lane-complete commit=skipped-per-user
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=workbench-navigation validation=appContracts-and-browser-dashboard-smoke-passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=single-image-soft-remove-restore validation=server-storage-server-api-api-client-tests-passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=deleted-image-active-filtering-export-dashboard validation=exporter-dashboard-server-storage-tests-passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=task-version-api-foundation validation=server-storage-server-api-api-client-tests-passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=image-project-discovery-controls validation=appContracts-passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=structured-review-quality validation=reviewPolicy-dashboardSummary-tests-passed
+[DOC] updated=docs/FEATURE_STATUS.md note=current-batch-completed-items-and-remaining-next-batch-risks-separated
+[CMD] node --test tests/appContracts.test.js status=passed tests=23
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=177
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] browser-smoke-dashboard status=passed note=dashboard-review-quality-card-rendered-no-layout-overlap
+[REVIEW] finding=none-blocking scope=12-feature-implementation-batch note=diff-review-and-harness-validation-complete
+[CLOSE] status=ready-for-commit

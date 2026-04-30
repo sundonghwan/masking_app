@@ -72,13 +72,17 @@ export function createImageRecord(input = {}, options = {}) {
     mask_data_url: input.maskDataUrl || input.mask_data_url || "",
     export_image_file_name: input.exportImageFileName || input.export_image_file_name || "",
     export_mask_file_name: input.exportMaskFileName || input.export_mask_file_name || "",
+    deleted_at: input.deletedAt || input.deleted_at || "",
+    deleted_by: input.deletedBy || input.deleted_by || "",
+    delete_reason: input.deleteReason || input.delete_reason || "",
     review_events: Array.isArray(input.reviewEvents || input.review_events) ? input.reviewEvents || input.review_events : [],
   };
 }
 
 export function createValidationSummary(projectRecord, imageRecords, options = {}) {
   const now = options.now || new Date().toISOString();
-  const items = imageRecords.map((image, index) => {
+  const activeImages = filterActiveImages(imageRecords, options);
+  const items = activeImages.map((image, index) => {
     const validation = validateImageForExport(image, { index, approvedOnly: options.approvedOnly });
     const paths = createExportPaths(image, { index });
 
@@ -154,7 +158,7 @@ export function validateImageForExport(imageRecord, options = {}) {
 
 export function createAnnotationsJson(projectRecord, imageRecords, options = {}) {
   const now = options.now || new Date().toISOString();
-  const exportable = imageRecords
+  const exportable = filterActiveImages(imageRecords, options)
     .map((image, index) => ({ image, index, validation: validateImageForExport(image, { index, approvedOnly: options.approvedOnly }) }))
     .filter((item) => item.validation.valid);
 
@@ -181,6 +185,7 @@ export function createAnnotationsJson(projectRecord, imageRecords, options = {})
 
 export function createExportSummaryJson(projectRecord, imageRecords, options = {}) {
   const now = options.now || new Date().toISOString();
+  const activeImages = filterActiveImages(imageRecords, options);
   const validationSummary = options.validationSummary || createValidationSummary(projectRecord, imageRecords, { now, approvedOnly: options.approvedOnly });
   const validationErrors = validationSummary.items
     .filter((item) => !item.exportable)
@@ -193,9 +198,9 @@ export function createExportSummaryJson(projectRecord, imageRecords, options = {
     project_id: projectRecord.id,
     total_images: validationSummary.total_images,
     exported_images: validationSummary.exportable_images,
-    approved_images: imageRecords.filter((image) => image.status === "approved").length,
-    rejected_images: imageRecords.filter((image) => image.status === "rejected").length,
-    review_events: imageRecords.reduce((count, image) => count + (Array.isArray(image.review_events) ? image.review_events.length : 0), 0),
+    approved_images: activeImages.filter((image) => image.status === "approved").length,
+    rejected_images: activeImages.filter((image) => image.status === "rejected").length,
+    review_events: activeImages.reduce((count, image) => count + (Array.isArray(image.review_events) ? image.review_events.length : 0), 0),
     excluded_images: validationSummary.excluded_images,
     exported_at: now,
     export_policy: {
@@ -208,6 +213,12 @@ export function createExportSummaryJson(projectRecord, imageRecords, options = {
     },
     validation_errors: validationErrors,
   };
+}
+
+export function filterActiveImages(imageRecords = [], options = {}) {
+  const images = Array.isArray(imageRecords) ? imageRecords : [];
+  if (options.includeDeleted) return images;
+  return images.filter((image) => !image.deleted_at);
 }
 
 export function createExportPaths(imageRecord, options = {}) {

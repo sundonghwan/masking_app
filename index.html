@@ -64,6 +64,10 @@
           <button class="button primary" id="createProjectButton" type="submit">프로젝트 생성</button>
           <p class="sync-message" id="projectCreateMessage">관리자는 새 프로젝트를 만들고 작업도구로 진입할 수 있습니다.</p>
         </form>
+        <label class="search-field project-search-field">
+          <span>프로젝트 검색</span>
+          <input class="text-input" id="projectSearchInput" type="search" placeholder="프로젝트 이름 또는 ID" autocomplete="off">
+        </label>
         <div class="project-summary-list" id="projectSummaryList" aria-live="polite"></div>
       </div>
     </section>
@@ -102,6 +106,10 @@
             <dl class="metadata-list compact" id="dashboardExportReadiness"></dl>
             <ul class="export-error-list" id="dashboardBlockers"></ul>
           </section>
+          <section class="panel-section">
+            <h2>검수 품질</h2>
+            <dl class="metadata-list compact" id="dashboardReviewQuality"></dl>
+          </section>
           <section class="panel-section dashboard-wide">
             <h2>최근 품질 이벤트</h2>
             <div class="image-list" id="dashboardActivityList"></div>
@@ -124,6 +132,8 @@
           <span id="saveStatus">저장 대기</span>
         </div>
         <div class="topbar-actions" aria-label="작업 도구">
+          <button class="button secondary" id="workbenchProjectsButton" type="button">프로젝트</button>
+          <button class="button secondary" id="workbenchDashboardButton" type="button">대시보드</button>
           <button class="icon-button" id="undoButton" type="button" title="실행 취소" aria-label="실행 취소">↶</button>
           <button class="icon-button" id="redoButton" type="button" title="다시 실행" aria-label="다시 실행">↷</button>
           <button class="button secondary" id="downloadMaskButton" type="button" data-role-panel="admin worker">마스크 저장</button>
@@ -152,10 +162,13 @@
 
         <div class="filter-row" role="group" aria-label="상태 필터">
           <button class="chip active" type="button" data-filter="all">전체</button>
+          <button class="chip" type="button" data-filter="not_started">대기</button>
           <button class="chip" type="button" data-filter="in_progress">작업중</button>
           <button class="chip" type="button" data-filter="submitted">제출</button>
           <button class="chip" type="button" data-filter="approved">승인</button>
           <button class="chip" type="button" data-filter="rejected">반려</button>
+          <button class="chip" type="button" data-filter="sync_needed">동기화 필요</button>
+          <button class="chip" type="button" data-filter="deleted">삭제됨</button>
         </div>
 
         <div class="queue-filter-row" role="group" aria-label="배정 큐 필터">
@@ -163,6 +176,11 @@
           <button class="chip" type="button" data-queue="my_work">내 작업 <output id="queueWorkCount">0</output></button>
           <button class="chip" type="button" data-queue="my_review">내 리뷰 <output id="queueReviewCount">0</output></button>
         </div>
+
+        <label class="search-field">
+          <span>이미지 검색</span>
+          <input class="text-input" id="imageSearchInput" type="search" placeholder="파일명 또는 이미지 ID" autocomplete="off">
+        </label>
 
         <div class="image-list" id="imageList" aria-live="polite"></div>
       </aside>
@@ -281,6 +299,18 @@
             <div><dt>현재 리뷰어</dt><dd id="reviewerIdentitySummary">로그인 필요</dd></div>
             <div><dt>리뷰 링크</dt><dd><a id="reviewDetailLink" href="#/review">#/review</a></dd></div>
           </dl>
+          <label class="stacked-field">
+            <span>반려 사유</span>
+            <select class="select" id="reviewReasonCode">
+              <option value="edge_leak">마스크가 대상 밖으로 새어 나감</option>
+              <option value="missing_region">마스크 누락 영역 있음</option>
+              <option value="rough_boundary">경계가 거칠거나 부정확함</option>
+              <option value="wrong_object">잘못된 대상이 마스킹됨</option>
+              <option value="empty_mask">마스크가 비어 있음</option>
+              <option value="low_confidence">품질 확인이 더 필요함</option>
+              <option value="other">기타 품질 이슈</option>
+            </select>
+          </label>
           <textarea class="review-reason" id="reviewReason" rows="3" placeholder="반려 사유"></textarea>
           <div class="review-actions">
             <button class="button primary" id="approveButton" type="button">승인</button>

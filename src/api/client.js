@@ -52,6 +52,48 @@ export function createMaskingApiClient(options = {}) {
       assertRequired(projectId, "projectId");
       return requestJson(`/api/projects/${encodeURIComponent(projectId)}`);
     },
+    listProjectTasks(projectId) {
+      assertRequired(projectId, "projectId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks`);
+    },
+    createProjectTask(projectId, input = {}) {
+      assertRequired(projectId, "projectId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks`, {
+        method: "POST",
+        body: {
+          task_id: input.taskId || input.task_id || input.id,
+          name: input.name,
+          description: input.description,
+        },
+      });
+    },
+    getProjectTask(projectId, taskId) {
+      assertRequired(projectId, "projectId");
+      assertRequired(taskId, "taskId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}`);
+    },
+    listTaskVersions(projectId, taskId) {
+      assertRequired(projectId, "projectId");
+      assertRequired(taskId, "taskId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/versions`);
+    },
+    createTaskVersion(projectId, taskId, input = {}) {
+      assertRequired(projectId, "projectId");
+      assertRequired(taskId, "taskId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/versions`, {
+        method: "POST",
+        body: {
+          version_id: input.versionId || input.version_id || input.id,
+          status: input.status,
+        },
+      });
+    },
+    getTaskVersion(projectId, taskId, versionId) {
+      assertRequired(projectId, "projectId");
+      assertRequired(taskId, "taskId");
+      assertRequired(versionId, "versionId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}`);
+    },
     async getProjectFileBlob(projectId, relativePath) {
       assertRequired(projectId, "projectId");
       assertRequired(relativePath, "relativePath");
@@ -115,6 +157,28 @@ export function createMaskingApiClient(options = {}) {
           project_id: projectId,
           action: input.action,
           reason: input.reason || input.reject_reason,
+          reason_code: input.reasonCode || input.reason_code,
+        },
+      });
+    },
+    removeImage(projectId, imageId, input = {}) {
+      assertRequired(projectId, "projectId");
+      assertRequired(imageId, "imageId");
+      return requestJson(`/api/images/${encodeURIComponent(imageId)}`, {
+        method: "DELETE",
+        body: {
+          project_id: projectId,
+          delete_reason: input.reason || input.deleteReason || input.delete_reason,
+        },
+      });
+    },
+    restoreImage(projectId, imageId) {
+      assertRequired(projectId, "projectId");
+      assertRequired(imageId, "imageId");
+      return requestJson(`/api/images/${encodeURIComponent(imageId)}/restore`, {
+        method: "POST",
+        body: {
+          project_id: projectId,
         },
       });
     },

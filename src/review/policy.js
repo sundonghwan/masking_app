@@ -13,9 +13,51 @@ export const REVIEW_REASONS = {
   MISSING_REVIEWER_ID: "missing_reviewer_id",
 };
 
+export const REJECTION_REASON_CODES = {
+  EDGE_LEAK: "edge_leak",
+  MISSING_REGION: "missing_region",
+  ROUGH_BOUNDARY: "rough_boundary",
+  WRONG_OBJECT: "wrong_object",
+  EMPTY_MASK: "empty_mask",
+  LOW_CONFIDENCE: "low_confidence",
+  OTHER: "other",
+};
+
+const REJECTION_REASON_LABELS = {
+  [REJECTION_REASON_CODES.EDGE_LEAK]: "마스크가 대상 밖으로 새어 나감",
+  [REJECTION_REASON_CODES.MISSING_REGION]: "마스크 누락 영역 있음",
+  [REJECTION_REASON_CODES.ROUGH_BOUNDARY]: "경계가 거칠거나 부정확함",
+  [REJECTION_REASON_CODES.WRONG_OBJECT]: "잘못된 대상이 마스킹됨",
+  [REJECTION_REASON_CODES.EMPTY_MASK]: "마스크가 비어 있음",
+  [REJECTION_REASON_CODES.LOW_CONFIDENCE]: "품질 확인이 더 필요함",
+  [REJECTION_REASON_CODES.OTHER]: "기타 품질 이슈",
+};
+
+const REJECTION_REASON_ALIASES = {
+  edge_leak: REJECTION_REASON_CODES.EDGE_LEAK,
+  leak: REJECTION_REASON_CODES.EDGE_LEAK,
+  outside_mask: REJECTION_REASON_CODES.EDGE_LEAK,
+  missing_region: REJECTION_REASON_CODES.MISSING_REGION,
+  missing_area: REJECTION_REASON_CODES.MISSING_REGION,
+  incomplete_mask: REJECTION_REASON_CODES.MISSING_REGION,
+  rough_boundary: REJECTION_REASON_CODES.ROUGH_BOUNDARY,
+  rough_edge: REJECTION_REASON_CODES.ROUGH_BOUNDARY,
+  coarse_edge: REJECTION_REASON_CODES.ROUGH_BOUNDARY,
+  poor_alignment: REJECTION_REASON_CODES.ROUGH_BOUNDARY,
+  wrong_object: REJECTION_REASON_CODES.WRONG_OBJECT,
+  wrong_target: REJECTION_REASON_CODES.WRONG_OBJECT,
+  empty_mask: REJECTION_REASON_CODES.EMPTY_MASK,
+  blank_mask: REJECTION_REASON_CODES.EMPTY_MASK,
+  low_confidence: REJECTION_REASON_CODES.LOW_CONFIDENCE,
+  needs_check: REJECTION_REASON_CODES.LOW_CONFIDENCE,
+  other: REJECTION_REASON_CODES.OTHER,
+};
+
 export function validateReviewTransition(image = {}, input = {}) {
   const action = normalizeAction(input.action);
-  const reason = String(input.reason || input.reject_reason || "").trim();
+  const reasonCode = normalizeRejectReasonCode(input.reasonCode || input.reason_code, input.reason || input.reject_reason);
+  const reasonLabel = rejectionReasonCodeLabel(reasonCode);
+  const reason = normalizeRejectReasonText(input.reason || input.reject_reason, reasonLabel);
   const reviewerId = normalizeReviewerId(input.reviewerId || input.reviewer_id);
   const reasons = [];
 
@@ -37,6 +79,8 @@ export function validateReviewTransition(image = {}, input = {}) {
   return {
     valid: reasons.length === 0,
     action,
+    reason_code: reasonCode,
+    reason_label: reasonLabel,
     reasons,
     checks: {
       image: Boolean(image?.id),
@@ -57,21 +101,30 @@ export function applyReviewTransition(image = {}, input = {}, options = {}) {
 
   const now = options.now || new Date().toISOString();
   const reviewerId = normalizeReviewerId(input.reviewerId || input.reviewer_id);
-  const reason = String(input.reason || input.reject_reason || "").trim();
+  const reasonCode = validation.action === REVIEW_ACTIONS.REJECT ? validation.reason_code : "";
+  const reasonLabel = validation.action === REVIEW_ACTIONS.REJECT ? validation.reason_label : "";
+  const reason = validation.action === REVIEW_ACTIONS.REJECT
+    ? normalizeRejectReasonText(input.reason || input.reject_reason, reasonLabel)
+    : String(input.reason || input.reject_reason || "").trim();
+  const reviewEvent = {
+    action: validation.action,
+    reviewer_id: reviewerId,
+    reason,
+    from_status: image.status || "",
+    to_status: nextStatus(validation.action),
+    created_at: now,
+  };
+  if (validation.action === REVIEW_ACTIONS.REJECT) {
+    reviewEvent.reason_code = reasonCode;
+    reviewEvent.reason_label = reasonLabel;
+  }
   const updated = {
     ...image,
     reviewer_id: reviewerId,
     updated_at: now,
     review_events: [
       ...(Array.isArray(image.review_events) ? image.review_events : []),
-      {
-        action: validation.action,
-        reviewer_id: reviewerId,
-        reason,
-        from_status: image.status || "",
-        to_status: nextStatus(validation.action),
-        created_at: now,
-      },
+      reviewEvent,
     ],
   };
 
@@ -80,10 +133,14 @@ export function applyReviewTransition(image = {}, input = {}, options = {}) {
     updated.approved_at = now;
     updated.rejected_at = "";
     updated.reject_reason = "";
+    updated.reject_reason_code = "";
+    updated.reject_reason_label = "";
   } else if (validation.action === REVIEW_ACTIONS.REJECT) {
     updated.status = "rejected";
     updated.rejected_at = now;
     updated.reject_reason = reason;
+    updated.reject_reason_code = reasonCode;
+    updated.reject_reason_label = reasonLabel;
   } else if (validation.action === REVIEW_ACTIONS.REWORK) {
     updated.status = "in_progress";
     updated.rework_started_at = now;
@@ -111,6 +168,30 @@ export function reviewReasonLabel(reason) {
   }[reason] || reason;
 }
 
+export function rejectionReasonCodeLabel(reasonCode) {
+  const normalized = normalizeRejectReasonCode(reasonCode);
+  return normalized ? REJECTION_REASON_LABELS[normalized] : "";
+}
+
+export function normalizeRejectReasonCode(reasonCode, fallbackText = "") {
+  const normalized = normalizeReasonToken(reasonCode);
+  if (normalized) {
+    return REJECTION_REASON_ALIASES[normalized] || REJECTION_REASON_CODES.OTHER;
+  }
+
+  const fallback = String(fallbackText || "").trim().toLowerCase();
+  if (!fallback) return "";
+  if (fallback.includes("leak") || fallback.includes("outside")) return REJECTION_REASON_CODES.EDGE_LEAK;
+  if (fallback.includes("missing") || fallback.includes("incomplete")) return REJECTION_REASON_CODES.MISSING_REGION;
+  if (fallback.includes("rough") || fallback.includes("edge") || fallback.includes("align")) {
+    return REJECTION_REASON_CODES.ROUGH_BOUNDARY;
+  }
+  if (fallback.includes("wrong object") || fallback.includes("wrong target")) return REJECTION_REASON_CODES.WRONG_OBJECT;
+  if (fallback.includes("empty") || fallback.includes("blank")) return REJECTION_REASON_CODES.EMPTY_MASK;
+  if (fallback.includes("confidence") || fallback.includes("check")) return REJECTION_REASON_CODES.LOW_CONFIDENCE;
+  return REJECTION_REASON_CODES.OTHER;
+}
+
 export function normalizeReviewerId(value) {
   return String(value || "").trim();
 }
@@ -118,4 +199,16 @@ export function normalizeReviewerId(value) {
 function normalizeAction(action) {
   const value = String(action || "").trim().toLowerCase();
   return Object.values(REVIEW_ACTIONS).includes(value) ? value : "";
+}
+
+function normalizeRejectReasonText(reason, fallbackLabel) {
+  return String(reason || "").trim() || fallbackLabel || "";
+}
+
+function normalizeReasonToken(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 }

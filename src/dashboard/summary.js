@@ -1,5 +1,6 @@
 import { createProjectRecord, createValidationSummary } from "../export/exporter.js";
 import { ROLES } from "../config/runtimeDefaults.js";
+import { normalizeRejectReasonCode, rejectionReasonCodeLabel } from "../review/policy.js";
 
 const STATUS = {
   IN_PROGRESS: "in_progress",
@@ -49,6 +50,7 @@ export function createDashboardSummary(input = {}) {
         .filter((image) => hasSyncBlocker(image))
         .map((image) => blockerTarget(image, BLOCKER_TYPES.EXPORT_SYNC, "Server export sync is incomplete")),
     },
+    reviewQuality: createReviewQualityMetrics(activeImages),
     recentActivity: recentActivity(activeImages),
     blockers,
   };
@@ -170,11 +172,91 @@ function blockerTarget(image, type, label) {
   };
 }
 
+function createReviewQualityMetrics(images) {
+  const eventsByImage = images.map((image) => ({
+    events: Array.isArray(image.review_events) ? image.review_events : [],
+  }));
+  const allEvents = eventsByImage.flatMap((entry) => entry.events);
+  const counts = {
+    approvals: 0,
+    rejections: 0,
+    reworks: 0,
+    revisionsStarted: 0,
+  };
+  const rejectReasonCounts = new Map();
+  let unstructuredRejectReasons = 0;
+  let imagesWithMultipleRejections = 0;
+
+  for (const { events } of eventsByImage) {
+    let imageRejections = 0;
+    for (const event of events) {
+      const action = normalizeReviewAction(event.action || event.type || event.status);
+      if (action === "approve") counts.approvals += 1;
+      if (action === "reject") {
+        counts.rejections += 1;
+        imageRejections += 1;
+        const hadStructuredCode = Boolean(String(event.reason_code || event.reasonCode || "").trim());
+        const reasonCode = normalizeRejectReasonCode(event.reason_code || event.reasonCode, event.reason || event.reject_reason);
+        if (reasonCode) {
+          rejectReasonCounts.set(reasonCode, (rejectReasonCounts.get(reasonCode) || 0) + 1);
+        }
+        if (!hadStructuredCode && reasonCode === "other") unstructuredRejectReasons += 1;
+      }
+      if (action === "rework") counts.reworks += 1;
+      if (action === "revision_start") counts.revisionsStarted += 1;
+    }
+    if (imageRejections > 1) imagesWithMultipleRejections += 1;
+  }
+
+  const decisions = counts.approvals + counts.rejections;
+  return {
+    totalEvents: allEvents.length,
+    approvals: counts.approvals,
+    rejections: counts.rejections,
+    reworks: counts.reworks,
+    revisionsStarted: counts.revisionsStarted,
+    currentRejected: countStatus(images, STATUS.REJECTED),
+    currentApproved: countStatus(images, STATUS.APPROVED),
+    approvalRate: ratio(counts.approvals, decisions),
+    rejectionRate: ratio(counts.rejections, decisions),
+    imagesWithMultipleRejections,
+    unstructuredRejectReasons,
+    topRejectReasons: topRejectReasons(rejectReasonCounts),
+  };
+}
+
+function normalizeReviewAction(action) {
+  const value = String(action || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  if (value === "approved") return "approve";
+  if (value === "rejected") return "reject";
+  if (value === "rework_started") return "rework";
+  if (value === "revision_started") return "revision_start";
+  return value;
+}
+
+function ratio(count, total) {
+  if (!total) return 0;
+  return Math.round((count / total) * 100) / 100;
+}
+
+function topRejectReasons(reasonCounts) {
+  return [...reasonCounts.entries()]
+    .map(([reasonCode, count]) => ({
+      reasonCode,
+      reason_code: reasonCode,
+      reasonLabel: rejectionReasonCodeLabel(reasonCode),
+      reason_label: rejectionReasonCodeLabel(reasonCode),
+      count,
+    }))
+    .sort((left, right) => right.count - left.count || left.reasonCode.localeCompare(right.reasonCode));
+}
+
 function recentActivity(images) {
   return images
     .flatMap((image) => {
       const events = Array.isArray(image.review_events) ? image.review_events : [];
       return events.map((event) => ({
+        ...reviewReasonFields(event),
         imageId: image.id || "",
         image_id: image.id || "",
         imageName: image.original_file_name || image.file_name || image.id || "",
@@ -189,4 +271,15 @@ function recentActivity(images) {
     .filter((event) => event.action)
     .sort((left, right) => String(right.createdAt).localeCompare(String(left.createdAt)))
     .slice(0, 12);
+}
+
+function reviewReasonFields(event) {
+  const reasonCode = normalizeRejectReasonCode(event.reason_code || event.reasonCode, event.reason || event.reject_reason);
+  const reasonLabel = rejectionReasonCodeLabel(reasonCode);
+  return {
+    reasonCode,
+    reason_code: reasonCode,
+    reasonLabel,
+    reason_label: reasonLabel,
+  };
 }

@@ -691,6 +691,45 @@ test("unsupported PNG mask format returns 422 and leaves previous mask intact", 
   assert.equal(manifest.images[0].status, "in_progress");
 });
 
+test("worker can soft remove and restore a single image without physical purge", async () => {
+  const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    image_path: "images/image-1.png",
+    current_mask_path: "masks/image-1_mask.png",
+    deleted_at: "",
+    deleted_by: "",
+    delete_reason: "",
+  });
+  storage.files.set("project-1/images/image-1.png", "image-bytes");
+  storage.files.set("project-1/masks/image-1_mask.png", "mask-bytes");
+
+  const removed = await callJson(route, "DELETE", "/api/images/image-1", {
+    project_id: "project-1",
+    delete_reason: "wrong frame",
+  }, headers);
+
+  assert.equal(removed.statusCode, 200);
+  assert.equal(removed.body.image.deleted_by, "worker");
+  assert.equal(removed.body.image.delete_reason, "wrong frame");
+  assert.ok(removed.body.image.deleted_at);
+  assert.equal(storage.files.get("project-1/images/image-1.png"), "image-bytes");
+  assert.equal(storage.files.get("project-1/masks/image-1_mask.png"), "mask-bytes");
+
+  const restored = await callJson(route, "POST", "/api/images/image-1/restore", {
+    project_id: "project-1",
+  }, headers);
+
+  assert.equal(restored.statusCode, 200);
+  assert.equal(restored.body.image.deleted_at, "");
+  assert.equal(restored.body.image.deleted_by, "");
+  assert.equal(restored.body.image.delete_reason, "");
+  assert.equal(storage.files.get("project-1/images/image-1.png"), "image-bytes");
+  assert.equal(storage.files.get("project-1/masks/image-1_mask.png"), "mask-bytes");
+});
+
 test("project export writes files only for the same images included in annotations", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "admin");
@@ -711,10 +750,21 @@ test("project export writes files only for the same images included in annotatio
     current_mask_path: "masks/draft_source_mask.png",
     status: "in_progress",
   });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    id: "deleted-1",
+    original_file_name: "deleted.png",
+    image_path: "images/deleted_source.png",
+    current_mask_path: "masks/deleted_source_mask.png",
+    status: "submitted",
+    deleted_at: "2026-04-30T00:00:00.000Z",
+  });
   storage.files.set("project-1/images/submitted_source.png", "submitted-image");
   storage.files.set("project-1/masks/submitted_source_mask.png", "submitted-mask");
   storage.files.set("project-1/images/draft_source.png", "draft-image");
   storage.files.set("project-1/masks/draft_source_mask.png", "draft-mask");
+  storage.files.set("project-1/images/deleted_source.png", "deleted-image");
+  storage.files.set("project-1/masks/deleted_source_mask.png", "deleted-mask");
 
   const response = await callRoute(route, "GET", "/api/projects/project-1/export", null, headers);
 
@@ -727,6 +777,9 @@ test("project export writes files only for the same images included in annotatio
   assert.doesNotMatch(response.text, /images\/draft\.png/);
   assert.doesNotMatch(response.text, /masks\/draft_mask\.png/);
   assert.doesNotMatch(response.text, /draft-image/);
+  assert.doesNotMatch(response.text, /images\/deleted\.png/);
+  assert.doesNotMatch(response.text, /masks\/deleted_mask\.png/);
+  assert.doesNotMatch(response.text, /deleted-image/);
   assert.match(response.text, /status_not_exportable/);
 });
 
@@ -847,6 +900,66 @@ test("lists project summaries ordered by update time", async () => {
   assert.equal(response.body.projects[1].submitted_images, 1);
 });
 
+test("admin creates tasks and authorized users list and read task metadata", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  const adminHeaders = await loginHeaders(route, "admin");
+  const workerHeaders = await loginHeaders(route, "worker");
+
+  const created = await callJson(route, "POST", "/api/projects/project-1/tasks", {
+    task_id: "crack masking",
+    name: "Crack Masking",
+    description: "Binary crack mask task",
+  }, adminHeaders);
+  const listed = await callJson(route, "GET", "/api/projects/project-1/tasks", null, workerHeaders);
+  const read = await callJson(route, "GET", "/api/projects/project-1/tasks/crack%20masking", null, workerHeaders);
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.task.task_id, "crack_masking");
+  assert.equal(created.body.task.name, "Crack Masking");
+  assert.equal(listed.statusCode, 200);
+  assert.equal(listed.body.total_tasks, 1);
+  assert.equal(listed.body.tasks[0].task_id, "crack_masking");
+  assert.equal(read.statusCode, 200);
+  assert.equal(read.body.task.description, "Binary crack mask task");
+});
+
+test("admin creates versions and authorized users list and read version manifests", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.ensureTaskMetadata("project-1", "task-1", { name: "Task 1" });
+  const adminHeaders = await loginHeaders(route, "admin");
+  const reviewerHeaders = await loginHeaders(route, "reviewer");
+
+  const created = await callJson(route, "POST", "/api/projects/project-1/tasks/task-1/versions", {
+    version_id: "v2",
+    status: "draft",
+  }, adminHeaders);
+  const listed = await callJson(route, "GET", "/api/projects/project-1/tasks/task-1/versions", null, reviewerHeaders);
+  const read = await callJson(route, "GET", "/api/projects/project-1/tasks/task-1/versions/v2", null, reviewerHeaders);
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.version.version_id, "v2");
+  assert.equal(created.body.version.status, "draft");
+  assert.equal(listed.statusCode, 200);
+  assert.equal(listed.body.total_versions, 1);
+  assert.equal(listed.body.versions[0].version_id, "v2");
+  assert.equal(read.statusCode, 200);
+  assert.deepEqual(read.body.version.images, []);
+});
+
+test("task and version routes do not replace legacy project manifest routes", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  const headers = await loginHeaders(route, "worker");
+
+  const manifest = await callJson(route, "GET", "/api/projects/project-1", null, headers);
+
+  assert.equal(manifest.statusCode, 200);
+  assert.equal(manifest.body.project_id, "project-1");
+  assert.deepEqual(manifest.body.images, []);
+});
+
 function createApiHarness(options = {}) {
   const storage = createMemoryStorage();
   return {
@@ -857,6 +970,9 @@ function createApiHarness(options = {}) {
 
 function createMemoryStorage() {
   const manifests = new Map();
+  const projects = new Map();
+  const tasks = new Map();
+  const versions = new Map();
   const imageWrites = [];
   const maskWrites = [];
   const files = new Map();
@@ -888,9 +1004,39 @@ function createMemoryStorage() {
       manifests.set(projectId, clone(manifest));
       return clone(manifest);
     },
+    async softDeleteProjectImage(projectId, imageId, input = {}) {
+      const manifest = manifests.get(projectId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      const image = (manifest.images || []).find((item) => item.id === imageId);
+      const updated = {
+        ...image,
+        deleted_at: image.deleted_at || now,
+        deleted_by: input.deletedBy || input.deleted_by || "",
+        delete_reason: input.reason || input.deleteReason || input.delete_reason || "",
+        updated_at: now,
+      };
+      manifest.images = manifest.images.map((item) => item.id === imageId ? updated : item);
+      manifest.updated_at = now;
+      return clone(updated);
+    },
+    async restoreProjectImage(projectId, imageId, input = {}) {
+      const manifest = manifests.get(projectId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      const image = (manifest.images || []).find((item) => item.id === imageId);
+      const updated = {
+        ...image,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+        updated_at: now,
+      };
+      manifest.images = manifest.images.map((item) => item.id === imageId ? updated : item);
+      manifest.updated_at = now;
+      return clone(updated);
+    },
     async listProjects() {
       return [...manifests.values()].map((manifest) => {
-        const images = manifest.images || [];
+        const images = (manifest.images || []).filter((image) => !image.deleted_at);
         return {
           project_id: manifest.project_id,
           name: manifest.name,
@@ -902,6 +1048,100 @@ function createMemoryStorage() {
           rejected_images: images.filter((image) => image.status === "rejected").length,
         };
       }).sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+    },
+    async ensureProjectMetadata(projectId, input = {}) {
+      if (!projects.has(projectId)) {
+        projects.set(projectId, {
+          project_id: projectId,
+          name: input.name || projectId,
+          description: input.description || "",
+          created_by: input.createdBy || input.created_by || "",
+          created_at: input.now || "2026-04-30T00:00:00.000Z",
+          updated_at: input.now || "2026-04-30T00:00:00.000Z",
+          archived: false,
+        });
+      }
+      return clone(projects.get(projectId));
+    },
+    async ensureTaskMetadata(projectId, taskId, input = {}) {
+      await this.ensureProjectMetadata(projectId, input.project || {});
+      const safeTaskId = String(taskId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      const key = `${projectId}/${safeTaskId}`;
+      if (!tasks.has(key)) {
+        tasks.set(key, {
+          project_id: projectId,
+          task_id: safeTaskId,
+          name: input.name || safeTaskId,
+          description: input.description || "",
+          created_by: input.createdBy || input.created_by || "",
+          created_at: input.now || "2026-04-30T00:00:00.000Z",
+          updated_at: input.now || "2026-04-30T00:00:00.000Z",
+          current_version: input.currentVersion || input.current_version || "v1",
+          archived: false,
+        });
+      }
+      return clone(tasks.get(key));
+    },
+    async readTaskMetadata(projectId, taskId) {
+      const safeTaskId = String(taskId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      return tasks.has(`${projectId}/${safeTaskId}`) ? clone(tasks.get(`${projectId}/${safeTaskId}`)) : null;
+    },
+    async listProjectTasks(projectId) {
+      return [...tasks.values()]
+        .filter((task) => task.project_id === projectId)
+        .map(clone)
+        .sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
+    },
+    async ensureVersionManifest(projectId, taskId, versionId, input = {}) {
+      const safeTaskId = String(taskId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      const safeVersionId = String(versionId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      await this.ensureTaskMetadata(projectId, safeTaskId, {
+        currentVersion: safeVersionId,
+        project: input.project || {},
+      });
+      const key = `${projectId}/${safeTaskId}/${safeVersionId}`;
+      if (!versions.has(key)) {
+        versions.set(key, {
+          project_id: projectId,
+          task_id: safeTaskId,
+          version_id: safeVersionId,
+          status: input.status || "in_progress",
+          created_by: input.createdBy || input.created_by || "",
+          created_at: input.now || "2026-04-30T00:00:00.000Z",
+          updated_at: input.now || "2026-04-30T00:00:00.000Z",
+          images: Array.isArray(input.images) ? input.images : [],
+        });
+      }
+      return clone(versions.get(key));
+    },
+    async readVersionManifest(projectId, taskId, versionId) {
+      const safeTaskId = String(taskId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      const safeVersionId = String(versionId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      return versions.has(`${projectId}/${safeTaskId}/${safeVersionId}`)
+        ? clone(versions.get(`${projectId}/${safeTaskId}/${safeVersionId}`))
+        : null;
+    },
+    async listTaskVersions(projectId, taskId) {
+      const safeTaskId = String(taskId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      return [...versions.values()]
+        .filter((version) => version.project_id === projectId && version.task_id === safeTaskId)
+        .map((version) => {
+          const images = Array.isArray(version.images) ? version.images : [];
+          return {
+            project_id: version.project_id,
+            task_id: version.task_id,
+            version_id: version.version_id,
+            status: version.status,
+            created_at: version.created_at,
+            updated_at: version.updated_at,
+            total_images: images.length,
+            active_images: images.filter((image) => !image.deleted_at).length,
+            submitted_images: images.filter((image) => image.status === "submitted").length,
+            approved_images: images.filter((image) => image.status === "approved").length,
+            rejected_images: images.filter((image) => image.status === "rejected").length,
+          };
+        })
+        .sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
     },
     async writeImageFromDataUrl(projectId, imageId, fileName, dataUrl) {
       const buffer = Buffer.from(String(dataUrl).split(",")[1] || "", "base64");

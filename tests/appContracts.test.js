@@ -68,6 +68,8 @@ test("screen flow separates login projects and workbench", () => {
   assert.match(html, /id="projectsScreen"/);
   assert.match(html, /id="dashboardScreen"/);
   assert.match(html, /id="workbenchScreen"/);
+  assert.match(html, /id="workbenchProjectsButton"/);
+  assert.match(html, /id="workbenchDashboardButton"/);
   assert.match(html, /id="sessionPassword"/);
   assert.match(html, /id="projectCreateForm"/);
   assert.match(html, /id="projectCreateId"/);
@@ -76,6 +78,8 @@ test("screen flow separates login projects and workbench", () => {
   assert.match(html, /id="projectSummaryList"/);
   assert.match(html, /id="editorCanvas"/);
   assert.match(app, /function routeToScreen\(/);
+  assert.match(app, /workbenchProjectsButton\.addEventListener\("click", \(\) => routeToScreen\(SCREENS\.PROJECTS\)\)/);
+  assert.match(app, /workbenchDashboardButton\.addEventListener\("click", \(\) => routeToScreen\(SCREENS\.DASHBOARD\)\)/);
   assert.match(app, /function currentScreen\(/);
   assert.match(app, /function canEnterWorkbench\(/);
   assert.match(app, /function renderDashboard\(/);
@@ -115,6 +119,7 @@ test("dashboard screen has a full-width layout contract", () => {
   const styles = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 
   assert.match(html, /class="screen-panel dashboard-panel"/);
+  assert.match(html, /id="dashboardReviewQuality"/);
   assert.match(styles, /\.dashboard-panel\s*\{/);
   assert.match(styles, /width: min\(1120px, 100%\)/);
   assert.match(styles, /\.compact-dashboard\s*\{/);
@@ -172,6 +177,38 @@ test("assignment queue controls expose per-user task lists", () => {
   assert.match(app, /queueMode: QUEUE_MODES\.ALL/);
 });
 
+test("discovery controls expose image search and operational filters", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="imageSearchInput"[^>]+type="search"/);
+  assert.match(html, /data-filter="not_started"/);
+  assert.match(html, /data-filter="sync_needed"/);
+  assert.match(html, /data-filter="deleted"/);
+  assert.match(app, /imageSearch: ""/);
+  assert.match(app, /els\.imageSearchInput\.addEventListener\("input"/);
+  assert.match(app, /function filterImagesByDiscovery\(/);
+  assert.match(app, /syncNeededOnly: state\.filter === "sync_needed"/);
+  assert.match(app, /hasSyncIssue\(image\)/);
+  assert.match(app, /function toggleImageRemoval\(imageId\)/);
+  assert.match(app, /apiClient\.removeImage\(state\.projectId, image\.id/);
+  assert.match(app, /apiClient\.restoreImage\(state\.projectId, image\.id\)/);
+  assert.match(app, /function activeImages\(\)/);
+});
+
+test("project discovery searches full server project list without four item cap", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="projectSearchInput"[^>]+type="search"/);
+  assert.match(app, /projectSearch: ""/);
+  assert.match(app, /els\.projectSearchInput\.addEventListener\("input"/);
+  assert.match(app, /function filterProjectsBySearch\(/);
+  assert.match(app, /const filteredProjects = filterProjectsBySearch\(state\.projectSummaries \|\| \[\], state\.projectSearch\)/);
+  assert.doesNotMatch(app, /projectSummaries \|\| \[\]\)\.slice\(0,\s*4\)/);
+  assert.doesNotMatch(app, /\.slice\(0,\s*4\)\.map\(\(project\)/);
+});
+
 test("submitted revision flow records audit and removes exportable status", () => {
   const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
   const api = fs.readFileSync(new URL("../src/api/client.js", import.meta.url), "utf8");
@@ -183,6 +220,21 @@ test("submitted revision flow records audit and removes exportable status", () =
   assert.match(app, /pending_revision_event/);
   assert.match(api, /revision_event/);
   assert.match(server, /function normalizeRevisionEvent/);
+});
+
+test("review UI sends structured rejection reason codes into quality summaries", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const api = fs.readFileSync(new URL("../src/api/client.js", import.meta.url), "utf8");
+  const server = fs.readFileSync(new URL("../src/server/api.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="reviewReasonCode"/);
+  assert.match(html, /value="rough_boundary"/);
+  assert.match(app, /reviewReasonCode: REJECTION_REASON_CODES\.ROUGH_BOUNDARY/);
+  assert.match(app, /reasonCode: state\.reviewReasonCode/);
+  assert.match(app, /dashboardReviewQuality\.replaceChildren/);
+  assert.match(api, /reason_code: input\.reasonCode \|\| input\.reason_code/);
+  assert.match(server, /reason_code: body\.reason_code \|\| body\.reasonCode/);
 });
 
 test("zoomed image pan controls use viewport movement without mask save", () => {

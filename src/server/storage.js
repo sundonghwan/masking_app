@@ -139,6 +139,25 @@ export function createFileStorage({ rootDir = "data" } = {}) {
       const paths = this.getHierarchyPaths(projectId, taskId);
       return readJsonFile(paths.taskMetadataPath);
     },
+    async listProjectTasks(projectId) {
+      const paths = this.getHierarchyPaths(projectId);
+      const tasksRoot = safeJoin(paths.projectRoot, "tasks");
+      let entries = [];
+      try {
+        entries = await readdir(tasksRoot, { withFileTypes: true });
+      } catch (error) {
+        if (error.code === "ENOENT") return [];
+        throw error;
+      }
+
+      const tasks = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const metadata = await this.readTaskMetadata(paths.projectId, entry.name);
+        if (metadata) tasks.push(createTaskSummary(metadata));
+      }
+      return tasks.sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
+    },
     async writeTaskMetadata(projectId, taskId = DEFAULT_TASK_ID, metadata) {
       const paths = this.getHierarchyPaths(projectId, taskId);
       assertJsonSerializable(metadata, "taskMetadata");
@@ -175,6 +194,25 @@ export function createFileStorage({ rootDir = "data" } = {}) {
     async readVersionManifest(projectId, taskId = DEFAULT_TASK_ID, versionId = DEFAULT_VERSION_ID) {
       const paths = this.getHierarchyPaths(projectId, taskId, versionId);
       return readJsonFile(paths.versionManifestPath);
+    },
+    async listTaskVersions(projectId, taskId = DEFAULT_TASK_ID) {
+      const paths = this.getHierarchyPaths(projectId, taskId);
+      const versionsRoot = safeJoin(paths.taskRoot, "versions");
+      let entries = [];
+      try {
+        entries = await readdir(versionsRoot, { withFileTypes: true });
+      } catch (error) {
+        if (error.code === "ENOENT") return [];
+        throw error;
+      }
+
+      const versions = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const manifest = await this.readVersionManifest(paths.projectId, paths.taskId, entry.name);
+        if (manifest) versions.push(createVersionSummary(manifest));
+      }
+      return versions.sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
     },
     async writeVersionManifest(projectId, taskId = DEFAULT_TASK_ID, versionId = DEFAULT_VERSION_ID, manifest) {
       const paths = this.getHierarchyPaths(projectId, taskId, versionId);
@@ -344,6 +382,63 @@ export function createFileStorage({ rootDir = "data" } = {}) {
       const safeRelative = sanitizeRelativePath(relativePath);
       return readFile(safeJoin(projectPath(safeProjectId), safeRelative));
     },
+    async softDeleteProjectImage(projectId, imageId, input = {}) {
+      return this.updateProjectImageDeletion(projectId, imageId, {
+        mode: "delete",
+        actor: input.deletedBy || input.deleted_by || "",
+        reason: input.reason || input.deleteReason || input.delete_reason || "",
+        now: input.now,
+      });
+    },
+    async restoreProjectImage(projectId, imageId, input = {}) {
+      return this.updateProjectImageDeletion(projectId, imageId, {
+        mode: "restore",
+        now: input.now,
+      });
+    },
+    async updateProjectImageDeletion(projectId, imageId, operation) {
+      const safeProjectId = sanitizeSegment(projectId, "projectId");
+      const safeImageId = sanitizeSegment(imageId, "imageId");
+      const manifest = await this.readProjectManifest(safeProjectId);
+      if (!manifest) {
+        throw new TypeError("Project manifest is required");
+      }
+
+      const images = Array.isArray(manifest.images) ? manifest.images : [];
+      const index = images.findIndex((image) => sanitizeSegment(image.id, "imageId") === safeImageId);
+      if (index < 0) {
+        throw new TypeError("Image record is required");
+      }
+
+      const now = normalizeNow(operation.now);
+      const current = images[index];
+      if (operation.mode === "delete") {
+        images[index] = {
+          ...current,
+          deleted_at: current.deleted_at || now,
+          deleted_by: String(operation.actor || ""),
+          delete_reason: String(operation.reason || ""),
+          updated_at: now,
+        };
+      } else if (operation.mode === "restore") {
+        images[index] = {
+          ...current,
+          deleted_at: "",
+          deleted_by: "",
+          delete_reason: "",
+          updated_at: now,
+        };
+      } else {
+        throw new TypeError("Unsupported project image deletion operation");
+      }
+
+      await this.writeProjectManifest(safeProjectId, {
+        ...manifest,
+        images,
+        updated_at: now,
+      });
+      return images[index];
+    },
     async listProjectFiles(projectId) {
       const safeProjectId = sanitizeSegment(projectId, "projectId");
       const projectDir = projectPath(safeProjectId);
@@ -415,6 +510,14 @@ export function writeProjectManifest(projectId, manifest) {
   return defaultStorage.writeProjectManifest(projectId, manifest);
 }
 
+export function softDeleteProjectImage(projectId, imageId, input = {}) {
+  return defaultStorage.softDeleteProjectImage(projectId, imageId, input);
+}
+
+export function restoreProjectImage(projectId, imageId, input = {}) {
+  return defaultStorage.restoreProjectImage(projectId, imageId, input);
+}
+
 export function ensureProjectMetadata(projectId, input = {}) {
   return defaultStorage.ensureProjectMetadata(projectId, input);
 }
@@ -435,6 +538,10 @@ export function readTaskMetadata(projectId, taskId) {
   return defaultStorage.readTaskMetadata(projectId, taskId);
 }
 
+export function listProjectTasks(projectId) {
+  return defaultStorage.listProjectTasks(projectId);
+}
+
 export function writeTaskMetadata(projectId, taskId, metadata) {
   return defaultStorage.writeTaskMetadata(projectId, taskId, metadata);
 }
@@ -445,6 +552,10 @@ export function ensureVersionManifest(projectId, taskId, versionId, input = {}) 
 
 export function readVersionManifest(projectId, taskId, versionId) {
   return defaultStorage.readVersionManifest(projectId, taskId, versionId);
+}
+
+export function listTaskVersions(projectId, taskId) {
+  return defaultStorage.listTaskVersions(projectId, taskId);
 }
 
 export function writeVersionManifest(projectId, taskId, versionId, manifest) {
@@ -579,13 +690,43 @@ function createStoredFileResult(buffer, absolutePath, relativePath, mimeType) {
 }
 
 function createProjectSummary(manifest = {}) {
-  const images = Array.isArray(manifest.images) ? manifest.images : [];
+  const images = Array.isArray(manifest.images) ? manifest.images.filter((image) => !image.deleted_at) : [];
   return {
     project_id: manifest.project_id || manifest.id || "",
     name: manifest.name || manifest.project_id || manifest.id || "",
     created_at: manifest.created_at || "",
     updated_at: manifest.updated_at || "",
     total_images: images.length,
+    submitted_images: images.filter((image) => image.status === "submitted").length,
+    approved_images: images.filter((image) => image.status === "approved").length,
+    rejected_images: images.filter((image) => image.status === "rejected").length,
+  };
+}
+
+function createTaskSummary(metadata = {}) {
+  return {
+    project_id: metadata.project_id || "",
+    task_id: metadata.task_id || "",
+    name: metadata.name || metadata.task_id || "",
+    description: metadata.description || "",
+    current_version: metadata.current_version || "",
+    archived: Boolean(metadata.archived || false),
+    created_at: metadata.created_at || "",
+    updated_at: metadata.updated_at || "",
+  };
+}
+
+function createVersionSummary(manifest = {}) {
+  const images = Array.isArray(manifest.images) ? manifest.images : [];
+  return {
+    project_id: manifest.project_id || "",
+    task_id: manifest.task_id || "",
+    version_id: manifest.version_id || "",
+    status: manifest.status || "",
+    created_at: manifest.created_at || "",
+    updated_at: manifest.updated_at || "",
+    total_images: images.length,
+    active_images: images.filter((image) => !image.deleted_at).length,
     submitted_images: images.filter((image) => image.status === "submitted").length,
     approved_images: images.filter((image) => image.status === "approved").length,
     rejected_images: images.filter((image) => image.status === "rejected").length,
