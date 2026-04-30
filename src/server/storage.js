@@ -667,6 +667,71 @@ export function createFileStorage({ rootDir = "data" } = {}) {
       }
       return projects.sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
     },
+    async writeTrainingSetManifest(trainingSetId, manifest) {
+      const safeTrainingSetId = sanitizeSegment(trainingSetId, "trainingSetId");
+      const root = trainingSetPath(safeTrainingSetId);
+      const normalized = {
+        ...manifest,
+        training_set_id: safeTrainingSetId,
+      };
+      assertJsonSerializable(normalized, "trainingSetManifest");
+      await mkdir(safeJoin(root, "exports"), { recursive: true });
+      await writeJsonFile(safeJoin(root, "manifest.json"), normalized);
+      await writeJsonFile(safeJoin(root, "training_set.json"), normalized.training_set || {});
+      await writeJsonFile(safeJoin(root, "source_versions.json"), normalized.source_versions || {});
+      return normalized;
+    },
+    async readTrainingSetManifest(trainingSetId) {
+      const safeTrainingSetId = sanitizeSegment(trainingSetId, "trainingSetId");
+      return readJsonFile(safeJoin(trainingSetPath(safeTrainingSetId), "manifest.json"));
+    },
+    async listTrainingSets(options = {}) {
+      const root = safeJoin(absoluteRoot, "training_sets");
+      let entries = [];
+      try {
+        entries = await readdir(root, { withFileTypes: true });
+      } catch (error) {
+        if (error.code === "ENOENT") return [];
+        throw error;
+      }
+      const sets = [];
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        const manifest = await this.readTrainingSetManifest(entry.name);
+        if (!manifest) continue;
+        if (manifest.deleted_at && !options.includeDeleted) continue;
+        sets.push(createTrainingSetSummary(manifest));
+      }
+      return sets.sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
+    },
+    async archiveTrainingSet(trainingSetId, input = {}) {
+      const safeTrainingSetId = sanitizeSegment(trainingSetId, "trainingSetId");
+      const manifest = await this.readTrainingSetManifest(safeTrainingSetId);
+      if (!manifest) throw new TypeError("Training set manifest is required");
+      const now = normalizeNow(input.now);
+      return this.writeTrainingSetManifest(safeTrainingSetId, {
+        ...manifest,
+        deleted_at: manifest.deleted_at || now,
+        deleted_by: String(input.deletedBy || input.deleted_by || ""),
+        delete_reason: String(input.reason || input.deleteReason || input.delete_reason || ""),
+        updated_at: now,
+        revision: incrementProjectRevision(manifest.revision),
+      });
+    },
+    async restoreTrainingSet(trainingSetId, input = {}) {
+      const safeTrainingSetId = sanitizeSegment(trainingSetId, "trainingSetId");
+      const manifest = await this.readTrainingSetManifest(safeTrainingSetId);
+      if (!manifest) throw new TypeError("Training set manifest is required");
+      const now = normalizeNow(input.now);
+      return this.writeTrainingSetManifest(safeTrainingSetId, {
+        ...manifest,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+        updated_at: now,
+        revision: incrementProjectRevision(manifest.revision),
+      });
+    },
     async clearStorageForTests() {
       await rm(absoluteRoot, { recursive: true, force: true });
     },
@@ -678,6 +743,10 @@ export function createFileStorage({ rootDir = "data" } = {}) {
 
   function hierarchyProjectPath(projectId) {
     return safeJoin(absoluteRoot, "projects", sanitizeSegment(projectId, "projectId"));
+  }
+
+  function trainingSetPath(trainingSetId) {
+    return safeJoin(absoluteRoot, "training_sets", sanitizeSegment(trainingSetId, "trainingSetId"));
   }
 }
 
@@ -829,6 +898,26 @@ export function listProjects(options = {}) {
   return defaultStorage.listProjects(options);
 }
 
+export function writeTrainingSetManifest(trainingSetId, manifest) {
+  return defaultStorage.writeTrainingSetManifest(trainingSetId, manifest);
+}
+
+export function readTrainingSetManifest(trainingSetId) {
+  return defaultStorage.readTrainingSetManifest(trainingSetId);
+}
+
+export function listTrainingSets(options = {}) {
+  return defaultStorage.listTrainingSets(options);
+}
+
+export function archiveTrainingSet(trainingSetId, input = {}) {
+  return defaultStorage.archiveTrainingSet(trainingSetId, input);
+}
+
+export function restoreTrainingSet(trainingSetId, input = {}) {
+  return defaultStorage.restoreTrainingSet(trainingSetId, input);
+}
+
 export function clearStorageForTests() {
   return defaultStorage.clearStorageForTests();
 }
@@ -939,6 +1028,28 @@ function createProjectSummary(manifest = {}) {
     submitted_images: images.filter((image) => image.status === "submitted").length,
     approved_images: images.filter((image) => image.status === "approved").length,
     rejected_images: images.filter((image) => image.status === "rejected").length,
+  };
+}
+
+function createTrainingSetSummary(manifest = {}) {
+  const trainingSet = manifest.training_set || {};
+  const sourceVersions = manifest.source_versions || {};
+  return {
+    training_set_id: manifest.training_set_id || trainingSet.training_set_id || "",
+    name: manifest.name || trainingSet.name || manifest.training_set_id || "",
+    description: manifest.description || trainingSet.description || "",
+    approved_only: Boolean(manifest.approved_only || trainingSet.approved_only),
+    split: manifest.split || trainingSet.split || {},
+    split_counts: trainingSet.split_counts || {},
+    total_sources: trainingSet.total_sources || sourceVersions.sources?.length || 0,
+    total_items: trainingSet.total_items || 0,
+    created_by: manifest.created_by || "",
+    created_at: manifest.created_at || "",
+    updated_at: manifest.updated_at || "",
+    revision: Number(manifest.revision || 0),
+    deleted_at: manifest.deleted_at || "",
+    deleted_by: manifest.deleted_by || "",
+    delete_reason: manifest.delete_reason || "",
   };
 }
 

@@ -411,6 +411,52 @@ test("mutates task versions and lists training sources", async () => {
   assert.equal(calls[4].url, "/api/training-sources");
 });
 
+test("manages saved training sets", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { token: "sess_admin" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      if (url === "/api/training-sets?include_deleted=1") return jsonResponse({ training_sets: [], total_training_sets: 0 }, 200);
+      if (url === "/api/training-sets") return jsonResponse({ training_set_manifest: { training_set_id: "rail_v1" } }, 201);
+      if (url.endsWith("/restore")) return jsonResponse({ training_set_manifest: { training_set_id: "rail_v1", deleted_at: "" } }, 200);
+      if (options?.method === "DELETE") return jsonResponse({ training_set_manifest: { training_set_id: "rail_v1", deleted_at: "x" } }, 200);
+      return jsonResponse({ training_set_manifest: { training_set_id: "rail_v1" } }, 200);
+    },
+  });
+
+  await client.listTrainingSets({ includeDeleted: true });
+  await client.createTrainingSet({
+    trainingSetId: "rail_v1",
+    name: "Rail v1",
+    description: "approved",
+    approvedOnly: true,
+    split: { train: 0.7, val: 0.2, test: 0.1, seed: 9 },
+    sources: [{ project_id: "project-1", task_id: "task-1", version_id: "v1" }],
+  });
+  await client.getTrainingSet("rail_v1");
+  await client.archiveTrainingSet("rail_v1", { reason: "bad split", ifMatchRevision: 1 });
+  await client.restoreTrainingSet("rail_v1", { ifMatchRevision: 2 });
+
+  assert.equal(calls[0].url, "/api/training-sets?include_deleted=1");
+  assert.equal(calls[1].url, "/api/training-sets");
+  assert.deepEqual(JSON.parse(calls[1].options.body), {
+    training_set_id: "rail_v1",
+    name: "Rail v1",
+    description: "approved",
+    sources: [{ project_id: "project-1", task_id: "task-1", version_id: "v1" }],
+    approved_only: true,
+    split: { train: 0.7, val: 0.2, test: 0.1, seed: 9 },
+  });
+  assert.equal(calls[2].url, "/api/training-sets/rail_v1");
+  assert.equal(calls[3].options.method, "DELETE");
+  assert.deepEqual(JSON.parse(calls[3].options.body), {
+    delete_reason: "bad split",
+    if_match_revision: 1,
+  });
+  assert.equal(calls[4].url, "/api/training-sets/rail_v1/restore");
+});
+
 test("logs in and sends bearer token on protected requests", async () => {
   const calls = [];
   let token = "";
@@ -604,6 +650,27 @@ test("downloads training set export from selected sources", async () => {
     approvedOnly: true,
     sources: [{ project_id: "project-1", task_id: "task-1", version_id: "v1" }],
   });
+
+  assert.equal(result, expected);
+});
+
+test("downloads saved training set export", async () => {
+  const expected = new Blob(["saved-training-zip"]);
+  const client = createMaskingApiClient({
+    session: { token: "sess_export" },
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "/api/training-sets/rail_v1/export");
+      assert.equal(options.method, "GET");
+      assert.equal(options.headers.authorization, "Bearer sess_export");
+      assert.equal(options.body, undefined);
+      return {
+        ok: true,
+        blob: async () => expected,
+      };
+    },
+  });
+
+  const result = await client.downloadTrainingSetExport({ trainingSetId: "rail_v1" });
 
   assert.equal(result, expected);
 });

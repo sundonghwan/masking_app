@@ -204,6 +204,47 @@ export function createMaskingApiClient(options = {}) {
     listTrainingSources() {
       return requestJson("/api/training-sources");
     },
+    listTrainingSets(options = {}) {
+      const includeDeleted = options.includeDeleted || options.include_deleted;
+      const query = includeDeleted ? "?include_deleted=1" : "";
+      return requestJson(`/api/training-sets${query}`);
+    },
+    createTrainingSet(input = {}) {
+      return requestJson("/api/training-sets", {
+        method: "POST",
+        body: {
+          training_set_id: input.trainingSetId || input.training_set_id || input.id,
+          name: input.name,
+          description: input.description,
+          sources: input.sources || [],
+          approved_only: Boolean(input.approvedOnly || input.approved_only),
+          split: input.split,
+        },
+      });
+    },
+    getTrainingSet(trainingSetId) {
+      assertRequired(trainingSetId, "trainingSetId");
+      return requestJson(`/api/training-sets/${encodeURIComponent(trainingSetId)}`);
+    },
+    archiveTrainingSet(trainingSetId, input = {}) {
+      assertRequired(trainingSetId, "trainingSetId");
+      return requestJson(`/api/training-sets/${encodeURIComponent(trainingSetId)}`, {
+        method: "DELETE",
+        body: {
+          delete_reason: input.reason || input.deleteReason || input.delete_reason,
+          if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
+        },
+      });
+    },
+    restoreTrainingSet(trainingSetId, input = {}) {
+      assertRequired(trainingSetId, "trainingSetId");
+      return requestJson(`/api/training-sets/${encodeURIComponent(trainingSetId)}/restore`, {
+        method: "POST",
+        body: {
+          if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
+        },
+      });
+    },
     async getProjectFileBlob(projectId, relativePath) {
       assertRequired(projectId, "projectId");
       assertRequired(relativePath, "relativePath");
@@ -320,15 +361,19 @@ export function createMaskingApiClient(options = {}) {
       return response.blob();
     },
     async downloadTrainingSetExport(input = {}) {
-      const response = await fetchImpl(`${baseUrl}/api/training-sets/export`, {
-        method: "POST",
+      const path = input.trainingSetId || input.training_set_id
+        ? `/api/training-sets/${encodeURIComponent(input.trainingSetId || input.training_set_id)}/export`
+        : "/api/training-sets/export";
+      const savedExport = Boolean(input.trainingSetId || input.training_set_id);
+      const response = await fetchImpl(`${baseUrl}${path}`, {
+        method: savedExport ? "GET" : "POST",
         headers: {
           accept: "application/zip",
-          "content-type": "application/json",
+          ...(savedExport ? {} : { "content-type": "application/json" }),
           ...sessionHeaders(getSession()),
           ...(input.headers || {}),
         },
-        body: JSON.stringify({
+        body: savedExport ? undefined : JSON.stringify({
           sources: input.sources || [],
           approved_only: Boolean(input.approvedOnly || input.approved_only),
         }),

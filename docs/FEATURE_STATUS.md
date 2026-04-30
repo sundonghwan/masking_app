@@ -81,6 +81,7 @@
 - [x] Account administration UI/API for local MVP users
 - [x] Server revision guard for risky project/version mutations
 - [x] Physical purge maintenance for soft-deleted version files
+- [x] Saved training set management with deterministic split, list, re-export, archive, and restore
 
 ## In Progress
 
@@ -88,6 +89,7 @@
 
 ## Remaining
 
+- Generic AI API serving for future detection/segmentation/inference remains parked until dataset packaging and operations flows prove stable.
 - AI-backed segmentation adapter remains optional hardening after the local edge-aware magic tool reaches real dataset limits.
 - Deployment profile remains optional hardening when the app moves beyond local MVP operation.
 - Legacy manifest repair can be expanded if old local snapshots become a real support burden.
@@ -138,10 +140,14 @@ Recommended order:
 
 1. AI-backed segmentation adapter.
    - Add only after local edge-aware magic controls hit real dataset limits.
-2. Deployment profile.
+2. Generic AI API serving layer.
+   - Design a model-agnostic API contract that can serve detection,
+     segmentation, or future inference tasks without binding the app to one
+     model family.
+3. Deployment profile.
    - Moves data root, port, and operational retention settings into explicit
      deployment configuration when needed.
-3. Legacy manifest migration/repair tool.
+4. Legacy manifest migration/repair tool.
    - Add only if old local snapshots or flat manifests repeatedly block real
      operations.
 

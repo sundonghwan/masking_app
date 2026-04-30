@@ -4,6 +4,7 @@ export function createTrainingSetManifest(sources = [], options = {}) {
   const now = options.now || new Date().toISOString();
   const items = [];
   const sourceVersions = [];
+  const splitConfig = normalizeSplitConfig(options.split || options.splitConfig);
 
   for (const source of sources) {
     const project = createProjectRecord({
@@ -47,15 +48,24 @@ export function createTrainingSetManifest(sources = [], options = {}) {
         width: image.width,
         height: image.height,
         status: image.status,
+        split: "",
       });
     });
   }
 
+  applySplits(items, splitConfig);
+  const splitCounts = countSplits(items);
+
   return {
     training_set: {
       version: 1,
+      training_set_id: options.trainingSetId || options.training_set_id || "",
+      name: options.name || "",
+      description: options.description || "",
       generated_at: now,
       approved_only: Boolean(options.approvedOnly),
+      split: splitConfig,
+      split_counts: splitCounts,
       total_sources: sourceVersions.length,
       total_items: items.length,
       items,
@@ -78,6 +88,18 @@ export function createTrainingSetZipEntries(sources = [], options = {}) {
     {
       path: "source_versions.json",
       data: serializeJson(manifest.source_versions),
+    },
+    {
+      path: "splits/train.txt",
+      data: splitList(manifest.training_set.items, "train"),
+    },
+    {
+      path: "splits/val.txt",
+      data: splitList(manifest.training_set.items, "val"),
+    },
+    {
+      path: "splits/test.txt",
+      data: splitList(manifest.training_set.items, "test"),
     },
   ];
 
@@ -128,4 +150,66 @@ function sanitizeTrainingPath(value) {
 
 function stripExtension(value) {
   return String(value).replace(/\.[^.]+$/, "");
+}
+
+function normalizeSplitConfig(input = {}) {
+  const train = Number(input.train ?? input.train_ratio ?? 0.8);
+  const val = Number(input.val ?? input.validation ?? input.val_ratio ?? 0.1);
+  const test = Number(input.test ?? input.test_ratio ?? 0.1);
+  const seed = Number(input.seed ?? 42);
+  const total = [train, val, test].filter(Number.isFinite).reduce((sum, value) => sum + Math.max(0, value), 0);
+  const safeTotal = total > 0 ? total : 1;
+  return {
+    train: Math.max(0, Number.isFinite(train) ? train : 0.8) / safeTotal,
+    val: Math.max(0, Number.isFinite(val) ? val : 0.1) / safeTotal,
+    test: Math.max(0, Number.isFinite(test) ? test : 0.1) / safeTotal,
+    seed: Number.isFinite(seed) ? Math.trunc(seed) : 42,
+  };
+}
+
+function applySplits(items, splitConfig) {
+  if (!Array.isArray(items) || items.length === 0) return;
+  const ordered = [...items].sort((left, right) => {
+    const leftKey = splitSortKey(left, splitConfig.seed);
+    const rightKey = splitSortKey(right, splitConfig.seed);
+    return leftKey.localeCompare(rightKey);
+  });
+  const total = ordered.length;
+  const trainCount = Math.min(total, Math.round(total * splitConfig.train));
+  const valCount = Math.min(total - trainCount, Math.round(total * splitConfig.val));
+  ordered.forEach((item, index) => {
+    item.split = index < trainCount
+      ? "train"
+      : index < trainCount + valCount
+        ? "val"
+        : "test";
+  });
+}
+
+function splitSortKey(item, seed) {
+  return `${hashString(`${seed}:${item.project_id}:${item.task_id}:${item.version_id}:${item.image_id}`)}`.padStart(10, "0");
+}
+
+function hashString(value) {
+  let hash = 2166136261;
+  for (const char of String(value)) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function countSplits(items) {
+  return {
+    train: items.filter((item) => item.split === "train").length,
+    val: items.filter((item) => item.split === "val").length,
+    test: items.filter((item) => item.split === "test").length,
+  };
+}
+
+function splitList(items, split) {
+  return `${items
+    .filter((item) => item.split === split)
+    .map((item) => `${item.image_path} ${item.mask_path}`)
+    .join("\n")}\n`;
 }

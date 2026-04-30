@@ -79,6 +79,16 @@ const state = {
   versionMessage: "",
   trainingSources: [],
   selectedTrainingSourceIds: new Set(),
+  trainingSets: [],
+  includeDeletedTrainingSets: false,
+  trainingSetId: "",
+  trainingSetName: "",
+  trainingSetDescription: "",
+  trainingSplitTrain: 0.8,
+  trainingSplitVal: 0.1,
+  trainingSplitTest: 0.1,
+  trainingSplitSeed: 42,
+  trainingSetMessage: "",
   projectSettingsMessage: "",
   settingsAllowedFormats: "image/png,image/jpeg,image/bmp,image/webp",
   settingsMagicTolerance: 42,
@@ -201,6 +211,17 @@ const els = {
   exportPolicyMessage: document.querySelector("#exportPolicyMessage"),
   trainingSourcePicker: document.querySelector("#trainingSourcePicker"),
   trainingExportButton: document.querySelector("#trainingExportButton"),
+  trainingSetId: document.querySelector("#trainingSetId"),
+  trainingSetName: document.querySelector("#trainingSetName"),
+  trainingSetDescription: document.querySelector("#trainingSetDescription"),
+  trainingSplitTrain: document.querySelector("#trainingSplitTrain"),
+  trainingSplitVal: document.querySelector("#trainingSplitVal"),
+  trainingSplitTest: document.querySelector("#trainingSplitTest"),
+  trainingSplitSeed: document.querySelector("#trainingSplitSeed"),
+  createTrainingSetButton: document.querySelector("#createTrainingSetButton"),
+  refreshTrainingSetsButton: document.querySelector("#refreshTrainingSetsButton"),
+  includeDeletedTrainingSets: document.querySelector("#includeDeletedTrainingSets"),
+  trainingSetList: document.querySelector("#trainingSetList"),
   settingsProjectName: document.querySelector("#settingsProjectName"),
   settingsProjectDescription: document.querySelector("#settingsProjectDescription"),
   settingsUploadLimitMb: document.querySelector("#settingsUploadLimitMb"),
@@ -254,6 +275,7 @@ async function init() {
     void refreshAssignmentUsers();
     void refreshVersionContext();
     void refreshTrainingSources();
+    void refreshTrainingSets();
   }
   render();
   renderScreen();
@@ -457,7 +479,32 @@ function bindEvents() {
     void persistProject();
     render();
   });
+  els.trainingSetId.addEventListener("input", () => {
+    state.trainingSetId = sanitizeUiId(els.trainingSetId.value);
+    renderTrainingSetPanel();
+  });
+  els.trainingSetName.addEventListener("input", () => {
+    state.trainingSetName = els.trainingSetName.value;
+    renderTrainingSetPanel();
+  });
+  els.trainingSetDescription.addEventListener("input", () => {
+    state.trainingSetDescription = els.trainingSetDescription.value;
+  });
+  [els.trainingSplitTrain, els.trainingSplitVal, els.trainingSplitTest, els.trainingSplitSeed].forEach((input) => {
+    input.addEventListener("input", () => {
+      state.trainingSplitTrain = Number(els.trainingSplitTrain.value || 0);
+      state.trainingSplitVal = Number(els.trainingSplitVal.value || 0);
+      state.trainingSplitTest = Number(els.trainingSplitTest.value || 0);
+      state.trainingSplitSeed = Number(els.trainingSplitSeed.value || 42);
+    });
+  });
+  els.createTrainingSetButton.addEventListener("click", () => void createSavedTrainingSet());
   els.trainingExportButton.addEventListener("click", () => void exportSelectedTrainingSet());
+  els.refreshTrainingSetsButton.addEventListener("click", () => void refreshTrainingSets());
+  els.includeDeletedTrainingSets.addEventListener("change", () => {
+    state.includeDeletedTrainingSets = els.includeDeletedTrainingSets.checked && state.sessionRole === ROLES.ADMIN;
+    void refreshTrainingSets();
+  });
   els.settingsProjectName.addEventListener("input", () => {
     renderProjectSettingsPanel();
   });
@@ -827,6 +874,23 @@ async function refreshTrainingSources() {
   }
 }
 
+async function refreshTrainingSets() {
+  if (!state.sessionAuthenticated || ![ROLES.ADMIN, ROLES.REVIEWER].includes(state.sessionRole)) return;
+  try {
+    const response = await apiClient.listTrainingSets({
+      includeDeleted: state.includeDeletedTrainingSets && state.sessionRole === ROLES.ADMIN,
+    });
+    state.trainingSets = Array.isArray(response.training_sets) ? response.training_sets : [];
+    state.trainingSetMessage = `${state.trainingSets.length}개 training set`;
+    renderTrainingSetPanel();
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.trainingSets = [];
+    state.trainingSetMessage = `Training set 목록 실패: ${normalized.message}`;
+    renderTrainingSetPanel();
+  }
+}
+
 async function saveProjectSettings() {
   if (!canAdminMutateProject()) return;
   const maxFileBytes = Math.max(1, Number(els.settingsUploadLimitMb.value || 15)) * 1024 * 1024;
@@ -935,6 +999,9 @@ async function loginSession() {
     routeToScreen(SCREENS.PROJECTS);
     void refreshProjectSummaries();
     void refreshAssignmentUsers();
+    void refreshVersionContext();
+    void refreshTrainingSources();
+    void refreshTrainingSets();
     setSaveState("saved", "로그인됨");
   } catch (error) {
     const normalized = normalizeApiError(error);
@@ -956,6 +1023,8 @@ async function logoutSession() {
   state.sessionToken = "";
   state.sessionAuthenticated = false;
   state.includeDeletedProjects = false;
+  state.includeDeletedTrainingSets = false;
+  state.trainingSets = [];
   state.assignmentUsers = { workers: [], reviewers: [], error: "" };
   await persistProject();
   render();
@@ -1168,6 +1237,92 @@ async function exportSelectedTrainingSet() {
   }
 }
 
+async function createSavedTrainingSet() {
+  const sources = selectedTrainingSources();
+  const trainingSetId = sanitizeUiId(state.trainingSetId || suggestedTrainingSetId());
+  if (sources.length === 0) {
+    setSaveState("failed", "Training source를 선택하세요");
+    return;
+  }
+  if (!trainingSetId) {
+    setSaveState("failed", "Training set ID를 입력하세요");
+    return;
+  }
+  setSaveState("saving", "Training set 저장 중");
+  try {
+    const response = await apiClient.createTrainingSet({
+      trainingSetId,
+      name: state.trainingSetName || trainingSetId,
+      description: state.trainingSetDescription,
+      sources,
+      approvedOnly: state.exportApprovedOnly,
+      split: currentTrainingSplit(),
+    });
+    const manifest = response.training_set_manifest || {};
+    state.trainingSetId = manifest.training_set_id || trainingSetId;
+    state.trainingSetName = manifest.name || state.trainingSetName;
+    state.trainingSetMessage = "Training set 저장됨";
+    await refreshTrainingSets();
+    await persistProject();
+    setSaveState("saved", "Training set 저장됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.trainingSetMessage = normalized.message;
+    renderTrainingSetPanel();
+    setSaveState("failed", `Training set 저장 실패: ${normalized.message}`);
+  }
+}
+
+async function exportSavedTrainingSet(trainingSetId) {
+  setSaveState("saving", "저장된 Training set 내보내는 중");
+  try {
+    const zip = await apiClient.downloadTrainingSetExport({ trainingSetId });
+    downloadBlob(zip, `training_set_${trainingSetId}.zip`);
+    setSaveState("saved", "저장된 Training set ZIP 내보냄");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `Training set export 실패: ${normalized.message}`);
+  }
+}
+
+async function archiveSavedTrainingSet(trainingSet) {
+  if (state.sessionRole !== ROLES.ADMIN) return;
+  if (!window.confirm("이 Training set을 목록에서 보관 처리합니다. 원본 프로젝트/버전 데이터는 삭제하지 않습니다. 진행할까요?")) return;
+  setSaveState("saving", "Training set 보관 중");
+  try {
+    await apiClient.archiveTrainingSet(trainingSet.training_set_id, {
+      reason: "archived_from_ui",
+      ifMatchRevision: trainingSet.revision || undefined,
+    });
+    state.trainingSetMessage = "Training set 보관됨";
+    await refreshTrainingSets();
+    setSaveState("saved", "Training set 보관됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.trainingSetMessage = normalized.message;
+    renderTrainingSetPanel();
+    setSaveState("failed", `Training set 보관 실패: ${normalized.message}`);
+  }
+}
+
+async function restoreSavedTrainingSet(trainingSet) {
+  if (state.sessionRole !== ROLES.ADMIN) return;
+  setSaveState("saving", "Training set 복원 중");
+  try {
+    await apiClient.restoreTrainingSet(trainingSet.training_set_id, {
+      ifMatchRevision: trainingSet.revision || undefined,
+    });
+    state.trainingSetMessage = "Training set 복원됨";
+    await refreshTrainingSets();
+    setSaveState("saved", "Training set 복원됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.trainingSetMessage = normalized.message;
+    renderTrainingSetPanel();
+    setSaveState("failed", `Training set 복원 실패: ${normalized.message}`);
+  }
+}
+
 async function syncUploadedImage(image, file) {
   try {
     const ready = await ensureBackendProject();
@@ -1272,6 +1427,7 @@ async function ensureBackendProject() {
     void refreshProjectSummaries();
     void refreshVersionContext();
     void refreshTrainingSources();
+    void refreshTrainingSets();
     render();
     return true;
   } catch (error) {
@@ -1612,6 +1768,7 @@ function render() {
   renderReviewIdentity();
   renderExportPolicy();
   renderTrainingSourcePicker();
+  renderTrainingSetPanel();
   renderProjectSettingsPanel();
   renderAccountAdminPanel();
   renderSyncStatus();
@@ -2399,6 +2556,68 @@ function renderTrainingSourcePicker() {
   els.trainingExportButton.disabled = ![ROLES.ADMIN, ROLES.REVIEWER].includes(state.sessionRole);
 }
 
+function renderTrainingSetPanel() {
+  if (document.activeElement !== els.trainingSetId) {
+    els.trainingSetId.value = state.trainingSetId || suggestedTrainingSetId();
+  }
+  if (document.activeElement !== els.trainingSetName) {
+    els.trainingSetName.value = state.trainingSetName || suggestedTrainingSetName();
+  }
+  if (document.activeElement !== els.trainingSetDescription) {
+    els.trainingSetDescription.value = state.trainingSetDescription || "";
+  }
+  syncNumberInput(els.trainingSplitTrain, state.trainingSplitTrain);
+  syncNumberInput(els.trainingSplitVal, state.trainingSplitVal);
+  syncNumberInput(els.trainingSplitTest, state.trainingSplitTest);
+  syncNumberInput(els.trainingSplitSeed, state.trainingSplitSeed);
+  els.includeDeletedTrainingSets.checked = Boolean(state.includeDeletedTrainingSets && state.sessionRole === ROLES.ADMIN);
+  const canManage = [ROLES.ADMIN, ROLES.REVIEWER].includes(state.sessionRole);
+  els.createTrainingSetButton.disabled = !canManage;
+  els.refreshTrainingSetsButton.disabled = !canManage;
+  els.trainingSetList.replaceChildren(...trainingSetRows());
+}
+
+function trainingSetRows() {
+  if (!Array.isArray(state.trainingSets) || state.trainingSets.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-list-row";
+    empty.innerHTML = `<strong>${escapeHtml(state.trainingSetMessage || "저장된 Training set 없음")}</strong><small>source를 선택하고 저장하면 재내보내기 가능한 세트가 생깁니다.</small>`;
+    return [empty];
+  }
+  return state.trainingSets.map((trainingSet) => {
+    const row = document.createElement("article");
+    row.className = `training-set-row${trainingSet.deleted_at ? " deleted" : ""}`;
+    const counts = trainingSet.split_counts || {};
+    row.innerHTML = `
+      <header>
+        <span>
+          <strong>${escapeHtml(trainingSet.name || trainingSet.training_set_id)}</strong>
+          <small>${escapeHtml(trainingSet.training_set_id)} · ${Number(trainingSet.total_items || 0)} items · train ${Number(counts.train || 0)} / val ${Number(counts.val || 0)} / test ${Number(counts.test || 0)}</small>
+        </span>
+      </header>
+      <small>${escapeHtml(trainingSet.description || (trainingSet.deleted_at ? "보관됨" : "활성"))}</small>
+      <div class="training-set-actions"></div>
+    `;
+    const actions = row.querySelector(".training-set-actions");
+    actions.appendChild(trainingSetButton("ZIP", () => void exportSavedTrainingSet(trainingSet.training_set_id)));
+    if (state.sessionRole === ROLES.ADMIN && trainingSet.deleted_at) {
+      actions.appendChild(trainingSetButton("복원", () => void restoreSavedTrainingSet(trainingSet)));
+    } else if (state.sessionRole === ROLES.ADMIN) {
+      actions.appendChild(trainingSetButton("보관", () => void archiveSavedTrainingSet(trainingSet), "danger"));
+    }
+    return row;
+  });
+}
+
+function trainingSetButton(label, onClick, variant = "secondary") {
+  const button = document.createElement("button");
+  button.className = `button ${variant} rework-button`;
+  button.type = "button";
+  button.textContent = label;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
 function renderProjectSettingsPanel() {
   if (document.activeElement !== els.settingsProjectName) {
     els.settingsProjectName.value = state.projectName || "";
@@ -2878,6 +3097,30 @@ function selectedTrainingSources() {
     }));
 }
 
+function currentTrainingSplit() {
+  return {
+    train: Number(state.trainingSplitTrain || 0),
+    val: Number(state.trainingSplitVal || 0),
+    test: Number(state.trainingSplitTest || 0),
+    seed: Number(state.trainingSplitSeed || 42),
+  };
+}
+
+function suggestedTrainingSetId() {
+  return sanitizeUiId([state.projectId, state.taskId, state.versionId, new Date().toISOString().slice(0, 10)].filter(Boolean).join("_"));
+}
+
+function suggestedTrainingSetName() {
+  return [state.projectName || state.projectId || "Training Set", state.taskId, state.versionId]
+    .filter(Boolean)
+    .join(" / ");
+}
+
+function syncNumberInput(input, value) {
+  if (document.activeElement === input) return;
+  input.value = String(value);
+}
+
 function sourceKey(source = {}) {
   return [
     source.project_id || source.projectId || "",
@@ -3008,6 +3251,14 @@ async function persistProject() {
     settingsMagicTolerance: state.settingsMagicTolerance,
     settingsMagicEdge: state.settingsMagicEdge,
     selectedTrainingSourceIds: Array.from(state.selectedTrainingSourceIds),
+    trainingSetId: state.trainingSetId,
+    trainingSetName: state.trainingSetName,
+    trainingSetDescription: state.trainingSetDescription,
+    trainingSplitTrain: state.trainingSplitTrain,
+    trainingSplitVal: state.trainingSplitVal,
+    trainingSplitTest: state.trainingSplitTest,
+    trainingSplitSeed: state.trainingSplitSeed,
+    includeDeletedTrainingSets: state.includeDeletedTrainingSets,
     images: state.images.map(toSerializableImage),
   };
   await projectStore.saveProjectSnapshot(serializable);
@@ -3045,6 +3296,14 @@ async function restoreProject() {
     state.settingsMagicTolerance = Number(saved.settingsMagicTolerance || state.settingsMagicTolerance);
     state.settingsMagicEdge = Number(saved.settingsMagicEdge || state.settingsMagicEdge);
     state.selectedTrainingSourceIds = new Set(Array.isArray(saved.selectedTrainingSourceIds) ? saved.selectedTrainingSourceIds : []);
+    state.trainingSetId = sanitizeUiId(saved.trainingSetId) || "";
+    state.trainingSetName = String(saved.trainingSetName || "");
+    state.trainingSetDescription = String(saved.trainingSetDescription || "");
+    state.trainingSplitTrain = Number(saved.trainingSplitTrain ?? state.trainingSplitTrain);
+    state.trainingSplitVal = Number(saved.trainingSplitVal ?? state.trainingSplitVal);
+    state.trainingSplitTest = Number(saved.trainingSplitTest ?? state.trainingSplitTest);
+    state.trainingSplitSeed = Number(saved.trainingSplitSeed ?? state.trainingSplitSeed);
+    state.includeDeletedTrainingSets = Boolean(saved.includeDeletedTrainingSets && state.sessionRole === ROLES.ADMIN);
     state.images = await Promise.all((saved.images || []).map(rehydrateImageRecord));
     setSaveState("saved", "작업 복구됨");
   } catch {

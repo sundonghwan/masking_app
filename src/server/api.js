@@ -123,6 +123,36 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       return exportTrainingSet(response, body, context);
     }
 
+    if (url.pathname === "/api/training-sets" && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
+      const includeDeleted = url.searchParams.get("include_deleted") === "1" || url.searchParams.get("includeDeleted") === "1";
+      if (includeDeleted && session.role !== ROLES.ADMIN) {
+        return sendJson(response, 403, {
+          error: "forbidden",
+          message: "Deleted training sets can only be listed by admins",
+          required_roles: [ROLES.ADMIN],
+          role: session.role || "",
+        });
+      }
+      const trainingSets = storage.listTrainingSets ? await storage.listTrainingSets({ includeDeleted }) : [];
+      return sendJson(response, 200, {
+        training_sets: trainingSets,
+        total_training_sets: trainingSets.length,
+      });
+    }
+
+    if (url.pathname === "/api/training-sets" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      return createSavedTrainingSet(response, body, session);
+    }
+
+    if (parts[0] === "api" && parts[1] === "training-sets" && parts[2]) {
+      return routeTrainingSet(request, response, parts.slice(2), context);
+    }
+
     if (url.pathname === "/api/training-sources" && request.method === "GET") {
       const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
@@ -1257,6 +1287,122 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     };
   }
 
+  async function routeTrainingSet(request, response, parts, context = {}) {
+    const trainingSetId = decodePathSegment(parts[0]);
+
+    if (parts.length === 1 && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
+      const manifest = await readTrainingSetOr404(trainingSetId);
+      if (manifest.deleted_at && session.role !== ROLES.ADMIN) throw createHttpError(404, "Training set not found");
+      return sendJson(response, 200, { training_set_manifest: manifest });
+    }
+
+    if (parts.length === 2 && parts[1] === "export" && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
+      const manifest = await readTrainingSetOr404(trainingSetId);
+      if (manifest.deleted_at) throw createHttpError(404, "Training set not found");
+      return exportSavedTrainingSet(response, manifest, context);
+    }
+
+    if (parts.length === 1 && request.method === "DELETE") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const manifest = await readTrainingSetOr404(trainingSetId);
+      if (!assertRevisionMatch(response, request, body, manifest.revision)) return;
+      const trainingSet = storage.archiveTrainingSet
+        ? await storage.archiveTrainingSet(trainingSetId, {
+            deletedBy: session.userId,
+            reason: body.delete_reason || body.deleteReason || body.reason,
+          })
+        : await updateTrainingSetArchiveState(trainingSetId, manifest, {
+            mode: "archive",
+            actor: session.userId,
+            reason: body.delete_reason || body.deleteReason || body.reason,
+          });
+      return sendJson(response, 200, { training_set_manifest: trainingSet });
+    }
+
+    if (parts.length === 2 && parts[1] === "restore" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const manifest = await readTrainingSetOr404(trainingSetId);
+      if (!assertRevisionMatch(response, request, body, manifest.revision)) return;
+      const trainingSet = storage.restoreTrainingSet
+        ? await storage.restoreTrainingSet(trainingSetId)
+        : await updateTrainingSetArchiveState(trainingSetId, manifest, { mode: "restore" });
+      return sendJson(response, 200, { training_set_manifest: trainingSet });
+    }
+
+    return notFound(response);
+  }
+
+  async function createSavedTrainingSet(response, body = {}, session = {}) {
+    if (!storage.writeTrainingSetManifest) {
+      return sendJson(response, 501, {
+        error: "training_set_storage_unavailable",
+        message: "Training set storage helper is not available",
+      });
+    }
+    const trainingSetId = normalizeTrainingSetId(body.training_set_id || body.trainingSetId || body.id || body.name);
+    if (!trainingSetId) {
+      return sendJson(response, 400, {
+        error: "training_set_id_required",
+        message: "Training set ID is required",
+      });
+    }
+    if (!Array.isArray(body.sources) || body.sources.length === 0) {
+      return sendJson(response, 400, {
+        error: "training_sources_required",
+        message: "At least one training set source is required",
+      });
+    }
+    if (storage.readTrainingSetManifest && await storage.readTrainingSetManifest(trainingSetId)) {
+      return sendJson(response, 409, {
+        error: "training_set_exists",
+        message: "Training set ID already exists",
+        training_set_id: trainingSetId,
+      });
+    }
+    const sources = await loadTrainingSources(body.sources);
+    const trainingSet = createTrainingSetZipEntries(sources, {
+      trainingSetId,
+      name: body.name || trainingSetId,
+      description: body.description || "",
+      approvedOnly: body.approved_only === true || body.approvedOnly === true,
+      split: body.split || {},
+    });
+    const now = new Date().toISOString();
+    const manifest = await storage.writeTrainingSetManifest(trainingSetId, {
+      training_set_id: trainingSetId,
+      name: body.name || trainingSetId,
+      description: body.description || "",
+      approved_only: trainingSet.training_set.approved_only,
+      split: trainingSet.training_set.split,
+      sources: body.sources.map(normalizeTrainingSourceRef),
+      training_set: trainingSet.training_set,
+      source_versions: trainingSet.source_versions,
+      created_by: session.userId || "",
+      created_at: now,
+      updated_at: now,
+      revision: 1,
+      deleted_at: "",
+      deleted_by: "",
+      delete_reason: "",
+    });
+    return sendJson(response, 201, { training_set_manifest: manifest });
+  }
+
+  async function readTrainingSetOr404(trainingSetId) {
+    if (!storage.readTrainingSetManifest) throw createHttpError(501, "Training set storage helper is not available");
+    const manifest = await storage.readTrainingSetManifest(trainingSetId);
+    if (!manifest) throw createHttpError(404, "Training set not found");
+    return manifest;
+  }
+
   async function exportProject(response, projectId, context, options = {}) {
     const manifest = await storage.readProjectManifest(projectId);
     if (!manifest) throw createHttpError(404, "Project not found");
@@ -1333,6 +1479,47 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     });
   }
 
+  async function exportSavedTrainingSet(response, manifest = {}, context = {}) {
+    const files = [
+      { path: "training_set.json", data: serializeJson(manifest.training_set || {}) },
+      { path: "source_versions.json", data: serializeJson(manifest.source_versions || {}) },
+      { path: "splits/train.txt", data: splitListFromManifest(manifest, "train") },
+      { path: "splits/val.txt", data: splitListFromManifest(manifest, "val") },
+      { path: "splits/test.txt", data: splitListFromManifest(manifest, "test") },
+    ];
+    for (const item of manifest.training_set?.items || []) {
+      files.push({
+        path: item.image_path,
+        data: await readTrainingSourceFile({
+          source_project_id: item.project_id,
+          source_task_id: item.task_id,
+          source_version_id: item.version_id,
+          source_path: item.source_image_path,
+        }),
+      });
+      files.push({
+        path: item.mask_path,
+        data: await readTrainingSourceFile({
+          source_project_id: item.project_id,
+          source_task_id: item.task_id,
+          source_version_id: item.version_id,
+          source_path: item.source_mask_path,
+        }),
+      });
+    }
+    const zip = await createZipBlob(files);
+    const buffer = Buffer.from(await zip.arrayBuffer());
+    logger?.info("training_set.saved_export.completed", {
+      request_id: context.requestId,
+      training_set_id: manifest.training_set_id,
+      items: manifest.training_set?.items?.length || 0,
+    });
+    return sendBuffer(response, 200, buffer, {
+      "content-type": "application/zip",
+      "content-disposition": `attachment; filename="training-set-${manifest.training_set_id || "export"}.zip"`,
+    });
+  }
+
   async function loadTrainingSources(sources) {
     const loaded = [];
     for (const source of sources) {
@@ -1372,5 +1559,56 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       );
     }
     return storage.readProjectFile(entry.source_project_id, entry.source_path);
+  }
+
+  async function updateTrainingSetArchiveState(trainingSetId, manifest, operation) {
+    if (!storage.writeTrainingSetManifest) {
+      throw createHttpError(501, "Training set archive storage helper is not available");
+    }
+    const now = new Date().toISOString();
+    const updated = operation.mode === "archive"
+      ? {
+          ...manifest,
+          deleted_at: manifest.deleted_at || now,
+          deleted_by: String(operation.actor || ""),
+          delete_reason: String(operation.reason || ""),
+          updated_at: now,
+          revision: nextRevision(manifest.revision),
+        }
+      : {
+          ...manifest,
+          deleted_at: "",
+          deleted_by: "",
+          delete_reason: "",
+          updated_at: now,
+          revision: nextRevision(manifest.revision),
+        };
+    await storage.writeTrainingSetManifest(trainingSetId, updated);
+    return updated;
+  }
+
+  function normalizeTrainingSetId(value) {
+    return String(value || "")
+      .trim()
+      .replace(/[\\/]+/g, "_")
+      .replace(/[^a-zA-Z0-9._-]+/g, "_")
+      .replace(/^[._-]+|[._-]+$/g, "")
+      .replace(/_{2,}/g, "_")
+      .slice(0, 120);
+  }
+
+  function normalizeTrainingSourceRef(source = {}) {
+    return {
+      project_id: source.project_id || source.projectId || "",
+      task_id: source.task_id || source.taskId || "legacy_project",
+      version_id: source.version_id || source.versionId || "legacy",
+    };
+  }
+
+  function splitListFromManifest(manifest = {}, split) {
+    return `${(manifest.training_set?.items || [])
+      .filter((item) => item.split === split)
+      .map((item) => `${item.image_path} ${item.mask_path}`)
+      .join("\n")}\n`;
   }
 }

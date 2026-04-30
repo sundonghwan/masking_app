@@ -372,6 +372,28 @@ Design source:
 
 - `docs/DASHBOARD_DESIGN.md`
 
+### 10. Saved Training Set Management
+
+Goal: package reviewed project/task/version outputs into durable dataset
+snapshots before adding AI model serving or training workflows.
+
+Status: implemented for local filesystem MVP operation.
+
+Completed:
+
+- [x] selected training sources can be saved as a named training set
+- [x] saved training sets store source project/task/version traceability
+- [x] deterministic train/val/test split metadata is generated from a seed
+- [x] saved training sets can be listed and re-exported
+- [x] admins can archive and restore saved training sets
+- [x] duplicate training set IDs are rejected instead of silently overwriting
+
+Remaining:
+
+- Generic AI API serving is parked until dataset packaging workflows are stable.
+- Model-specific training/export presets can be added later if real training
+  consumers need them.
+
 ## Work To Avoid For Now
 
 Do not start these before the MVP data contract checkpoint is closed:

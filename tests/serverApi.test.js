@@ -1020,6 +1020,80 @@ test("training set export requires a selected source", async () => {
   assert.equal(response.statusCode, 400);
 });
 
+test("reviewers create and export saved training sets while admins archive and restore them", async () => {
+  const { route, storage } = createApiHarness();
+  const reviewerHeaders = await loginHeaders(route, "reviewer");
+  const adminHeaders = await loginHeaders(route, "admin");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    id: "approved-1",
+    original_file_name: "approved.png",
+    image_path: "images/approved_source.png",
+    current_mask_path: "masks/approved_source_mask.png",
+    status: "approved",
+    mask_values_valid: true,
+  });
+  storage.files.set("project-1/images/approved_source.png", "approved-image");
+  storage.files.set("project-1/masks/approved_source_mask.png", "approved-mask");
+
+  const created = await callJson(route, "POST", "/api/training-sets", {
+    training_set_id: "rail_v1",
+    name: "Rail v1",
+    description: "approved baseline",
+    sources: [{ project_id: "project-1" }],
+    approved_only: true,
+    split: { train: 1, val: 0, test: 0, seed: 7 },
+  }, reviewerHeaders);
+  const listed = await callJson(route, "GET", "/api/training-sets", null, reviewerHeaders);
+  const duplicate = await callJson(route, "POST", "/api/training-sets", {
+    training_set_id: "rail_v1",
+    sources: [{ project_id: "project-1" }],
+  }, reviewerHeaders);
+  const detail = await callJson(route, "GET", "/api/training-sets/rail_v1", null, reviewerHeaders);
+  const exported = await callRoute(route, "GET", "/api/training-sets/rail_v1/export", null, reviewerHeaders);
+  const reviewerDelete = await callJson(route, "DELETE", "/api/training-sets/rail_v1", {
+    if_match_revision: created.body.training_set_manifest.revision,
+  }, reviewerHeaders);
+  const archived = await callJson(route, "DELETE", "/api/training-sets/rail_v1", {
+    if_match_revision: created.body.training_set_manifest.revision,
+    delete_reason: "wrong merge set",
+  }, adminHeaders);
+  const rejectedDeletedList = await callJson(route, "GET", "/api/training-sets?include_deleted=1", null, reviewerHeaders);
+  const adminDeletedList = await callJson(route, "GET", "/api/training-sets?include_deleted=1", null, adminHeaders);
+  const hiddenDetail = callJson(route, "GET", "/api/training-sets/rail_v1", null, reviewerHeaders);
+  const restored = await callJson(route, "POST", "/api/training-sets/rail_v1/restore", {
+    if_match_revision: archived.body.training_set_manifest.revision,
+  }, adminHeaders);
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.training_set_manifest.training_set_id, "rail_v1");
+  assert.equal(created.body.training_set_manifest.training_set.total_items, 1);
+  assert.deepEqual(created.body.training_set_manifest.training_set.split_counts, { train: 1, val: 0, test: 0 });
+  assert.equal(listed.statusCode, 200);
+  assert.deepEqual(listed.body.training_sets.map((item) => item.training_set_id), ["rail_v1"]);
+  assert.equal(duplicate.statusCode, 409);
+  assert.equal(duplicate.body.error, "training_set_exists");
+  assert.equal(detail.statusCode, 200);
+  assert.equal(detail.body.training_set_manifest.name, "Rail v1");
+  assert.equal(exported.statusCode, 200);
+  assert.equal(exported.headers["content-type"], "application/zip");
+  assert.match(exported.text, /training_set\.json/);
+  assert.match(exported.text, /splits\/train\.txt/);
+  assert.match(exported.text, /images\/project-1_legacy_project_legacy_0001_approved-1_approved\.png/);
+  assert.match(exported.text, /approved-image/);
+  assert.equal(reviewerDelete.statusCode, 403);
+  assert.equal(archived.statusCode, 200);
+  assert.equal(archived.body.training_set_manifest.deleted_by, "admin");
+  assert.equal(archived.body.training_set_manifest.delete_reason, "wrong merge set");
+  assert.equal(rejectedDeletedList.statusCode, 403);
+  assert.equal(adminDeletedList.statusCode, 200);
+  assert.equal(adminDeletedList.body.training_sets[0].deleted_by, "admin");
+  await assert.rejects(hiddenDetail, /Training set not found/);
+  assert.equal(restored.statusCode, 200);
+  assert.equal(restored.body.training_set_manifest.deleted_at, "");
+});
+
 test("lists project summaries ordered by update time", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "reviewer");
@@ -1276,6 +1350,7 @@ function createMemoryStorage() {
   const projects = new Map();
   const tasks = new Map();
   const versions = new Map();
+  const trainingSets = new Map();
   const imageWrites = [];
   const maskWrites = [];
   const files = new Map();
@@ -1390,6 +1465,72 @@ function createMemoryStorage() {
           rejected_images: images.filter((image) => image.status === "rejected").length,
         };
       }).sort((left, right) => right.updated_at.localeCompare(left.updated_at));
+    },
+    async writeTrainingSetManifest(trainingSetId, manifest) {
+      const safeTrainingSetId = sanitizeTestId(trainingSetId);
+      const next = {
+        ...clone(manifest),
+        training_set_id: safeTrainingSetId,
+      };
+      trainingSets.set(safeTrainingSetId, next);
+      return clone(next);
+    },
+    async readTrainingSetManifest(trainingSetId) {
+      const safeTrainingSetId = sanitizeTestId(trainingSetId);
+      return trainingSets.has(safeTrainingSetId) ? clone(trainingSets.get(safeTrainingSetId)) : null;
+    },
+    async listTrainingSets(options = {}) {
+      return [...trainingSets.values()]
+        .filter((manifest) => options.includeDeleted || !manifest.deleted_at)
+        .map((manifest) => {
+          const items = Array.isArray(manifest.training_set?.items) ? manifest.training_set.items : [];
+          return {
+            training_set_id: manifest.training_set_id,
+            name: manifest.name || manifest.training_set_id,
+            description: manifest.description || "",
+            created_by: manifest.created_by || "",
+            created_at: manifest.created_at || "",
+            updated_at: manifest.updated_at || "",
+            revision: Number(manifest.revision || 0),
+            deleted_at: manifest.deleted_at || "",
+            deleted_by: manifest.deleted_by || "",
+            delete_reason: manifest.delete_reason || "",
+            total_sources: manifest.training_set?.total_sources || manifest.source_versions?.sources?.length || 0,
+            total_items: items.length,
+            split_counts: manifest.training_set?.split_counts || { train: 0, val: 0, test: 0 },
+          };
+        })
+        .sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
+    },
+    async archiveTrainingSet(trainingSetId, input = {}) {
+      const safeTrainingSetId = sanitizeTestId(trainingSetId);
+      const manifest = trainingSets.get(safeTrainingSetId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      const updated = {
+        ...manifest,
+        deleted_at: manifest.deleted_at || now,
+        deleted_by: input.deletedBy || input.deleted_by || "",
+        delete_reason: input.reason || input.deleteReason || input.delete_reason || "",
+        updated_at: now,
+        revision: Number(manifest.revision || 0) + 1,
+      };
+      trainingSets.set(safeTrainingSetId, clone(updated));
+      return clone(updated);
+    },
+    async restoreTrainingSet(trainingSetId, input = {}) {
+      const safeTrainingSetId = sanitizeTestId(trainingSetId);
+      const manifest = trainingSets.get(safeTrainingSetId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      const updated = {
+        ...manifest,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+        updated_at: now,
+        revision: Number(manifest.revision || 0) + 1,
+      };
+      trainingSets.set(safeTrainingSetId, clone(updated));
+      return clone(updated);
     },
     async ensureProjectMetadata(projectId, input = {}) {
       if (!projects.has(projectId)) {
@@ -1630,6 +1771,12 @@ function authHeaders(role = "admin", userId = `${role}-1`) {
     "x-user-role": role,
     "x-user-id": userId,
   };
+}
+
+function sanitizeTestId(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
 function createMemoryResponse() {

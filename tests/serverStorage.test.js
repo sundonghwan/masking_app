@@ -13,16 +13,21 @@ import {
   listProjects,
   listProjectTasks,
   listTaskVersions,
+  listTrainingSets,
   cloneVersionManifest,
   archiveProject,
+  archiveTrainingSet,
   purgeSoftDeletedVersionFiles,
   purgeProject,
   readProjectManifest,
+  readTrainingSetManifest,
   restoreProject,
+  restoreTrainingSet,
   writeMaskBuffer,
   writeImageFromDataUrl,
   writeMaskFromDataUrl,
   writeProjectManifest,
+  writeTrainingSetManifest,
   updateProjectManifest,
   softDeleteProjectImage,
   restoreProjectImage,
@@ -186,6 +191,52 @@ test("updates archives restores and purges project manifests", async () => {
   );
 });
 
+test("writes lists archives and restores training set manifests", async () => {
+  const { storage, rootDir } = await createTempStorage();
+  const manifest = {
+    training_set_id: "rail-crack-v1",
+    name: "Rail Crack v1",
+    description: "approved masks",
+    approved_only: true,
+    split: { train: 0.8, val: 0.1, test: 0.1, seed: 42 },
+    sources: [{ project_id: "project-1", task_id: "task-1", version_id: "v1" }],
+    training_set: {
+      training_set_id: "rail-crack-v1",
+      total_sources: 1,
+      total_items: 2,
+      split_counts: { train: 2, val: 0, test: 0 },
+      items: [],
+    },
+    source_versions: {
+      sources: [{ project_id: "project-1", task_id: "task-1", version_id: "v1" }],
+    },
+    created_by: "reviewer",
+    created_at: "2026-04-30T00:00:00.000Z",
+    updated_at: "2026-04-30T00:00:00.000Z",
+    revision: 1,
+  };
+
+  await storage.writeTrainingSetManifest("rail crack v1", manifest);
+
+  const loaded = await storage.readTrainingSetManifest("rail crack v1");
+  assert.equal(loaded.training_set_id, "rail_crack_v1");
+  assert.equal(await readFile(path.join(rootDir, "training_sets", "rail_crack_v1", "training_set.json"), "utf8").then((text) => JSON.parse(text).total_items), 2);
+  assert.equal((await storage.listTrainingSets())[0].total_items, 2);
+
+  const archived = await storage.archiveTrainingSet("rail crack v1", {
+    deletedBy: "admin",
+    reason: "bad split",
+    now: "2026-04-30T01:00:00.000Z",
+  });
+  assert.equal(archived.deleted_by, "admin");
+  assert.equal((await storage.listTrainingSets()).length, 0);
+  assert.equal((await storage.listTrainingSets({ includeDeleted: true }))[0].deleted_at, "2026-04-30T01:00:00.000Z");
+
+  const restored = await storage.restoreTrainingSet("rail crack v1", { now: "2026-04-30T02:00:00.000Z" });
+  assert.equal(restored.deleted_at, "");
+  assert.equal((await storage.listTrainingSets()).length, 1);
+});
+
 test("returns null or empty lists for missing project manifest and files", async () => {
   const { storage } = await createTempStorage();
 
@@ -240,6 +291,11 @@ test("module-level default APIs are exported for server integration", () => {
   assert.equal(typeof purgeSoftDeletedVersionFiles, "function");
   assert.equal(typeof listProjectTasks, "function");
   assert.equal(typeof listTaskVersions, "function");
+  assert.equal(typeof writeTrainingSetManifest, "function");
+  assert.equal(typeof readTrainingSetManifest, "function");
+  assert.equal(typeof listTrainingSets, "function");
+  assert.equal(typeof archiveTrainingSet, "function");
+  assert.equal(typeof restoreTrainingSet, "function");
   assert.equal(typeof listProjectFiles, "function");
   assert.equal(typeof listProjects, "function");
   assert.equal(typeof clearStorageForTests, "function");

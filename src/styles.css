@@ -610,6 +610,82 @@ h2 {
   background: #f3f7fa;
 }
 
+.training-set-form {
+  display: grid;
+  gap: 8px;
+}
+
+.split-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.split-grid label {
+  display: grid;
+  gap: 4px;
+}
+
+.split-grid span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.training-set-list {
+  display: grid;
+  max-height: 220px;
+  gap: 6px;
+  overflow: auto;
+}
+
+.training-set-row {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: #fbfcfd;
+}
+
+.training-set-row.deleted {
+  opacity: 0.72;
+}
+
+.training-set-row header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.training-set-row strong,
+.training-set-row small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.training-set-row small {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.training-set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .empty-list-row {
   display: grid;
   gap: 4px;

@@ -346,7 +346,36 @@
             <span>승인 항목만 내보내기</span>
           </label>
           <div class="source-picker" id="trainingSourcePicker" aria-label="Training set source picker"></div>
-          <button class="button secondary rework-button" id="trainingExportButton" type="button">Training set 내보내기</button>
+          <div class="training-set-form">
+            <label class="stacked-field">
+              <span>Set ID</span>
+              <input class="text-input" id="trainingSetId" type="text" autocomplete="off" placeholder="rail_crack_v1">
+            </label>
+            <label class="stacked-field">
+              <span>이름</span>
+              <input class="text-input" id="trainingSetName" type="text" autocomplete="off" placeholder="Rail Crack v1">
+            </label>
+            <label class="stacked-field">
+              <span>설명</span>
+              <input class="text-input" id="trainingSetDescription" type="text" autocomplete="off" placeholder="승인 데이터 기준">
+            </label>
+            <div class="split-grid" aria-label="Training set split ratios">
+              <label><span>Train</span><input class="text-input" id="trainingSplitTrain" type="number" min="0" max="1" step="0.05" value="0.8"></label>
+              <label><span>Val</span><input class="text-input" id="trainingSplitVal" type="number" min="0" max="1" step="0.05" value="0.1"></label>
+              <label><span>Test</span><input class="text-input" id="trainingSplitTest" type="number" min="0" max="1" step="0.05" value="0.1"></label>
+              <label><span>Seed</span><input class="text-input" id="trainingSplitSeed" type="number" step="1" value="42"></label>
+            </div>
+          </div>
+          <div class="action-row">
+            <button class="button primary rework-button" id="createTrainingSetButton" type="button">Training set 저장</button>
+            <button class="button secondary rework-button" id="trainingExportButton" type="button">선택 source 즉시 ZIP</button>
+            <button class="button secondary rework-button" id="refreshTrainingSetsButton" type="button">목록 새로고침</button>
+          </div>
+          <label class="toggle-row" data-role-panel="admin">
+            <input id="includeDeletedTrainingSets" type="checkbox">
+            <span>보관된 Training set 포함</span>
+          </label>
+          <div class="training-set-list" id="trainingSetList" aria-label="Saved training sets"></div>
           <dl class="export-summary-grid">
             <div><dt>대상</dt><dd id="exportIncludedCount">0</dd></div>
             <div><dt>제외</dt><dd id="exportExcludedCount">0</dd></div>

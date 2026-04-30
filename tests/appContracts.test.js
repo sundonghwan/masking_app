@@ -212,6 +212,12 @@ test("workbench exposes version settings account and training operations", () =>
   assert.match(html, /id="purgeVersionButton"/);
   assert.match(html, /id="trainingSourcePicker"/);
   assert.match(html, /id="trainingExportButton"/);
+  assert.match(html, /id="trainingSetId"/);
+  assert.match(html, /id="trainingSetName"/);
+  assert.match(html, /id="trainingSplitTrain"/);
+  assert.match(html, /id="trainingSetList"/);
+  assert.match(html, /id="createTrainingSetButton"/);
+  assert.match(html, /id="includeDeletedTrainingSets"/);
   assert.match(html, /id="settingsProjectName"/);
   assert.match(html, /id="settingsProjectDescription"/);
   assert.match(html, /id="saveProjectSettingsButton"/);
@@ -222,6 +228,10 @@ test("workbench exposes version settings account and training operations", () =>
   assert.match(app, /apiClient\.cloneTaskVersion/);
   assert.match(app, /apiClient\.purgeTaskVersion/);
   assert.match(app, /apiClient\.updateProjectSettings/);
+  assert.match(app, /apiClient\.listTrainingSets/);
+  assert.match(app, /apiClient\.createTrainingSet/);
+  assert.match(app, /apiClient\.archiveTrainingSet/);
+  assert.match(app, /apiClient\.restoreTrainingSet/);
   assert.match(app, /apiClient\.downloadTrainingSetExport/);
   assert.match(app, /apiClient\.createUser/);
   assert.match(app, /apiClient\.updateUser/);

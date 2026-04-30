@@ -911,3 +911,24 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] live-http-smoke status=passed checks=health,admin-include-deleted-projects,reviewer-include-deleted-forbidden,index-head
 [REVIEW] finding=none-blocking scope=project-management note=archive-before-purge-admin-only-boundary-verified
 [CLOSE] status=ready-for-commit server=http://localhost:4173
+[START] task=training-set-management subsystem=dataset-packaging
+[PLAN] scope=saved-training-set-create-list-export-archive-restore risks=source-path-traceability,deterministic-splits,shared-export-contract
+[IMPACT] status=suspected chain=trainingSetUI(src/app.js:*)->apiClient training set methods(src/api/client.js:*)->routeTrainingSets(src/server/api.js:*)->storage training set helpers(src/server/storage.js:*)
+[DOC] updated=docs/TRAINING_SET_MANAGEMENT_DESIGN.md note=saved-training-set-design-before-ai-serving
+[FIX] scope=dataset-packaging note=deterministic-train-val-test-split-and-split-manifest-added
+[FIX] scope=training-set-storage note=training_sets-manifest-list-read-export-archive-restore-api-client-storage-added
+[FIX] scope=frontend-workbench note=saved-training-set-create-list-reexport-archive-restore-controls-added
+[FIX] scope=training-set-api note=duplicate-training-set-id-now-returns-conflict-instead-of-overwriting
+[DOC] updated=docs/FEATURE_STATUS.md note=saved-training-set-management-complete-and-ai-api-serving-parked
+[DOC] updated=docs/DEVELOPMENT_CHECKPOINTS.md note=saved-training-set-management-checkpoint-added
+[CMD] node --test tests/serverApi.test.js tests/apiClient.test.js tests/appContracts.test.js tests/serverStorage.test.js tests/trainingSet.test.js status=passed tests=125
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=203
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health,admin-login,training-sets,index-head
+[IMPACT_VALIDATE] task=training-set-management chain=training-set-export-manifest validation=trainingSet-serverApi-focused-tests-and-full-test-target-passed
+[IMPACT_VALIDATE] task=training-set-management chain=training-set-ui-api-storage validation=appContracts-apiClient-serverApi-serverStorage-focused-tests-and-live-http-smoke-passed
+[REVIEW] finding=prevented-silent-overwrite scope=training-set-management note=duplicate-id-conflict-added-before-closeout
+[CLOSE] status=ready-for-commit server=http://localhost:4173
