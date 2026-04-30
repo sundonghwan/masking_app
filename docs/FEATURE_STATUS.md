@@ -82,6 +82,7 @@
 - [ ] Add dataset/project settings for upload limits and allowed formats if these need to vary by project.
 - [ ] Implement project/task/version file-storage hierarchy from `docs/STORAGE_HIERARCHY_DESIGN.md`.
 - [ ] Implement training set export that combines selected task/version outputs.
+- [ ] Improve Spacebar camera pan behavior from `docs/SPACEBAR_CAMERA_PAN_DESIGN.md`.
 
 ## Hardcoded Runtime Debt
 

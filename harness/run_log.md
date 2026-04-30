@@ -676,3 +676,13 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=storage-hierarchy-training-set-export-design-ready-for-commit
 [GIT] commit=9c4e259 message="Extend storage design for training exports"
 [GIT] push=origin/main status=passed range=210b777..9c4e259
+[START] task=spacebar-camera-pan-design subsystem=canvas-viewport,keyboard-workflow
+[PLAN] scope=design-hold-to-camera-pan-override risks=stuck-space-state,mask-mutation-during-pan,tool-selection-confusion
+[DOC] created=docs/SPACEBAR_CAMERA_PAN_DESIGN.md note=hold-spacebar-camera-pan-design
+[DOC] updated=docs/FEATURE_STATUS.md note=added-spacebar-camera-pan-improvement-future-work
+[CMD] rg -n "Spacebar Camera Pan|camera pan|spacePanHeld|setTool\(\"pan\"\)|Acceptance Criteria|Improve Spacebar" docs/SPACEBAR_CAMERA_PAN_DESIGN.md docs/FEATURE_STATUS.md
+[CMD] rg -n "TBD|TODO" docs/SPACEBAR_CAMERA_PAN_DESIGN.md
+[CMD] git diff --check
+[CMD] ./scripts/harness/smoke-web.sh
+[REVIEW] finding=none-blocking scope=spacebar-camera-pan-design notes=checked-hold-override-state-mask-nonmutation-undo-boundary-and-stuck-state-release
+[CLOSE] status=spacebar-camera-pan-design-ready-for-commit
