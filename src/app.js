@@ -1,4 +1,5 @@
 import { createMaskingApiClient, normalizeApiError } from "./api/client.js";
+import { createDashboardSummary } from "./dashboard/summary.js";
 import { MaskEditor, panDeltaForKey } from "./editor/maskEditor.js";
 import {
   buildAnnotations,
@@ -13,12 +14,13 @@ import { createLogger } from "./observability/logger.js";
 import { QUEUE_MODES, filterImagesForQueue, normalizeQueueMode, summarizeAssignmentQueue } from "./assignment/queue.js";
 import { REVIEW_ACTIONS, applyReviewTransition, normalizeReviewerId, reviewReasonLabel } from "./review/policy.js";
 import { createProjectStore } from "./storage/projectStore.js";
-import { UPLOAD_POLICY, formatBytes, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
+import { UPLOAD_POLICY, formatBytes, normalizeUploadPolicy, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
 import { DEFAULT_ACTORS, DEFAULT_SESSION, ROLES, normalizeRole } from "./config/runtimeDefaults.js";
 
 const SCREENS = {
   LOGIN: "login",
   PROJECTS: "projects",
+  DASHBOARD: "dashboard",
   WORKBENCH: "workbench",
 };
 
@@ -33,6 +35,7 @@ const state = {
   autosaveTimer: null,
   backendProjectReady: false,
   uploadRejections: [],
+  uploadPolicy: { ...UPLOAD_POLICY },
   sessionUserId: DEFAULT_SESSION.user_id,
   sessionPassword: "",
   sessionRole: DEFAULT_SESSION.role,
@@ -41,11 +44,17 @@ const state = {
   reviewReasonDraft: "",
   assignmentWorkerId: DEFAULT_ACTORS.worker,
   assignmentReviewerId: DEFAULT_ACTORS.reviewer,
+  assignmentUsers: {
+    workers: [],
+    reviewers: [],
+    error: "",
+  },
   exportApprovedOnly: false,
   projectSummaries: [],
   projectSummariesError: "",
   projectCreateId: "",
   projectCreateName: "",
+  projectUploadLimitMb: 15,
   projectCreateMessage: "",
 };
 
@@ -62,6 +71,7 @@ const projectStore = createProjectStore();
 const els = {
   loginScreen: document.querySelector("#loginScreen"),
   projectsScreen: document.querySelector("#projectsScreen"),
+  dashboardScreen: document.querySelector("#dashboardScreen"),
   workbenchScreen: document.querySelector("#workbenchScreen"),
   imageInput: document.querySelector("#imageInput"),
   uploadDropzone: document.querySelector("#uploadDropzone"),
@@ -70,9 +80,18 @@ const els = {
   projectCreateForm: document.querySelector("#projectCreateForm"),
   projectCreateId: document.querySelector("#projectCreateId"),
   projectCreateName: document.querySelector("#projectCreateName"),
+  projectUploadLimitMb: document.querySelector("#projectUploadLimitMb"),
   createProjectButton: document.querySelector("#createProjectButton"),
   projectCreateMessage: document.querySelector("#projectCreateMessage"),
   projectSummaryList: document.querySelector("#projectSummaryList"),
+  dashboardProjectName: document.querySelector("#dashboardProjectName"),
+  dashboardProjectsButton: document.querySelector("#dashboardProjectsButton"),
+  dashboardWorkbenchButton: document.querySelector("#dashboardWorkbenchButton"),
+  dashboardHealthGrid: document.querySelector("#dashboardHealthGrid"),
+  dashboardWorkloadBody: document.querySelector("#dashboardWorkloadBody"),
+  dashboardExportReadiness: document.querySelector("#dashboardExportReadiness"),
+  dashboardBlockers: document.querySelector("#dashboardBlockers"),
+  dashboardActivityList: document.querySelector("#dashboardActivityList"),
   projectName: document.querySelector("#projectName"),
   imageList: document.querySelector("#imageList"),
   progressText: document.querySelector("#progressText"),
@@ -95,6 +114,10 @@ const els = {
   zoomOutButton: document.querySelector("#zoomOutButton"),
   brushSize: document.querySelector("#brushSize"),
   brushSizeValue: document.querySelector("#brushSizeValue"),
+  magicTolerance: document.querySelector("#magicTolerance"),
+  magicToleranceValue: document.querySelector("#magicToleranceValue"),
+  magicEdge: document.querySelector("#magicEdge"),
+  magicEdgeValue: document.querySelector("#magicEdgeValue"),
   overlayOpacity: document.querySelector("#overlayOpacity"),
   opacityValue: document.querySelector("#opacityValue"),
   displayMode: document.querySelector("#displayMode"),
@@ -157,6 +180,7 @@ async function init() {
   bindEvents();
   if (canEnterProjects()) {
     void refreshProjectSummaries();
+    void refreshAssignmentUsers();
   }
   render();
   renderScreen();
@@ -177,7 +201,7 @@ function routeToInitialScreen() {
     return;
   }
   if (canEnterWorkbench()) {
-    routeToScreen(SCREENS.WORKBENCH);
+    routeToScreen(SCREENS.DASHBOARD);
   } else if (canEnterProjects()) {
     routeToScreen(SCREENS.PROJECTS);
   } else {
@@ -242,6 +266,18 @@ function bindEvents() {
     editor.setOverlayOpacity(opacity / 100);
   });
 
+  els.magicTolerance.addEventListener("input", () => {
+    const value = Number(els.magicTolerance.value);
+    els.magicToleranceValue.textContent = String(value);
+    editor.setMagicOptions({ colorTolerance: value });
+  });
+
+  els.magicEdge.addEventListener("input", () => {
+    const value = Number(els.magicEdge.value);
+    els.magicEdgeValue.textContent = String(value);
+    editor.setMagicOptions({ edgeThreshold: value });
+  });
+
   els.displayMode.addEventListener("change", () => {
     editor.setDisplayMode(els.displayMode.value);
   });
@@ -266,6 +302,8 @@ function bindEvents() {
   els.clearProjectButton.addEventListener("click", clearProject);
   els.retrySyncButton.addEventListener("click", () => void retrySelectedSync());
   els.refreshProjectsButton.addEventListener("click", () => void refreshProjectSummaries());
+  els.dashboardProjectsButton.addEventListener("click", () => routeToScreen(SCREENS.PROJECTS));
+  els.dashboardWorkbenchButton.addEventListener("click", () => routeToScreen(SCREENS.WORKBENCH));
   els.projectCreateForm.addEventListener("submit", (event) => {
     event.preventDefault();
     void createProjectFromForm();
@@ -276,6 +314,10 @@ function bindEvents() {
   });
   els.projectCreateName.addEventListener("input", () => {
     state.projectCreateName = els.projectCreateName.value;
+    renderProjectCreateForm();
+  });
+  els.projectUploadLimitMb.addEventListener("input", () => {
+    state.projectUploadLimitMb = Number(els.projectUploadLimitMb.value || 15);
     renderProjectCreateForm();
   });
   els.loginButton.addEventListener("click", () => void loginSession());
@@ -297,13 +339,15 @@ function bindEvents() {
     state.sessionAuthenticated = false;
     render();
   });
-  els.assignmentWorkerId.addEventListener("input", () => {
+  els.assignmentWorkerId.addEventListener("change", () => {
     state.assignmentWorkerId = normalizeActorId(els.assignmentWorkerId.value);
     void persistProject();
+    renderAssignmentPanel();
   });
-  els.assignmentReviewerId.addEventListener("input", () => {
+  els.assignmentReviewerId.addEventListener("change", () => {
     state.assignmentReviewerId = normalizeActorId(els.assignmentReviewerId.value);
     void persistProject();
+    renderAssignmentPanel();
   });
   els.reviewReason.addEventListener("input", () => {
     state.reviewReasonDraft = els.reviewReason.value;
@@ -320,7 +364,10 @@ function bindEvents() {
   });
   window.addEventListener("keydown", handleShortcut);
   window.addEventListener("keyup", handleShortcutRelease);
-  window.addEventListener("blur", () => editor.setTemporaryPanActive(false));
+  window.addEventListener("blur", deactivateSpacePan);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") deactivateSpacePan();
+  });
   window.addEventListener("resize", resizeEditorCanvas);
 
   if ("ResizeObserver" in window) {
@@ -356,7 +403,7 @@ async function handleFiles(fileList) {
   const files = [];
 
   for (const file of candidates) {
-    const validation = validateBrowserUploadFile(file);
+    const validation = validateBrowserUploadFile(file, state.uploadPolicy);
     if (validation.valid) {
       files.push(file);
       continue;
@@ -458,6 +505,7 @@ async function loginSession() {
     render();
     routeToScreen(SCREENS.PROJECTS);
     void refreshProjectSummaries();
+    void refreshAssignmentUsers();
     setSaveState("saved", "로그인됨");
   } catch (error) {
     const normalized = normalizeApiError(error);
@@ -478,10 +526,38 @@ async function logoutSession() {
   }
   state.sessionToken = "";
   state.sessionAuthenticated = false;
+  state.assignmentUsers = { workers: [], reviewers: [], error: "" };
   await persistProject();
   render();
   routeToScreen(SCREENS.LOGIN);
   setSaveState("saved", "로그아웃됨");
+}
+
+async function refreshAssignmentUsers() {
+  if (!state.sessionAuthenticated || state.sessionRole !== ROLES.ADMIN) return;
+  try {
+    const [workerResponse, reviewerResponse] = await Promise.all([
+      apiClient.listUsers({ role: ROLES.WORKER }),
+      apiClient.listUsers({ role: ROLES.REVIEWER }),
+    ]);
+    state.assignmentUsers = {
+      workers: Array.isArray(workerResponse.users) ? workerResponse.users : [],
+      reviewers: Array.isArray(reviewerResponse.users) ? reviewerResponse.users : [],
+      error: "",
+    };
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.assignmentUsers = {
+      workers: [],
+      reviewers: [],
+      error: normalized.message,
+    };
+    logger.warn("assignment.users.failed", {
+      project_id: state.projectId,
+      error: normalized,
+    });
+  }
+  renderAssignmentPanel();
 }
 
 async function saveCurrentMask() {
@@ -1066,6 +1142,7 @@ function render() {
   renderProjectCreateForm();
   renderProjectSummaries();
   renderProjectHeader();
+  renderDashboard();
   renderImageList();
   renderMetadata();
   renderValidation();
@@ -1107,7 +1184,7 @@ function renderScreen() {
   if (screen !== SCREENS.LOGIN && !canEnterProjects()) {
     screen = SCREENS.LOGIN;
   }
-  if (screen === SCREENS.WORKBENCH && !canEnterWorkbench()) {
+  if ((screen === SCREENS.WORKBENCH || screen === SCREENS.DASHBOARD) && !canEnterWorkbench()) {
     screen = SCREENS.PROJECTS;
   }
   if (screen !== requested && window.location.hash !== `#/${screen}`) {
@@ -1116,6 +1193,7 @@ function renderScreen() {
 
   els.loginScreen.hidden = screen !== SCREENS.LOGIN;
   els.projectsScreen.hidden = screen !== SCREENS.PROJECTS;
+  els.dashboardScreen.hidden = screen !== SCREENS.DASHBOARD;
   els.workbenchScreen.hidden = screen !== SCREENS.WORKBENCH;
 }
 
@@ -1176,7 +1254,7 @@ function renderUploadRejections() {
     const reasonText = (item.reasons || []).map(uploadReasonLabel).join(", ");
     element.innerHTML = `
       <span>${escapeHtml(item.fileName || "이름 없는 파일")}</span>
-      <small>${escapeHtml(reasonText)} · ${formatBytes(item.sizeBytes)} / 최대 ${formatBytes(UPLOAD_POLICY.maxFileBytes)}</small>
+      <small>${escapeHtml(reasonText)} · ${formatBytes(item.sizeBytes)} / 최대 ${formatBytes(state.uploadPolicy.maxFileBytes)}</small>
     `;
     return element;
   });
@@ -1223,6 +1301,9 @@ function renderProjectCreateForm() {
   if (document.activeElement !== els.projectCreateName) {
     els.projectCreateName.value = state.projectCreateName;
   }
+  if (document.activeElement !== els.projectUploadLimitMb) {
+    els.projectUploadLimitMb.value = String(state.projectUploadLimitMb || 15);
+  }
   els.createProjectButton.disabled = state.sessionRole !== ROLES.ADMIN || !canEnterProjects();
   els.projectCreateMessage.textContent = state.projectCreateMessage
     || (state.sessionRole === ROLES.ADMIN
@@ -1232,6 +1313,114 @@ function renderProjectCreateForm() {
 
 function renderProjectHeader() {
   els.projectName.textContent = state.projectName || "프로젝트 미선택";
+}
+
+function renderDashboard() {
+  if (!els.dashboardScreen) return;
+  const summary = createDashboardSummary({
+    manifest: {
+      project_id: state.projectId,
+      name: state.projectName,
+      images: state.images.map(toDashboardImage),
+    },
+  });
+  els.dashboardProjectName.textContent = state.projectName || "운영 대시보드";
+  els.dashboardWorkbenchButton.disabled = !canEnterWorkbench();
+  els.dashboardHealthGrid.replaceChildren(
+    dashboardMetric("전체", summary.totals.total),
+    dashboardMetric("작업중", summary.totals.inProgress),
+    dashboardMetric("제출", summary.totals.submitted),
+    dashboardMetric("승인", summary.totals.approved),
+    dashboardMetric("반려", summary.totals.rejected),
+    dashboardMetric("Export", summary.totals.exportReady),
+  );
+  els.dashboardWorkloadBody.replaceChildren(...dashboardWorkloadRows(summary.workload));
+  els.dashboardExportReadiness.replaceChildren(
+    dashboardDefinition("기본", `${summary.exportReadiness.defaultPolicy.included}/${summary.exportReadiness.defaultPolicy.total}`),
+    dashboardDefinition("승인만", `${summary.exportReadiness.approvedOnlyPolicy.included}/${summary.exportReadiness.approvedOnlyPolicy.total}`),
+    dashboardDefinition("동기화", `${summary.exportReadiness.syncBlockers.length}건`),
+  );
+  els.dashboardBlockers.replaceChildren(...summary.blockers.slice(0, 6).map((blocker) => {
+    const item = document.createElement("li");
+    item.innerHTML = `<strong>${escapeHtml(blocker.imageName || blocker.imageId || "-")}</strong><span>${escapeHtml(blocker.label)}</span>`;
+    return item;
+  }));
+  if (summary.blockers.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = "현재 주요 blocker 없음";
+    els.dashboardBlockers.replaceChildren(item);
+  }
+  els.dashboardActivityList.replaceChildren(...dashboardActivityRows(summary.recentActivity));
+}
+
+function toDashboardImage(image) {
+  return {
+    ...image,
+    original_file_name: image.original_file_name || image.fileName,
+    image_path: image.image_path || "",
+    current_mask_path: image.current_mask_path || "",
+    mask_width: image.mask_width || image.width,
+    mask_height: image.mask_height || image.height,
+    mask_values_valid: image.mask_values_valid,
+    object_url: image.objectUrl || image.object_url || "",
+    mask_data_url: image.maskDataUrl || image.mask_data_url || "",
+  };
+}
+
+function dashboardMetric(label, value) {
+  const item = document.createElement("div");
+  item.innerHTML = `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`;
+  return item;
+}
+
+function dashboardDefinition(label, value) {
+  const item = document.createElement("div");
+  item.innerHTML = `<dt>${escapeHtml(label)}</dt><dd>${escapeHtml(String(value))}</dd>`;
+  return item;
+}
+
+function dashboardWorkloadRows(workload) {
+  if (workload.length === 0) {
+    const row = document.createElement("tr");
+    row.innerHTML = "<td colspan=\"5\">배정된 작업 없음</td>";
+    return [row];
+  }
+  return workload.map((item) => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${escapeHtml(item.userId)}</td>
+      <td>${escapeHtml(item.role)}</td>
+      <td>${item.assigned}</td>
+      <td>${item.awaitingReview}</td>
+      <td>${item.rejectedOrRework}</td>
+    `;
+    return row;
+  });
+}
+
+function dashboardActivityRows(activity) {
+  if (activity.length === 0) {
+    const row = document.createElement("div");
+    row.className = "project-summary-row";
+    row.innerHTML = "<span><strong>최근 이벤트 없음</strong><small>제출/리뷰/재작업 이벤트가 여기에 표시됩니다.</small></span>";
+    return [row];
+  }
+  return activity.slice(0, 8).map((event) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "project-summary-row";
+    row.addEventListener("click", () => {
+      if (event.imageId) void selectImage(event.imageId);
+      routeToScreen(SCREENS.WORKBENCH);
+    });
+    row.innerHTML = `
+      <span>
+        <strong>${escapeHtml(event.imageName || event.imageId || "-")}</strong>
+        <small>${escapeHtml(event.action)} · ${escapeHtml(event.actor || "-")} · ${escapeHtml(event.createdAt || "")}</small>
+      </span>
+    `;
+    return row;
+  });
 }
 
 async function createProjectFromForm() {
@@ -1260,6 +1449,9 @@ async function createProjectFromForm() {
     const manifest = await apiClient.createProject({
       projectId,
       name: projectName,
+      uploadPolicy: {
+        maxFileBytes: Math.max(1, Number(state.projectUploadLimitMb || 15)) * 1024 * 1024,
+      },
     });
     setActiveProjectFromManifest(manifest, {
       clearImages: true,
@@ -1268,11 +1460,12 @@ async function createProjectFromForm() {
     });
     state.projectCreateId = "";
     state.projectCreateName = "";
+    state.projectUploadLimitMb = 15;
     state.projectCreateMessage = "프로젝트 생성 완료";
     await persistProject();
     void refreshProjectSummaries();
     render();
-    routeToScreen(SCREENS.WORKBENCH);
+    routeToScreen(SCREENS.DASHBOARD);
     setSaveState("saved", "프로젝트 생성됨");
   } catch (error) {
     const normalized = normalizeApiError(error);
@@ -1288,7 +1481,7 @@ async function loadServerProject(projectId) {
   try {
     const manifest = await apiClient.getProject(projectId);
     await restoreServerManifest(manifest);
-    routeToScreen(SCREENS.WORKBENCH);
+    routeToScreen(SCREENS.DASHBOARD);
     setSaveState("saved", "서버 프로젝트 선택됨");
   } catch (error) {
     const normalized = normalizeApiError(error);
@@ -1328,6 +1521,7 @@ function setActiveProjectFromManifest(manifest = {}, options = {}) {
   }
   state.projectId = manifest.project_id || manifest.id || options.fallbackId || state.projectId;
   state.projectName = manifest.name || manifest.project_name || options.fallbackName || state.projectId;
+  state.uploadPolicy = normalizeUploadPolicy(manifest.upload_policy || manifest.uploadPolicy || state.uploadPolicy);
   state.backendProjectReady = Boolean(state.projectId);
   state.backendProjectError = "";
 }
@@ -1369,12 +1563,8 @@ function renderSessionPanel() {
 
 function renderAssignmentPanel() {
   const image = getSelectedImage();
-  if (document.activeElement !== els.assignmentWorkerId) {
-    els.assignmentWorkerId.value = state.assignmentWorkerId || image?.worker_id || "";
-  }
-  if (document.activeElement !== els.assignmentReviewerId) {
-    els.assignmentReviewerId.value = state.assignmentReviewerId || image?.reviewer_id || "";
-  }
+  renderAssignmentSelect(els.assignmentWorkerId, state.assignmentUsers.workers, state.assignmentWorkerId || image?.worker_id || DEFAULT_ACTORS.worker);
+  renderAssignmentSelect(els.assignmentReviewerId, state.assignmentUsers.reviewers, state.assignmentReviewerId || image?.reviewer_id || DEFAULT_ACTORS.reviewer);
   els.assignButton.disabled = !image || !state.sessionAuthenticated || state.sessionRole !== ROLES.ADMIN;
   if (!image) {
     setAssignmentMessage("이미지를 선택하면 배정할 수 있습니다.", false);
@@ -1382,11 +1572,42 @@ function renderAssignmentPanel() {
     setAssignmentMessage("로그인 후 배정할 수 있습니다.", true);
   } else if (state.sessionRole !== ROLES.ADMIN) {
     setAssignmentMessage("admin 역할에서만 배정할 수 있습니다.", true);
+  } else if (state.assignmentUsers.error) {
+    setAssignmentMessage(`사용자 목록 로드 실패: ${state.assignmentUsers.error}`, true);
   } else if (image.assignment_server_synced === false) {
     setAssignmentMessage("배정 서버 동기화가 필요합니다.", true);
   } else {
     setAssignmentMessage(`작업자 ${image.worker_id || "미배정"} · 리뷰어 ${image.reviewer_id || "미배정"}`, false);
   }
+}
+
+function renderAssignmentSelect(select, users, selectedValue) {
+  if (!select || document.activeElement === select) return;
+  const selected = normalizeActorId(selectedValue);
+  const options = users.length > 0 ? users : fallbackAssignmentUsers(select === els.assignmentWorkerId ? ROLES.WORKER : ROLES.REVIEWER);
+  select.replaceChildren(...options.map((user) => {
+    const option = document.createElement("option");
+    option.value = user.user_id;
+    option.textContent = `${user.display_name || user.user_id} (${user.user_id})`;
+    return option;
+  }));
+  if (selected && !options.some((user) => user.user_id === selected)) {
+    const option = document.createElement("option");
+    option.value = selected;
+    option.textContent = selected;
+    select.append(option);
+  }
+  select.value = selected || options[0]?.user_id || "";
+}
+
+function fallbackAssignmentUsers(role) {
+  if (role === ROLES.WORKER) {
+    return [{ user_id: DEFAULT_ACTORS.worker, display_name: "Worker", role: ROLES.WORKER }];
+  }
+  if (role === ROLES.REVIEWER) {
+    return [{ user_id: DEFAULT_ACTORS.reviewer, display_name: "Reviewer", role: ROLES.REVIEWER }];
+  }
+  return [];
 }
 
 function renderReviewPanel() {
@@ -1526,6 +1747,10 @@ function updateStatusbar() {
 }
 
 function updatePointerStatus(point) {
+  if (editor.isCameraPanActive()) {
+    els.statusCoords.textContent = "이동 모드 Space";
+    return;
+  }
   els.statusCoords.textContent = point ? `좌표 ${Math.round(point.x)}, ${Math.round(point.y)}` : "좌표 -";
 }
 
@@ -1547,7 +1772,7 @@ function handleShortcut(event) {
 
   if (event.code === "Space" && !ctrl) {
     event.preventDefault();
-    editor.setTemporaryPanActive(true);
+    activateSpacePan();
   } else if (panDelta) {
     event.preventDefault();
     editor.panBy(panDelta.dx, panDelta.dy);
@@ -1586,7 +1811,17 @@ function handleShortcut(event) {
 
 function handleShortcutRelease(event) {
   if (event.code !== "Space") return;
-  editor.setTemporaryPanActive(false);
+  deactivateSpacePan();
+}
+
+function activateSpacePan() {
+  editor.setCameraPanOverride(true);
+  updatePointerStatus(null);
+}
+
+function deactivateSpacePan() {
+  editor.clearCameraPanOverride();
+  updatePointerStatus(null);
 }
 
 function isEditableShortcutTarget(target) {
@@ -1754,6 +1989,7 @@ async function persistProject() {
     assignmentWorkerId: state.assignmentWorkerId,
     assignmentReviewerId: state.assignmentReviewerId,
     uploadRejections: state.uploadRejections || [],
+    uploadPolicy: state.uploadPolicy,
     images: state.images.map(toSerializableImage),
   };
   await projectStore.saveProjectSnapshot(serializable);
@@ -1782,6 +2018,7 @@ async function restoreProject() {
     state.assignmentWorkerId = normalizeActorId(saved.assignmentWorkerId) || state.assignmentWorkerId;
     state.assignmentReviewerId = normalizeActorId(saved.assignmentReviewerId) || state.assignmentReviewerId;
     state.uploadRejections = Array.isArray(saved.uploadRejections) ? saved.uploadRejections : [];
+    state.uploadPolicy = normalizeUploadPolicy(saved.uploadPolicy || {}, UPLOAD_POLICY);
     state.images = await Promise.all((saved.images || []).map(rehydrateImageRecord));
     setSaveState("saved", "작업 복구됨");
   } catch {
@@ -1813,6 +2050,7 @@ async function clearProject() {
   state.assignmentWorkerId = DEFAULT_ACTORS.worker;
   state.assignmentReviewerId = DEFAULT_ACTORS.reviewer;
   state.uploadRejections = [];
+  state.uploadPolicy = { ...UPLOAD_POLICY };
   state.projectCreateId = "";
   state.projectCreateName = "";
   state.projectCreateMessage = "";
@@ -1885,6 +2123,8 @@ async function ensureObjectUrls(image) {
     if (blob) {
       image.objectUrl = URL.createObjectURL(blob);
       image.object_url = image.objectUrl;
+    } else if (image.image_path && state.projectId) {
+      await restoreServerImageBlob(image);
     }
   }
 
@@ -1892,7 +2132,46 @@ async function ensureObjectUrls(image) {
     const maskBlob = await projectStore.loadMaskBlob(image.id);
     if (maskBlob) {
       image.maskObjectUrl = URL.createObjectURL(maskBlob);
+    } else if (image.current_mask_path && state.projectId) {
+      await restoreServerMaskBlob(image);
     }
+  }
+}
+
+async function restoreServerImageBlob(image) {
+  try {
+    const blob = await apiClient.getProjectFileBlob(state.projectId, image.image_path);
+    await projectStore.saveImageBlob(image.id, blob);
+    image.objectUrl = URL.createObjectURL(blob);
+    image.object_url = image.objectUrl;
+    image.server_restore_error = "";
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    image.server_restore_error = normalized.message;
+    logger.warn("server_restore.image.failed", {
+      project_id: state.projectId,
+      image_id: image.id,
+      error: normalized,
+    });
+  }
+}
+
+async function restoreServerMaskBlob(image) {
+  try {
+    const blob = await apiClient.getProjectFileBlob(state.projectId, image.current_mask_path);
+    await projectStore.saveMaskBlob(image.id, blob);
+    image.maskObjectUrl = URL.createObjectURL(blob);
+    image.maskDataUrl = await blobToDataUrl(blob);
+    image.mask_data_url = image.maskDataUrl;
+    image.server_restore_error = "";
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    image.server_restore_error = normalized.message;
+    logger.warn("server_restore.mask.failed", {
+      project_id: state.projectId,
+      image_id: image.id,
+      error: normalized,
+    });
   }
 }
 

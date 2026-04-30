@@ -1,4 +1,5 @@
 import { createZipBlob } from "../export/zip.js";
+import { createTrainingSetZipEntries } from "../export/trainingSet.js";
 import {
   createAnnotationsJson,
   createExportPaths,
@@ -12,18 +13,18 @@ import { createHttpError, methodNotAllowed, notFound, readJsonBody, readRawBody,
 import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimensions } from "./imageMetadata.js";
 import { validateMaskContract } from "./maskValidation.js";
 import { applyReviewTransition } from "../review/policy.js";
-import { UPLOAD_REASONS, validateImageDataUrlUpload, validateUploadCandidate } from "../upload/policy.js";
+import { UPLOAD_REASONS, normalizeUploadPolicy, validateImageDataUrlUpload, validateUploadCandidate } from "../upload/policy.js";
 import {
   DEFAULT_ACTORS,
-  DEFAULT_PROJECT,
   ROLES,
   normalizeActorId,
   normalizeRole,
+  publicMvpUser,
   userHasRole,
 } from "../config/runtimeDefaults.js";
-import { validateMvpCredentials } from "./auth.js";
+import { LOCAL_MVP_USER_ACCOUNTS, validateDirectoryCredentials } from "./auth.js";
 
-export function createApiRouter({ storage, logger = null }) {
+export function createApiRouter({ storage, logger = null, userDirectory = null, sessionStore = null } = {}) {
   const sessions = new Map();
 
   return async function routeApi(request, response, url, context = {}) {
@@ -36,7 +37,7 @@ export function createApiRouter({ storage, logger = null }) {
 
     if (url.pathname === "/api/session/login" && request.method === "POST") {
       const body = await readJsonBody(request);
-      const account = validateMvpCredentials({
+      const account = await validateDirectoryCredentials(userDirectory, {
         user_id: body.user_id || body.userId,
         password: body.password,
       });
@@ -46,19 +47,24 @@ export function createApiRouter({ storage, logger = null }) {
           message: "Invalid user ID or password",
         });
       }
-      const session = createSession(account);
-      sessions.set(session.token, session);
+      const session = await createSession(account);
       return sendJson(response, 201, { session });
     }
 
     if (url.pathname === "/api/session/logout" && request.method === "POST") {
-      const session = readSession(request);
-      if (session.token) sessions.delete(session.token);
+      const session = await readSession(request);
+      if (session.token) {
+        if (sessionStore?.deleteSession) {
+          await sessionStore.deleteSession(session.token);
+        } else {
+          sessions.delete(session.token);
+        }
+      }
       return sendJson(response, 200, { ok: true });
     }
 
     if (url.pathname === "/api/session/me" && request.method === "GET") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!session.authenticated) {
         return sendJson(response, 401, {
           error: "unauthorized",
@@ -68,22 +74,51 @@ export function createApiRouter({ storage, logger = null }) {
       return sendJson(response, 200, { session: publicSession(session) });
     }
 
+    if (url.pathname === "/api/users" && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+
+      const users = userDirectory?.listUsers
+        ? await userDirectory.listUsers({ role: url.searchParams.get("role") || "" })
+        : listFallbackUsers(url.searchParams.get("role") || "");
+      return sendJson(response, 200, {
+        users,
+        total_users: users.length,
+      });
+    }
+
+    if (url.pathname === "/api/training-sets/export" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      return exportTrainingSet(response, body, context);
+    }
+
     if (url.pathname === "/api/projects" && request.method === "POST") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.ADMIN])) return;
 
       const body = await readJsonBody(request);
+      const requestedProjectId = body.project_id || body.id;
+      if (!requestedProjectId) {
+        return sendJson(response, 400, {
+          error: "project_id_required",
+          message: "Project ID is required",
+        });
+      }
       const project = createProjectRecord({
-        id: body.project_id || body.id || DEFAULT_PROJECT.id,
-        name: body.name || DEFAULT_PROJECT.name,
+        id: requestedProjectId,
+        name: body.name || body.project_name || body.project_id || body.id,
         description: body.description || "",
       });
       const manifest = await storage.ensureProject(project.id, { name: project.name });
+      manifest.upload_policy = normalizeUploadPolicy(body.upload_policy || body.uploadPolicy || {}, manifest.upload_policy);
+      await storage.writeProjectManifest(project.id, manifest);
       return sendJson(response, 201, { ...manifest, ...project, images: manifest.images || [] });
     }
 
     if (url.pathname === "/api/projects" && request.method === "GET") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
 
       const projects = await storage.listProjects();
@@ -108,7 +143,7 @@ export function createApiRouter({ storage, logger = null }) {
     const projectId = parts[0];
 
     if (parts.length === 1 && request.method === "GET") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
 
       const manifest = await storage.readProjectManifest(projectId);
@@ -117,20 +152,32 @@ export function createApiRouter({ storage, logger = null }) {
     }
 
     if (parts.length === 2 && parts[1] === "images" && request.method === "POST") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.WORKER, ROLES.ADMIN])) return;
 
       const upload = await readImageUpload(request);
+      const existingManifest = await storage.readProjectManifest(projectId);
+      if (!existingManifest) {
+        logger?.warn("image.upload.project_not_found", {
+          request_id: context.requestId,
+          project_id: projectId,
+        });
+        return sendJson(response, 404, {
+          error: "project_not_found",
+          message: "Project must be created before image upload",
+        });
+      }
+      const uploadPolicy = normalizeUploadPolicy(existingManifest.upload_policy || {});
       const uploadValidation = upload.file
         ? validateUploadCandidate({
             fileName: upload.fileName || `${upload.imageId || "image"}.png`,
             mimeType: upload.mimeType,
             sizeBytes: upload.buffer.length,
-          })
+          }, uploadPolicy)
         : validateImageDataUrlUpload({
             fileName: upload.fileName || `${upload.imageId || "image"}.png`,
             dataUrl: upload.dataUrl,
-          });
+          }, uploadPolicy);
       if (!uploadValidation.valid) {
         logger?.warn("image.upload.validation_failed", {
           request_id: context.requestId,
@@ -177,7 +224,7 @@ export function createApiRouter({ storage, logger = null }) {
         });
       }
 
-      const manifest = await storage.ensureProject(projectId, { name: upload.projectName });
+      const manifest = existingManifest;
       const nextImageId = upload.imageId || `image_${String((manifest.images || []).length + 1).padStart(4, "0")}`;
       const written = upload.file
         ? await storage.writeImageBuffer(projectId, nextImageId, upload.fileName || `${nextImageId}.png`, upload.buffer, { mimeType: upload.mimeType })
@@ -199,10 +246,26 @@ export function createApiRouter({ storage, logger = null }) {
     }
 
     if (parts.length === 2 && parts[1] === "export" && request.method === "GET") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       return exportProject(response, projectId, context, {
         approvedOnly: url.searchParams.get("approved_only") === "1",
+      });
+    }
+
+    if (parts.length === 2 && parts[1] === "files" && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+      const relativePath = url.searchParams.get("path") || "";
+      if (!relativePath) {
+        return sendJson(response, 400, {
+          error: "file_path_required",
+          message: "Project file path is required",
+        });
+      }
+      const buffer = await storage.readProjectFile(projectId, relativePath);
+      return sendBuffer(response, 200, buffer, {
+        "content-type": fileContentType(relativePath),
       });
     }
 
@@ -213,7 +276,7 @@ export function createApiRouter({ storage, logger = null }) {
     const imageId = parts[0];
 
     if (parts.length === 2 && parts[1] === "mask" && request.method === "PUT") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.WORKER, ROLES.ADMIN])) return;
       const body = await readJsonBody(request);
       const projectId = body.project_id;
@@ -283,7 +346,7 @@ export function createApiRouter({ storage, logger = null }) {
     }
 
     if (parts.length === 2 && parts[1] === "review" && request.method === "PUT") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       const body = await readJsonBody(request);
       const projectId = body.project_id;
@@ -327,7 +390,7 @@ export function createApiRouter({ storage, logger = null }) {
     }
 
     if (parts.length === 2 && parts[1] === "assignment" && request.method === "PUT") {
-      const session = readSession(request);
+      const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.ADMIN])) return;
       const body = await readJsonBody(request);
       const projectId = body.project_id;
@@ -338,8 +401,8 @@ export function createApiRouter({ storage, logger = null }) {
 
       const workerId = normalizeActorId(body.worker_id || image.worker_id || DEFAULT_ACTORS.worker);
       const reviewerId = normalizeActorId(body.reviewer_id || image.reviewer_id || "");
-      const workerValid = userHasRole(workerId, ROLES.WORKER);
-      const reviewerValid = userHasRole(reviewerId, ROLES.REVIEWER);
+      const workerValid = await hasUserRole(workerId, ROLES.WORKER);
+      const reviewerValid = await hasUserRole(reviewerId, ROLES.REVIEWER);
       if (!workerValid || !reviewerValid) {
         return sendJson(response, 422, {
           error: "assignment_validation_failed",
@@ -376,9 +439,13 @@ export function createApiRouter({ storage, logger = null }) {
     return notFound(response);
   }
 
-  function readSession(request) {
+  async function readSession(request) {
     const token = bearerToken(request);
-    const stored = token ? sessions.get(token) : null;
+    const stored = token
+      ? sessionStore?.readSession
+        ? await sessionStore.readSession(token)
+        : sessions.get(token)
+      : null;
     if (stored) {
       return {
         ...stored,
@@ -406,17 +473,21 @@ export function createApiRouter({ storage, logger = null }) {
     return false;
   }
 
-  function createSession(input = {}) {
+  async function createSession(input = {}) {
     const userId = normalizeActorId(input.userId || input.user_id || DEFAULT_ACTORS.admin);
     const role = normalizeRole(input.role, ROLES.WORKER);
     const createdAt = new Date().toISOString();
-    return {
+    const session = sessionStore?.createSession
+      ? await sessionStore.createSession({ user_id: userId, role })
+      : {
       token: createSessionToken(),
       user_id: userId,
       userId,
       role,
       created_at: createdAt,
     };
+    if (!sessionStore?.createSession) sessions.set(session.token, session);
+    return publicSession(session);
   }
 
   function publicSession(session = {}) {
@@ -437,6 +508,29 @@ export function createApiRouter({ storage, logger = null }) {
     const value = String(request.headers.authorization || request.headers.Authorization || "");
     const match = value.match(/^Bearer\s+(.+)$/i);
     return match ? match[1].trim() : "";
+  }
+
+  function fileContentType(relativePath) {
+    const lower = String(relativePath || "").toLowerCase();
+    if (lower.endsWith(".png")) return "image/png";
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".bmp")) return "image/bmp";
+    return "application/octet-stream";
+  }
+
+  async function hasUserRole(userId, role) {
+    if (userDirectory?.userHasRole) return userDirectory.userHasRole(userId, role);
+    return userHasRole(userId, role);
+  }
+
+  function listFallbackUsers(role = "") {
+    const normalizedRole = normalizeRole(role, "");
+    return LOCAL_MVP_USER_ACCOUNTS
+      .filter((user) => user.active !== false)
+      .filter((user) => !normalizedRole || user.role === normalizedRole)
+      .map(publicMvpUser)
+      .sort((left, right) => left.user_id.localeCompare(right.user_id));
   }
 
   async function readImageUpload(request) {
@@ -577,5 +671,79 @@ export function createApiRouter({ storage, logger = null }) {
       "content-type": "application/zip",
       "content-disposition": `attachment; filename="export_${projectId}.zip"`,
     });
+  }
+
+  async function exportTrainingSet(response, body = {}, context = {}) {
+    if (!Array.isArray(body.sources) || body.sources.length === 0) {
+      return sendJson(response, 400, {
+        error: "training_sources_required",
+        message: "At least one training export source is required",
+      });
+    }
+    const sources = await loadTrainingSources(body.sources || []);
+    const trainingSet = createTrainingSetZipEntries(sources, {
+      approvedOnly: body.approved_only === true || body.approvedOnly === true,
+    });
+    const files = [];
+    for (const entry of trainingSet.entries) {
+      if (Object.hasOwn(entry, "data")) {
+        files.push({ path: entry.path, data: entry.data });
+        continue;
+      }
+      const data = await readTrainingSourceFile(entry);
+      files.push({ path: entry.path, data });
+    }
+    const zip = await createZipBlob(files);
+    const buffer = Buffer.from(await zip.arrayBuffer());
+    logger?.info("training_set.export.completed", {
+      request_id: context.requestId,
+      sources: trainingSet.source_versions.sources.length,
+      items: trainingSet.training_set.items.length,
+    });
+    return sendBuffer(response, 200, buffer, {
+      "content-type": "application/zip",
+      "content-disposition": "attachment; filename=\"training-set-export.zip\"",
+    });
+  }
+
+  async function loadTrainingSources(sources) {
+    const loaded = [];
+    for (const source of sources) {
+      const projectId = source.project_id || source.projectId;
+      const taskId = source.task_id || source.taskId || "legacy_project";
+      const versionId = source.version_id || source.versionId || "legacy";
+      let manifest = null;
+      if (storage.readVersionManifest && source.task_id && source.version_id) {
+        manifest = await storage.readVersionManifest(projectId, taskId, versionId);
+      }
+      if (!manifest) {
+        manifest = await storage.readProjectManifest(projectId);
+      }
+      if (!manifest) throw createHttpError(404, `Training export source not found: ${projectId}`);
+      loaded.push({
+        project_id: manifest.project_id || projectId,
+        project_name: manifest.name || source.project_name || source.projectName || projectId,
+        task_id: manifest.task_id || taskId,
+        version_id: manifest.version_id || versionId,
+        images: Array.isArray(manifest.images) ? manifest.images : [],
+      });
+    }
+    return loaded;
+  }
+
+  async function readTrainingSourceFile(entry) {
+    if (
+      storage.readVersionFile &&
+      entry.source_task_id !== "legacy_project" &&
+      entry.source_version_id !== "legacy"
+    ) {
+      return storage.readVersionFile(
+        entry.source_project_id,
+        entry.source_task_id,
+        entry.source_version_id,
+        entry.source_path,
+      );
+    }
+    return storage.readProjectFile(entry.source_project_id, entry.source_path);
   }
 }

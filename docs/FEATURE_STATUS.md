@@ -48,6 +48,18 @@
 - [x] Spacebar temporary pan workflow for editor efficiency
 - [x] Dashboard planning and design for operational overview
 - [x] Project/task/version file-storage hierarchy design
+- [x] Persistent local user directory seeded from MVP accounts
+- [x] Persistent filesystem session store for local operations
+- [x] User-directory-backed assignment target picker
+- [x] Server-first image/mask binary restore into IndexedDB
+- [x] Strict project creation API requiring explicit project ID
+- [x] Operations dashboard screen implementation
+- [x] Magic-tool sensitivity controls
+- [x] Project upload limit setting at project creation
+- [x] Project/task/version storage hierarchy foundation
+- [x] Training set export for selected project/task/version sources
+- [x] Spacebar hold-to-camera-pan override
+- [x] Expanded lint/typecheck coverage for new runtime modules
 
 ## In Progress
 
@@ -55,7 +67,7 @@
 
 ## Remaining
 
-- None for the current 9-item planning/development batch.
+- None for the current 12-item implementation batch.
 
 ## Recommended Development Order
 
@@ -71,18 +83,12 @@
 
 ## Future Hardening
 
-- [ ] Persist session/account storage beyond the current in-memory MVP session map.
-- [ ] Restore server image/mask binaries into IndexedDB for full cross-device editing.
 - [ ] AI-backed segmentation model integration behind the magic-click tool after local edge-aware selection reaches its limit.
-- [ ] Implement the dashboard screen from `docs/DASHBOARD_DESIGN.md`.
-- [ ] Replace MVP account/password constants with a persistent user directory.
-- [ ] Add an assignment target picker backed by the user directory.
-- [ ] Remove legacy default project and actor fallbacks from export/API helper paths.
-- [ ] Add a magic-tool sensitivity control if edge-aware defaults are not enough across datasets.
-- [ ] Add dataset/project settings for upload limits and allowed formats if these need to vary by project.
-- [ ] Implement project/task/version file-storage hierarchy from `docs/STORAGE_HIERARCHY_DESIGN.md`.
-- [ ] Implement training set export that combines selected task/version outputs.
-- [ ] Improve Spacebar camera pan behavior from `docs/SPACEBAR_CAMERA_PAN_DESIGN.md`.
+- [ ] Add full user/account administration UI for creating, disabling, and rotating local accounts.
+- [ ] Add project settings edit screen for changing upload formats and limits after project creation.
+- [ ] Wire project/task/version selectors throughout the workbench instead of using legacy project-only routes.
+- [ ] Add version clone/delete/restore UI on top of the storage hierarchy primitives.
+- [ ] Add physical purge maintenance for deleted version files if operations needs it.
 
 ## Hardcoded Runtime Debt
 
@@ -91,39 +97,32 @@ not implemented yet. They should not be treated as final architecture.
 
 | Current hardcoded area | Current location | Why it remains | Required feature |
 | --- | --- | --- | --- |
-| MVP users and passwords: `admin/admin123`, `worker/worker123`, `reviewer/reviewer123` | `src/config/runtimeDefaults.js`, `src/server/auth.js`, `index.html`, tests | Current auth is a local MVP login model with in-memory sessions. It proves RBAC and actor identity, but is not account management. | Persistent user directory, password storage, account admin, invite/reset flow |
-| `worker` / `reviewer` fallback assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js`, `src/export/exporter.js`, `src/server/api.js` | Queue filters exist, but there is still no user directory-backed picker. Assignment fields still default to known MVP user IDs. | User directory and assignment target picker |
-| `mask_project_001` and `Masking Project` fallback defaults | `src/config/runtimeDefaults.js`, `src/export/exporter.js`, `src/server/api.js` | Kept only for legacy/export fallback records and API bodies that omit project identity. New app sessions now require explicit project create/open before workbench entry. | Require explicit project ID at all image/export/API creation boundaries, then remove fallback |
+| Local MVP account seed passwords: `admin/admin123`, `worker/worker123`, `reviewer/reviewer123` | `src/server/auth.js`, `data/identity/users.json` after first use, tests | Passwords moved out of browser-imported config and seed a local filesystem user directory. This is still local-MVP credential handling, not production account security. | Account administration UI, password rotation, disabled-user management |
+| `worker` / `reviewer` fallback assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js` | Used only as local fallback options when the user list API is unavailable or before admin login. The normal assignment path now loads users from `GET /api/users`. | Remove fallback once first-run user-directory bootstrap is mandatory |
+| `mask_project_001` and `Masking Project` fallback defaults | `src/config/runtimeDefaults.js` | Kept for legacy local snapshots and tests. New project creation API now rejects missing project IDs, and export helpers no longer inject the default project ID. | Manifest migration/repair flow for old local snapshots |
 | Empty server manifest/project-name fallback | `src/server/storage.js`, `src/app.js` | Manifest creation and restore can still fall back to project ID/name when partial data is received. This keeps old or malformed local data recoverable. | Strict project metadata schema and manifest migration/repair flow |
-| Upload limit and allowed image formats | `src/upload/policy.js`, `index.html` | Current project has one global upload policy: 15 MB, PNG/JPEG/BMP/WEBP. That is acceptable for MVP but not project-specific. | Project/dataset settings for upload policy, or environment-backed deployment config |
+| Upload format allowlist | `src/upload/policy.js` | Project creation can set upload size limit, but allowed formats remain the global PNG/JPEG/BMP/WEBP policy. | Project settings edit screen for allowed formats |
 | Local filesystem data root and dev port defaults | `server.js`, `src/server/storage.js`, `harness/commands.md` | `PORT=4173` and `data/` are local development defaults with env overrides. They are not blocking product features. | Deployment config profile if moving beyond local dev |
-| Magic-tool sensitivity defaults | `src/editor/maskEditor.js` | Edge-aware local vision now exists, but `colorTolerance`, `edgeThreshold`, and max-pixel caps are fixed internal defaults. | Magic sensitivity control or project-level tool preset after real dataset tuning |
+| Magic-tool max region cap | `src/editor/maskEditor.js` | UI now controls color tolerance and edge threshold. Max-pixel cap remains an internal safety default. | Project-level tool presets if real datasets need different caps |
 | Server export vs local ZIP fallback | `src/app.js`, `src/export/exporter.js` | Local-first recovery still allows fallback export when server sync is incomplete. This is a deliberate MVP safety path. | Server-first restore/sync reconciliation before multi-user production use |
-| In-memory session store | `src/server/api.js` | Sessions survive only while the Node process runs. This is enough for MVP role validation, not operations. | Persistent sessions and logout/invalidation storage |
+| Legacy project-only workbench routes | `src/server/api.js`, `src/app.js` | Storage hierarchy helpers exist, but current workbench routes still operate on project-level manifests for compatibility. | Task/version selector and route wiring |
 
 ## Feature Development Items From Hardcoded Debt
 
 Recommended order:
 
-1. User directory and account persistence.
-   - Replaces MVP user constants and hardcoded passwords.
-   - Enables real admin account management later.
-2. Assignment target picker.
-   - Uses the user directory to choose valid workers/reviewers instead of typing
-     `worker` and `reviewer`.
-3. Server-first project restore and sync reconciliation.
-   - Reduces reliance on local ZIP fallback and local-only recovery assumptions.
-4. Strict project identity and manifest schema.
-   - Removes `mask_project_001`, `Masking Project`, and partial-manifest
-     fallback paths once all callers send explicit project IDs.
-5. Dashboard implementation.
-   - Uses the already-written `docs/DASHBOARD_DESIGN.md` and should consume
-     real user/assignment/project state once items 1-3 exist.
-6. Magic-tool sensitivity/preset control.
-   - Add only after trying the edge-aware defaults on real datasets.
-7. Deployment/project settings.
-   - Move upload policy, port/data root profiles, and dataset-specific limits
-     into explicit configuration only when deployment needs them.
+1. Task/version selector and version clone/delete/restore UI.
+   - Wires the storage hierarchy into normal workbench navigation.
+2. Project settings edit screen.
+   - Lets admins update upload limits, allowed formats, and tool presets after
+     project creation.
+3. Account administration UI.
+   - Lets admins create, disable, and rotate local user accounts.
+4. AI-backed segmentation adapter.
+   - Add only after local edge-aware magic controls hit real dataset limits.
+5. Deployment profile.
+   - Moves data root, port, and operational retention settings into explicit
+     deployment configuration when needed.
 
 ## MVP Accounts
 

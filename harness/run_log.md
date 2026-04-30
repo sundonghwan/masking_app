@@ -688,3 +688,83 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=spacebar-camera-pan-design-ready-for-commit
 [GIT] commit=01114f3 message="Design spacebar camera pan"
 [GIT] push=origin/main status=passed range=d10cc01..01114f3
+[START] task=12-feature-implementation-batch subsystem=storage,auth,editor,dashboard,export
+[PLAN] scope=12 hardening/product items risks=storage-hierarchy,session-persistence,assignment-users,spacebar-pan,training-export
+[IMPACT] status=suspected chain=AppController.handleShortcut (src/app.js:*) -> MaskEditor.setCameraPanOverride (src/editor/maskEditor.js:*) -> MaskEditor.handlePointerDown (src/editor/maskEditor.js:*)
+[IMPACT] status=suspected chain=routeProject (src/server/api.js:*) -> storage.ensureProject (src/server/storage.js:*) -> storage.writeProjectManifest (src/server/storage.js:*)
+[IMPACT] status=suspected chain=routeProject (src/server/api.js:*) -> storage.writeImageBuffer (src/server/storage.js:*) -> createImageRecord (src/export/exporter.js:*)
+[IMPACT] status=suspected chain=AppController.renderAssignmentControls (src/app.js:*) -> apiClient.listUsers (src/api/client.js:*) -> routeUsers (src/server/api.js:*)
+[IMPACT] status=suspected chain=createTrainingSetExport (src/export/trainingSet.js:*) -> storage.writeTrainingSetExport (src/server/storage.js:*)
+[START] worker=A task=spacebar-camera-pan-implementation subsystem=editor-input-ux
+[PLAN] worker=A scope=src/editor/maskEditor.js,src/app.js,tests/maskEditor.test.js,tests/appContracts.test.js risks=stuck-space-state,mask-mutation-during-pan,undo-pollution,selected-tool-confusion
+[IMPACT_VALIDATE] worker=A chain=handleShortcut->activateSpacePan->MaskEditor.setCameraPanOverride validation=app-contract-spacebar-filtered-test-passed
+[IMPACT_VALIDATE] worker=A chain=MaskEditor.pointerdown->beginCameraPan->updateCameraPan->viewport-offsets validation=mask-editor-tests-passed
+[IMPACT_VALIDATE] worker=A chain=MaskEditor.pointerdown->paint-erase-magic-branches->mask-onChange-undo validation=mask-editor-tests-passed
+[CMD] worker=A node --test tests/maskEditor.test.js status=passed
+[CMD] worker=A node --test --test-name-pattern "spacebar temporarily pans" tests/appContracts.test.js status=passed
+[CMD] worker=A scripts/harness/lint-all.sh status=passed
+[CMD] worker=A scripts/harness/typecheck-all.sh status=passed
+[CMD] worker=A scripts/harness/test-target.sh status=failed reason=parallel-lane-runtimeDefaults-duplicate-MVP_USER_ACCOUNTS-and-storage-identity-tests
+[CMD] worker=A git diff --check status=passed
+[REVIEW] worker=A finding=none-blocking scope=spacebar-camera-pan-implementation notes=checked-tool-state-preservation-permanent-pan-no-mask-mutation-no-onChange-no-undo-and-blur-visibility-cleanup
+[START] task=12-feature-implementation-worker-c-identity subsystem=auth,session,user-directory
+[PLAN] scope=filesystem-backed-local-mvp-user-directory-and-session-store risks=session-persistence,assignment-role-filter,credential-compatibility
+[IMPACT] status=suspected chain=validateMvpCredentials (src/server/auth.js:9-15) -> LOCAL_MVP_USER_ACCOUNTS (src/server/auth.js:3-7) -> publicMvpUser (src/config/runtimeDefaults.js:48-56)
+[IMPACT] status=suspected chain=createUserDirectory (src/server/userDirectory.js:9-72) -> users.json (data/identity/users.json:*) -> listUsersByRole (src/server/userDirectory.js:37-39)
+[IMPACT] status=suspected chain=createSessionStore (src/server/sessionStore.js:9-86) -> session file (data/identity/sessions/*.json:*) -> readSession/deleteSession/cleanupExpiredSessions (src/server/sessionStore.js:30-80)
+[CMD] node --test tests/userDirectory.test.js tests/sessionStore.test.js status=expected-red missing-new-helper-modules
+[CMD] node --test tests/userDirectory.test.js tests/sessionStore.test.js status=passed tests=9
+[CMD] node --check src/server/userDirectory.js status=passed
+[CMD] node --check src/server/sessionStore.js status=passed
+[CMD] node --check src/server/auth.js status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=142
+[CMD] node --test tests/userDirectory.test.js tests/sessionStore.test.js status=passed tests=9
+[CMD] git diff --check status=passed
+[IMPACT_VALIDATE] chain=validateMvpCredentials->LOCAL_MVP_USER_ACCOUNTS->publicMvpUser validation=identity-tests-and-test-target-passed
+[IMPACT_VALIDATE] chain=createUserDirectory->users-json->listUsersByRole validation=identity-tests-and-test-target-passed
+[IMPACT_VALIDATE] chain=createSessionStore->session-files->read-delete-cleanup validation=identity-tests-and-test-target-passed
+[REVIEW] finding=none-blocking scope=worker-c-identity-foundation notes=checked-no-browser-password-export-public-users-no-passwords-explicit-fs-writes-sync-validateMvpCredentials-compatible-and-no-api-wiring
+[CLOSE] status=worker-c-identity-foundation-complete commit=skipped-per-user
+[START] task=worker-b-storage-hierarchy-foundation subsystem=server-storage
+[PLAN] scope=storage-hierarchy-helpers-only risks=legacy-flat-compatibility,relative-paths,soft-delete-file-moves
+[IMPACT] status=suspected chain=createFileStorage.ensureVersionManifest (src/server/storage.js:*) -> writeVersionManifest (src/server/storage.js:*) -> data/projects/{project_id}/tasks/{task_id}/versions/{version_id}/manifest.json
+[IMPACT] status=suspected chain=createFileStorage.writeVersionImageBuffer (src/server/storage.js:*) -> versionPath (src/server/storage.js:*) -> version manifest image_path
+[IMPACT] status=suspected chain=createFileStorage.softDeleteVersionImage (src/server/storage.js:*) -> moveVersionRelativeFile (src/server/storage.js:*) -> trash/images and trash/masks
+[IMPACT] status=suspected chain=createFileStorage.restoreVersionImage (src/server/storage.js:*) -> moveVersionRelativeFile (src/server/storage.js:*) -> images and masks
+[CMD] node --test tests/serverStorage.test.js status=passed tests=16
+[CMD] node --check src/server/storage.js status=passed
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=failed tests=139/140 note=external-appContracts-runtimeDefaults-password-exposure
+[CMD] git diff --check status=passed
+[IMPACT_VALIDATE] chain=createFileStorage.ensureVersionManifest->writeVersionManifest->hierarchy-manifest validation=serverStorage-metadata-test-passed
+[IMPACT_VALIDATE] chain=createFileStorage.writeVersionImageBuffer->getHierarchyPaths->version-relative-path validation=serverStorage-relative-path-test-passed
+[IMPACT_VALIDATE] chain=createFileStorage.softDeleteVersionImage->moveVersionRelativeFile->trash-files validation=serverStorage-soft-delete-restore-and-overwrite-tests-passed
+[REVIEW] finding=none-blocking scope=worker-b-storage-hierarchy-foundation notes=storage helpers only; no API wiring; overwrite guard added for file moves
+[CLOSE] status=worker-b-storage-hierarchy-foundation-complete commit=skipped-per-user
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=Spacebar-hold-to-pan validation=tests/maskEditor.test.js,tests/appContracts.test.js,test-target passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=user-directory-session-api validation=tests/userDirectory.test.js,tests/sessionStore.test.js,tests/serverApi.test.js passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=assignment-picker-users-api validation=tests/apiClient.test.js,tests/appContracts.test.js,tests/serverApi.test.js passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=storage-hierarchy-foundation validation=tests/serverStorage.test.js passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=server-first-file-restore validation=tests/apiClient.test.js,tests/appContracts.test.js,tests/serverApi.test.js passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=dashboard-summary-screen validation=tests/dashboardSummary.test.js,tests/appContracts.test.js passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=training-set-export validation=tests/trainingSet.test.js,tests/apiClient.test.js,tests/serverApi.test.js passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=upload-policy-settings validation=tests/apiClient.test.js,tests/serverApi.test.js,tests/uploadPolicy.test.js passed
+[CMD] scripts/harness/test-target.sh status=passed tests=158
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=12-feature-implementation-batch note=post-fix-review-confirmed-no-open-blocking-code-issues
+[CLOSE] status=ready-for-review commit=pending-push
+[DOC] updated=docs/FEATURE_STATUS.md note=12-feature-batch-completed-and-next-hardening-updated
+[REVIEW] finding=important scope=upload-policy note=browser-upload-validation-used-active-policy-but-needed-persistence-and-contract-coverage
+[REVIEW] finding=important scope=project-upload-api note=missing-project-upload-implicitly-created-project-via-ensureProject
+[FIX] scope=upload-policy note=project-upload-policy-persists-restores-and-drives-browser-validation-rejection-copy
+[FIX] scope=project-upload-api note=image-upload-now-requires-existing-project-and-returns-404-before-file-write
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=project-upload-policy-browser-and-server validation=tests/appContracts.test.js,tests/serverApi.test.js,test-target passed
+[IMPACT_VALIDATE] task=12-feature-implementation-batch chain=missing-project-upload-rejection validation=tests/serverApi.test.js passed
+[CMD] scripts/harness/test-target.sh status=passed tests=160
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed

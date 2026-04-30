@@ -36,15 +36,35 @@ export function createMaskingApiClient(options = {}) {
           id: input.projectId || input.id,
           name: input.name,
           description: input.description,
+          upload_policy: input.uploadPolicy || input.upload_policy,
         },
       });
     },
     listProjects() {
       return requestJson("/api/projects");
     },
+    listUsers(options = {}) {
+      const role = String(options.role || "").trim();
+      const query = role ? `?role=${encodeURIComponent(role)}` : "";
+      return requestJson(`/api/users${query}`);
+    },
     getProject(projectId) {
       assertRequired(projectId, "projectId");
       return requestJson(`/api/projects/${encodeURIComponent(projectId)}`);
+    },
+    async getProjectFileBlob(projectId, relativePath) {
+      assertRequired(projectId, "projectId");
+      assertRequired(relativePath, "relativePath");
+      const response = await fetchImpl(`${baseUrl}/api/projects/${encodeURIComponent(projectId)}/files?path=${encodeURIComponent(relativePath)}`, {
+        method: "GET",
+        headers: {
+          ...sessionHeaders(getSession()),
+        },
+      });
+      if (!response.ok) {
+        throw await createApiError(response);
+      }
+      return response.blob();
     },
     uploadImage(projectId, input = {}) {
       assertRequired(projectId, "projectId");
@@ -119,6 +139,25 @@ export function createMaskingApiClient(options = {}) {
           ...sessionHeaders(getSession()),
           ...(options.headers || {}),
         },
+      });
+      if (!response.ok) {
+        throw await createApiError(response);
+      }
+      return response.blob();
+    },
+    async downloadTrainingSetExport(input = {}) {
+      const response = await fetchImpl(`${baseUrl}/api/training-sets/export`, {
+        method: "POST",
+        headers: {
+          accept: "application/zip",
+          "content-type": "application/json",
+          ...sessionHeaders(getSession()),
+          ...(input.headers || {}),
+        },
+        body: JSON.stringify({
+          sources: input.sources || [],
+          approved_only: Boolean(input.approvedOnly || input.approved_only),
+        }),
       });
       if (!response.ok) {
         throw await createApiError(response);

@@ -57,10 +57,56 @@
             <span>프로젝트 이름</span>
             <input class="text-input" id="projectCreateName" type="text" placeholder="Rail Mask Batch 0429" autocomplete="off">
           </label>
+          <label class="stacked-field">
+            <span>업로드 제한 MB</span>
+            <input class="text-input" id="projectUploadLimitMb" type="number" min="1" max="512" value="15">
+          </label>
           <button class="button primary" id="createProjectButton" type="submit">프로젝트 생성</button>
           <p class="sync-message" id="projectCreateMessage">관리자는 새 프로젝트를 만들고 작업도구로 진입할 수 있습니다.</p>
         </form>
         <div class="project-summary-list" id="projectSummaryList" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="screen dashboard-screen" id="dashboardScreen" data-screen="dashboard" hidden>
+      <div class="screen-panel dashboard-panel">
+        <div class="screen-heading">
+          <div class="brand-block">
+            <div class="app-mark" aria-hidden="true">M</div>
+            <div>
+              <div class="app-name">Masking App</div>
+              <div class="project-name" id="dashboardProjectName">운영 대시보드</div>
+            </div>
+          </div>
+          <div class="review-actions">
+            <button class="button secondary" id="dashboardProjectsButton" type="button">프로젝트</button>
+            <button class="button primary" id="dashboardWorkbenchButton" type="button">작업도구</button>
+          </div>
+        </div>
+        <div class="dashboard-layout compact-dashboard">
+          <section class="panel-section">
+            <h2>프로젝트 상태</h2>
+            <dl class="export-summary-grid" id="dashboardHealthGrid"></dl>
+          </section>
+          <section class="panel-section">
+            <h2>작업 부하</h2>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>사용자</th><th>역할</th><th>배정</th><th>제출</th><th>재작업</th></tr></thead>
+                <tbody id="dashboardWorkloadBody"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="panel-section">
+            <h2>Export 준비</h2>
+            <dl class="metadata-list compact" id="dashboardExportReadiness"></dl>
+            <ul class="export-error-list" id="dashboardBlockers"></ul>
+          </section>
+          <section class="panel-section dashboard-wide">
+            <h2>최근 품질 이벤트</h2>
+            <div class="image-list" id="dashboardActivityList"></div>
+          </section>
+        </div>
       </div>
     </section>
 
@@ -179,6 +225,20 @@
         </section>
 
         <section class="panel-section">
+          <h2>매직</h2>
+          <label class="field-row">
+            <span>색상 허용</span>
+            <output id="magicToleranceValue">42</output>
+          </label>
+          <input id="magicTolerance" class="range" type="range" min="8" max="96" value="42">
+          <label class="field-row">
+            <span>엣지 강도</span>
+            <output id="magicEdgeValue">55</output>
+          </label>
+          <input id="magicEdge" class="range" type="range" min="16" max="128" value="55">
+        </section>
+
+        <section class="panel-section">
           <h2>검증</h2>
           <ul class="check-list" id="validationList">
             <li data-check="dimensions"><span></span>해상도 일치</li>
@@ -200,12 +260,16 @@
         <section class="panel-section" data-role-panel="admin">
           <h2>배정</h2>
           <label class="stacked-field">
-            <span>작업자 ID</span>
-            <input class="text-input" id="assignmentWorkerId" type="text" value="worker" autocomplete="off">
+            <span>작업자</span>
+            <select class="select" id="assignmentWorkerId">
+              <option value="worker">Worker</option>
+            </select>
           </label>
           <label class="stacked-field">
-            <span>리뷰어 ID</span>
-            <input class="text-input" id="assignmentReviewerId" type="text" value="reviewer" autocomplete="off">
+            <span>리뷰어</span>
+            <select class="select" id="assignmentReviewerId">
+              <option value="reviewer">Reviewer</option>
+            </select>
           </label>
           <button class="button secondary rework-button" id="assignButton" type="button">배정 저장</button>
           <p class="sync-message" id="assignmentMessage">admin 역할에서 선택 이미지 배정을 저장할 수 있습니다.</p>

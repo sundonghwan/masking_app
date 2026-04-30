@@ -66,6 +66,7 @@ test("screen flow separates login projects and workbench", () => {
 
   assert.match(html, /id="loginScreen"/);
   assert.match(html, /id="projectsScreen"/);
+  assert.match(html, /id="dashboardScreen"/);
   assert.match(html, /id="workbenchScreen"/);
   assert.match(html, /id="sessionPassword"/);
   assert.match(html, /id="projectCreateForm"/);
@@ -77,10 +78,49 @@ test("screen flow separates login projects and workbench", () => {
   assert.match(app, /function routeToScreen\(/);
   assert.match(app, /function currentScreen\(/);
   assert.match(app, /function canEnterWorkbench\(/);
+  assert.match(app, /function renderDashboard\(/);
+  assert.match(app, /createDashboardSummary/);
   assert.match(app, /function createProjectFromForm\(/);
   assert.match(app, /function normalizeProjectId\(/);
   assert.doesNotMatch(app, /openDefaultProjectButton/);
   assert.doesNotMatch(app, /function openDefaultProject\(/);
+});
+
+test("assignment controls use user-directory backed pickers", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const api = fs.readFileSync(new URL("../src/api/client.js", import.meta.url), "utf8");
+
+  assert.match(html, /<select class="select" id="assignmentWorkerId"/);
+  assert.match(html, /<select class="select" id="assignmentReviewerId"/);
+  assert.match(app, /function refreshAssignmentUsers\(/);
+  assert.match(app, /apiClient\.listUsers\(\{ role: ROLES\.WORKER \}\)/);
+  assert.match(app, /apiClient\.listUsers\(\{ role: ROLES\.REVIEWER \}\)/);
+  assert.match(api, /listUsers\(options = \{\}\)/);
+});
+
+test("browser upload validation uses active project upload policy", () => {
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(app, /uploadPolicy: \{ \.\.\.UPLOAD_POLICY \}/);
+  assert.match(app, /validateBrowserUploadFile\(file, state\.uploadPolicy\)/);
+  assert.match(app, /state\.uploadPolicy = normalizeUploadPolicy\(manifest\.upload_policy/);
+  assert.match(app, /uploadPolicy: state\.uploadPolicy/);
+  assert.match(app, /state\.uploadPolicy = normalizeUploadPolicy\(saved\.uploadPolicy \|\| \{\}, UPLOAD_POLICY\)/);
+  assert.match(app, /formatBytes\(state\.uploadPolicy\.maxFileBytes\)/);
+});
+
+test("server-first restore can fetch image and mask files into local recovery", () => {
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const api = fs.readFileSync(new URL("../src/api/client.js", import.meta.url), "utf8");
+  const server = fs.readFileSync(new URL("../src/server/api.js", import.meta.url), "utf8");
+
+  assert.match(api, /getProjectFileBlob\(projectId, relativePath\)/);
+  assert.match(app, /function restoreServerImageBlob\(/);
+  assert.match(app, /function restoreServerMaskBlob\(/);
+  assert.match(app, /projectStore\.saveImageBlob/);
+  assert.match(app, /projectStore\.saveMaskBlob/);
+  assert.match(server, /parts\[1\] === "files"/);
 });
 
 test("login controls are not embedded in the workbench inspector", () => {
@@ -150,9 +190,13 @@ test("magic click tool is local deterministic mask assist", () => {
 
   assert.match(html, /data-tool="magic"/);
   assert.match(html, /매직 W/);
+  assert.match(html, /id="magicTolerance"/);
+  assert.match(html, /id="magicEdge"/);
   assert.match(app, /key === "w" \|\| key === "m"/);
+  assert.match(app, /setMagicOptions/);
   assert.match(editor, /function selectEdgeAwareRegionFromImageData/);
   assert.match(editor, /createEdgeMagnitudeMap/);
+  assert.match(editor, /setMagicOptions/);
   assert.match(editor, /magicSelectAt\(point/);
   assert.doesNotMatch(editor, /fetch\(|\/api\/.*magic|segmentation/i);
 });
@@ -166,11 +210,18 @@ test("spacebar temporarily pans without switching the selected tool", () => {
   assert.match(html, /이동 Space/);
   assert.match(styles, /grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/);
   assert.match(app, /event\.code === "Space"/);
+  assert.match(app, /activateSpacePan/);
+  assert.match(app, /deactivateSpacePan/);
   assert.match(app, /handleShortcutRelease/);
-  assert.match(app, /setTemporaryPanActive\(true\)/);
-  assert.match(app, /setTemporaryPanActive\(false\)/);
-  assert.match(editor, /setTemporaryPanActive\(active\)/);
-  assert.match(editor, /this\.tool === "pan" \|\| this\.temporaryPanActive/);
+  assert.match(app, /visibilitychange/);
+  assert.match(app, /setCameraPanOverride\(true\)/);
+  assert.match(app, /clearCameraPanOverride\(\)/);
+  assert.match(app, /이동 모드 Space/);
+  assert.match(editor, /setCameraPanOverride\(active\)/);
+  assert.match(editor, /isCameraPanActive\(\)/);
+  assert.match(editor, /beginCameraPan\(event\)/);
+  assert.match(editor, /activePointerMode = "camera_pan"/);
+  assert.doesNotMatch(editor, /this\.tool === "pan" \|\| this\.temporaryPanActive/);
   assert.doesNotMatch(app, /setTool\("pan"\).*Space/s);
 });
 

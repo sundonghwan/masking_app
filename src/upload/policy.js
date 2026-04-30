@@ -78,6 +78,18 @@ export function validateUploadCandidate(input = {}, policy = UPLOAD_POLICY) {
   };
 }
 
+export function normalizeUploadPolicy(input = {}, fallback = UPLOAD_POLICY) {
+  const maxFileBytes = Number(input.maxFileBytes || input.max_file_bytes || fallback.maxFileBytes);
+  const allowedMimeTypes = normalizeList(input.allowedMimeTypes || input.allowed_mime_types, fallback.allowedMimeTypes);
+  const allowedExtensions = normalizeList(input.allowedExtensions || input.allowed_extensions, fallback.allowedExtensions)
+    .map((extension) => extension.startsWith(".") ? extension.toLowerCase() : `.${extension.toLowerCase()}`);
+  return {
+    maxFileBytes: Number.isFinite(maxFileBytes) && maxFileBytes > 0 ? maxFileBytes : fallback.maxFileBytes,
+    allowedMimeTypes,
+    allowedExtensions,
+  };
+}
+
 export function uploadReasonLabel(reason) {
   return {
     [UPLOAD_REASONS.MISSING_FILE_NAME]: "파일명이 없습니다",
@@ -135,4 +147,10 @@ function fileExtension(fileName) {
   const lower = String(fileName || "").toLowerCase();
   const index = lower.lastIndexOf(".");
   return index >= 0 ? lower.slice(index) : "";
+}
+
+function normalizeList(value, fallback) {
+  const list = Array.isArray(value) ? value : [];
+  const normalized = list.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean);
+  return normalized.length > 0 ? normalized : [...fallback];
 }

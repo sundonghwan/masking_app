@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 import { createLogger, createRequestId } from "./src/observability/logger.js";
 import { createApiRouter } from "./src/server/api.js";
 import { createHttpError, sendJson } from "./src/server/httpUtils.js";
+import { createSessionStore } from "./src/server/sessionStore.js";
 import { createFileStorage } from "./src/server/storage.js";
+import { createUserDirectory } from "./src/server/userDirectory.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 4173);
@@ -16,7 +18,9 @@ const DATA_ROOT = process.env.MASKING_APP_DATA_DIR || path.join(__dirname, "data
 
 const logger = createLogger({ component: "server" });
 const storage = createFileStorage({ rootDir: DATA_ROOT });
-const routeApi = createApiRouter({ storage, logger });
+const userDirectory = createUserDirectory({ rootDir: DATA_ROOT });
+const sessionStore = createSessionStore({ rootDir: DATA_ROOT });
+const routeApi = createApiRouter({ storage, logger, userDirectory, sessionStore });
 
 const server = createServer(async (request, response) => {
   const startedAt = performance.now();

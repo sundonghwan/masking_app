@@ -25,6 +25,26 @@ test("creates a project with normalized request payload", async () => {
   });
 });
 
+test("creates a project with upload policy settings", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ project_id: "project-1" }, 201);
+    },
+  });
+
+  await client.createProject({
+    projectId: "project-1",
+    name: "Rail Masks",
+    uploadPolicy: { maxFileBytes: 5 * 1024 * 1024 },
+  });
+
+  assert.deepEqual(JSON.parse(calls[0].options.body).upload_policy, {
+    maxFileBytes: 5 * 1024 * 1024,
+  });
+});
+
 test("uploads an image and URL-encodes the project path segment", async () => {
   const calls = [];
   const client = createMaskingApiClient({
@@ -82,6 +102,26 @@ test("uploads an image with multipart form data when a File is provided", async 
   assert.equal(calls[0].options.body.get("image").name, "frame.png");
 });
 
+test("downloads server project files for restore", async () => {
+  const expected = new Blob(["image-bytes"]);
+  const client = createMaskingApiClient({
+    session: { token: "sess_worker" },
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "/api/projects/project-1/files?path=images%2Fimage-1.png");
+      assert.equal(options.method, "GET");
+      assert.equal(options.headers.authorization, "Bearer sess_worker");
+      return {
+        ok: true,
+        blob: async () => expected,
+      };
+    },
+  });
+
+  const result = await client.getProjectFileBlob("project-1", "images/image-1.png");
+
+  assert.equal(result, expected);
+});
+
 test("lists projects", async () => {
   const client = createMaskingApiClient({
     fetchImpl: async (url, options) => {
@@ -95,6 +135,23 @@ test("lists projects", async () => {
 
   assert.equal(result.total_projects, 1);
   assert.equal(result.projects[0].project_id, "project-1");
+});
+
+test("lists assignment users with optional role filter", async () => {
+  const client = createMaskingApiClient({
+    session: { token: "sess_admin" },
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "/api/users?role=worker");
+      assert.equal(options.method, "GET");
+      assert.equal(options.headers.authorization, "Bearer sess_admin");
+      return jsonResponse({ users: [{ user_id: "worker", role: "worker" }], total_users: 1 }, 200);
+    },
+  });
+
+  const result = await client.listUsers({ role: "worker" });
+
+  assert.equal(result.total_users, 1);
+  assert.equal(result.users[0].user_id, "worker");
 });
 
 test("logs in and sends bearer token on protected requests", async () => {
@@ -236,6 +293,33 @@ test("downloads project export as a Blob", async () => {
   });
 
   assert.equal(await client.downloadProjectExport("project-1", { approvedOnly: true }), expected);
+});
+
+test("downloads training set export from selected sources", async () => {
+  const expected = new Blob(["training-zip"]);
+  const client = createMaskingApiClient({
+    session: { token: "sess_export" },
+    fetchImpl: async (url, options) => {
+      assert.equal(url, "/api/training-sets/export");
+      assert.equal(options.method, "POST");
+      assert.equal(options.headers.authorization, "Bearer sess_export");
+      assert.deepEqual(JSON.parse(options.body), {
+        sources: [{ project_id: "project-1", task_id: "task-1", version_id: "v1" }],
+        approved_only: true,
+      });
+      return {
+        ok: true,
+        blob: async () => expected,
+      };
+    },
+  });
+
+  const result = await client.downloadTrainingSetExport({
+    approvedOnly: true,
+    sources: [{ project_id: "project-1", task_id: "task-1", version_id: "v1" }],
+  });
+
+  assert.equal(result, expected);
 });
 
 test("converts non-2xx responses into ApiError", async () => {

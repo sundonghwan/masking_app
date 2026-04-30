@@ -11,6 +11,97 @@ class TestImageData {
 
 globalThis.ImageData = TestImageData;
 
+function installCanvasDocument() {
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    createElement(tagName) {
+      if (tagName !== "canvas") throw new Error(`Unsupported test element: ${tagName}`);
+      return new TestCanvas();
+    },
+  };
+  return () => {
+    globalThis.document = previousDocument;
+  };
+}
+
+class TestCanvas {
+  constructor() {
+    this.width = 200;
+    this.height = 120;
+    this.listeners = new Map();
+    this.context = new TestCanvasContext(this);
+    this.capturedPointers = new Set();
+    this.style = {};
+  }
+
+  getContext() {
+    return this.context;
+  }
+
+  addEventListener(type, listener) {
+    this.listeners.set(type, listener);
+  }
+
+  dispatchPointer(type, event = {}) {
+    const listener = this.listeners.get(type);
+    assert.equal(typeof listener, "function", `missing ${type} listener`);
+    listener({
+      pointerId: 1,
+      offsetX: 50,
+      offsetY: 40,
+      movementX: 0,
+      movementY: 0,
+      ...event,
+    });
+  }
+
+  setPointerCapture(pointerId) {
+    this.capturedPointers.add(pointerId);
+  }
+
+  releasePointerCapture(pointerId) {
+    this.capturedPointers.delete(pointerId);
+  }
+}
+
+class TestCanvasContext {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.imageData = null;
+    this.drawCalls = 0;
+  }
+
+  clearRect() {}
+  fillRect() {}
+  save() {}
+  restore() {}
+  translate() {}
+  scale() {}
+  beginPath() {}
+  arc() {}
+  fill() {}
+  stroke() {}
+  setLineDash() {}
+
+  drawImage() {
+    this.drawCalls += 1;
+  }
+
+  getImageData(x, y, width, height) {
+    if (!this.imageData || this.imageData.width !== width || this.imageData.height !== height) {
+      this.imageData = new TestImageData(width, height);
+    }
+    const copy = new TestImageData(width, height);
+    copy.data.set(this.imageData.data);
+    return copy;
+  }
+
+  putImageData(imageData) {
+    this.imageData = new TestImageData(imageData.width, imageData.height);
+    this.imageData.data.set(imageData.data);
+  }
+}
+
 test("mask editor module exports the browser engine API", async () => {
   const module = await import("../src/editor/maskEditor.js");
 
@@ -141,4 +232,92 @@ test("constructor rejects missing visible canvas", async () => {
     () => createMaskEditor(),
     /requires a visible canvas/,
   );
+});
+
+test("magic tool options can be updated for dataset sensitivity", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const editor = new MaskEditor(new TestCanvas());
+
+    editor.setMagicOptions({ colorTolerance: 12, edgeThreshold: 88 });
+
+    assert.equal(editor.magicOptions.colorTolerance, 12);
+    assert.equal(editor.magicOptions.edgeThreshold, 88);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("camera pan override moves viewport without changing tool, mask, onChange, or undo", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    let changeCount = 0;
+    let viewportCount = 0;
+    const editor = new MaskEditor(canvas, {
+      onChange: () => { changeCount += 1; },
+      onViewportChange: () => { viewportCount += 1; },
+    });
+    editor.image = { naturalWidth: 100, naturalHeight: 80 };
+    editor.maskCanvas.width = 100;
+    editor.maskCanvas.height = 80;
+    editor.scale = 1;
+    editor.offsetX = 0;
+    editor.offsetY = 0;
+    editor.setTool("brush");
+
+    editor.setCameraPanOverride(true);
+    canvas.dispatchPointer("pointerdown", { offsetX: 20, offsetY: 10 });
+    canvas.dispatchPointer("pointermove", { offsetX: 32, offsetY: 17, movementX: 12, movementY: 7 });
+    canvas.dispatchPointer("pointerup");
+
+    assert.equal(editor.getState().tool, "brush");
+    assert.equal(editor.getState().cameraPanOverride, true);
+    assert.deepEqual(editor.getViewportState(), { scale: 1, offsetX: 12, offsetY: 7 });
+    assert.equal(editor.getMaskRatio(), 0);
+    assert.equal(changeCount, 0);
+    assert.equal(viewportCount, 1);
+    assert.equal(editor.getState().canUndo, false);
+
+    editor.setCameraPanOverride(false);
+    assert.equal(editor.getState().cameraPanOverride, false);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("spacebar pressed during an active brush stroke does not convert that stroke to camera pan", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    let changeCount = 0;
+    let viewportCount = 0;
+    const editor = new MaskEditor(canvas, {
+      onChange: () => { changeCount += 1; },
+      onViewportChange: () => { viewportCount += 1; },
+    });
+    editor.image = { naturalWidth: 100, naturalHeight: 80 };
+    editor.maskCanvas.width = 100;
+    editor.maskCanvas.height = 80;
+    editor.scale = 1;
+    editor.offsetX = 0;
+    editor.offsetY = 0;
+    editor.setTool("brush");
+
+    canvas.dispatchPointer("pointerdown", { offsetX: 20, offsetY: 10 });
+    editor.setCameraPanOverride(true);
+    canvas.dispatchPointer("pointermove", { offsetX: 32, offsetY: 17, movementX: 12, movementY: 7 });
+    canvas.dispatchPointer("pointerup");
+
+    assert.equal(editor.getState().tool, "brush");
+    assert.deepEqual(editor.getViewportState(), { scale: 1, offsetX: 0, offsetY: 0 });
+    assert.equal(changeCount >= 2, true);
+    assert.equal(viewportCount, 0);
+    assert.equal(editor.getState().canUndo, true);
+  } finally {
+    restoreDocument();
+  }
 });

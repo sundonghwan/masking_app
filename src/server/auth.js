@@ -1,13 +1,25 @@
-import { findMvpUser, publicMvpUser } from "../config/runtimeDefaults.js";
+import { ROLES, normalizeActorId, publicMvpUser } from "../config/runtimeDefaults.js";
 
-const MVP_PASSWORDS = new Map([
-  ["admin", "admin123"],
-  ["worker", "worker123"],
-  ["reviewer", "reviewer123"],
-]);
+export const LOCAL_MVP_USER_ACCOUNTS = [
+  { user_id: "admin", role: ROLES.ADMIN, display_name: "Admin", password: "admin123", active: true },
+  { user_id: "worker", role: ROLES.WORKER, display_name: "Worker", password: "worker123", active: true },
+  { user_id: "reviewer", role: ROLES.REVIEWER, display_name: "Reviewer", password: "reviewer123", active: true },
+];
 
 export function validateMvpCredentials(input = {}) {
-  const user = findMvpUser(input.userId || input.user_id);
+  const user = findLocalMvpUserAccount(input.userId || input.user_id);
   if (!user) return null;
-  return String(input.password || "") === MVP_PASSWORDS.get(user.user_id) ? publicMvpUser(user) : null;
+  return user.active !== false && String(input.password || "") === String(user.password || "")
+    ? publicMvpUser(user)
+    : null;
+}
+
+export async function validateDirectoryCredentials(userDirectory, input = {}) {
+  if (!userDirectory?.validateCredentials) return validateMvpCredentials(input);
+  return userDirectory.validateCredentials(input);
+}
+
+function findLocalMvpUserAccount(userId) {
+  const normalized = normalizeActorId(userId);
+  return LOCAL_MVP_USER_ACCOUNTS.find((user) => user.user_id === normalized) || null;
 }

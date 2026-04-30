@@ -143,6 +143,7 @@ export class MaskEditor {
     this.sourceCtx = this.sourceCanvas.getContext("2d", { willReadFrequently: true });
     this.tool = "brush";
     this.brushSize = options.brushSize || 32;
+    this.magicOptions = { ...MAGIC_DEFAULTS, ...(options.magicOptions || {}) };
     this.overlayOpacity = options.overlayOpacity ?? 0.55;
     this.displayMode = "overlay";
     this.scale = 1;
@@ -150,7 +151,8 @@ export class MaskEditor {
     this.offsetY = 0;
     this.isPointerDown = false;
     this.isPanning = false;
-    this.temporaryPanActive = false;
+    this.spacePanHeld = false;
+    this.activePointerMode = "idle";
     this.lastPoint = null;
     this.cursorPoint = null;
     this.beforeStroke = null;
@@ -199,6 +201,7 @@ export class MaskEditor {
 
   setTool(tool) {
     this.tool = tool;
+    this.updateCanvasCursor();
     this.redraw();
   }
 
@@ -210,6 +213,13 @@ export class MaskEditor {
   setOverlayOpacity(opacity) {
     this.overlayOpacity = opacity;
     this.redraw();
+  }
+
+  setMagicOptions(options = {}) {
+    this.magicOptions = {
+      ...this.magicOptions,
+      ...Object.fromEntries(Object.entries(options).filter(([, value]) => value !== undefined && value !== null)),
+    };
   }
 
   setDisplayMode(mode) {
@@ -338,6 +348,8 @@ export class MaskEditor {
       canUndo: this.undoStack.length > 0,
       canRedo: this.redoStack.length > 0,
       maskRatio: this.getMaskRatio(),
+      cameraPanOverride: this.spacePanHeld,
+      activePointerMode: this.activePointerMode,
     };
   }
 
@@ -379,15 +391,33 @@ export class MaskEditor {
     this.onViewportChange(this.getViewportState());
   }
 
-  setTemporaryPanActive(active) {
-    this.temporaryPanActive = Boolean(active);
+  setCameraPanOverride(active) {
+    this.spacePanHeld = Boolean(active);
+    this.updateCanvasCursor();
+    this.redraw();
+  }
+
+  isCameraPanActive() {
+    return this.spacePanHeld || this.activePointerMode === "camera_pan";
+  }
+
+  clearCameraPanOverride() {
+    this.spacePanHeld = false;
+    if (this.activePointerMode === "camera_pan") {
+      this.endCameraPan();
+      this.isPointerDown = false;
+    }
+    this.updateCanvasCursor();
     this.redraw();
   }
 
   magicSelectAt(point, options = {}) {
     if (!this.image || !inBounds(point, this.image)) return 0;
     const source = this.sourceCtx.getImageData(0, 0, this.sourceCanvas.width, this.sourceCanvas.height);
-    const region = selectEdgeAwareRegionFromImageData(source, point, options);
+    const region = selectEdgeAwareRegionFromImageData(source, point, {
+      ...this.magicOptions,
+      ...options,
+    });
     if (region.length === 0) return 0;
 
     const mask = this.maskCtx.getImageData(0, 0, this.maskCanvas.width, this.maskCanvas.height);
@@ -488,6 +518,7 @@ export class MaskEditor {
   }
 
   drawCursor() {
+    this.updateCanvasCursor();
     if (!this.cursorPoint || !this.image || !["brush", "erase"].includes(this.tool)) return;
     const ctx = this.ctx;
     const radius = (this.brushSize * this.scale) / 2;
@@ -508,14 +539,21 @@ export class MaskEditor {
       const point = this.eventToImagePoint(event);
       this.isPointerDown = true;
       this.lastPoint = point;
-      this.isPanning = this.tool === "pan" || this.temporaryPanActive;
+      this.activePointerMode = "idle";
+
+      if (this.spacePanHeld || this.tool === "pan") {
+        this.beginCameraPan(event);
+        return;
+      }
 
       if (["brush", "erase"].includes(this.tool)) {
+        this.activePointerMode = this.tool === "erase" ? "erase" : "paint";
         this.beforeStroke = this.snapshotMask();
         this.redoStack = [];
         this.paintAt(point);
         this.onChange();
       } else if (this.tool === "magic") {
+        this.activePointerMode = "magic";
         this.beforeStroke = this.snapshotMask();
         this.redoStack = [];
         const changed = this.magicSelectAt(point);
@@ -535,15 +573,12 @@ export class MaskEditor {
       };
       this.onPointerMove(inBounds(point, this.image) ? point : null);
 
-      if (this.isPointerDown && this.isPanning) {
-        this.offsetX += event.movementX;
-        this.offsetY += event.movementY;
-        this.redraw();
-        this.onViewportChange(this.getViewportState());
+      if (this.isPointerDown && this.activePointerMode === "camera_pan") {
+        this.updateCameraPan(event);
         return;
       }
 
-      if (this.isPointerDown && ["brush", "erase"].includes(this.tool)) {
+      if (this.isPointerDown && ["paint", "erase"].includes(this.activePointerMode)) {
         this.paintLine(this.lastPoint, point);
         this.lastPoint = point;
         this.onChange();
@@ -561,12 +596,41 @@ export class MaskEditor {
     }, { passive: false });
   }
 
+  beginCameraPan(event) {
+    this.activePointerMode = "camera_pan";
+    this.isPanning = true;
+    this.lastPoint = { x: event.offsetX, y: event.offsetY };
+    this.updateCanvasCursor();
+    this.redraw();
+  }
+
+  updateCameraPan(event) {
+    const movementX = Number.isFinite(event.movementX) ? event.movementX : 0;
+    const movementY = Number.isFinite(event.movementY) ? event.movementY : 0;
+    this.panBy(movementX, movementY);
+  }
+
+  endCameraPan() {
+    this.isPanning = false;
+    if (this.activePointerMode === "camera_pan") {
+      this.activePointerMode = "idle";
+    }
+    this.updateCanvasCursor();
+  }
+
   endPointer(event) {
     if (!this.isPointerDown) return;
+    const finishedPointerMode = this.activePointerMode;
     this.isPointerDown = false;
-    this.isPanning = false;
+    if (finishedPointerMode === "camera_pan") {
+      this.endCameraPan();
+    } else {
+      this.isPanning = false;
+      this.activePointerMode = "idle";
+      this.updateCanvasCursor();
+    }
 
-    if (this.beforeStroke && ["brush", "erase", "magic"].includes(this.tool)) {
+    if (this.beforeStroke && ["paint", "erase", "magic"].includes(finishedPointerMode)) {
       this.undoStack.push(this.beforeStroke);
       if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
       this.beforeStroke = null;
@@ -634,6 +698,19 @@ export class MaskEditor {
   normalizeMask() {
     const imageData = this.maskCtx.getImageData(0, 0, this.maskCanvas.width, this.maskCanvas.height);
     this.maskCtx.putImageData(normalizeMaskImageData(imageData), 0, 0);
+  }
+
+  updateCanvasCursor() {
+    if (!this.canvas?.style) return;
+    if (this.activePointerMode === "camera_pan") {
+      this.canvas.style.cursor = "grabbing";
+    } else if (this.spacePanHeld || this.tool === "pan") {
+      this.canvas.style.cursor = "grab";
+    } else if (["brush", "erase"].includes(this.tool)) {
+      this.canvas.style.cursor = "crosshair";
+    } else {
+      this.canvas.style.cursor = "default";
+    }
   }
 }
 

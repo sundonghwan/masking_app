@@ -1,4 +1,4 @@
-import { DEFAULT_ACTORS, DEFAULT_PROJECT } from "../config/runtimeDefaults.js";
+import { DEFAULT_ACTORS } from "../config/runtimeDefaults.js";
 
 export const MASK_CONTRACT = {
   format: "8-bit grayscale PNG",
@@ -27,8 +27,8 @@ export function createProjectRecord(input = {}, options = {}) {
   const now = options.now || new Date().toISOString();
 
   return {
-    id: normalizeText(input.id || input.projectId || DEFAULT_PROJECT.id),
-    name: normalizeText(input.name || DEFAULT_PROJECT.name),
+    id: normalizeText(input.id || input.projectId || ""),
+    name: normalizeText(input.name || input.id || input.projectId || ""),
     description: normalizeText(input.description || ""),
     created_at: input.createdAt || input.created_at || now,
     updated_at: input.updatedAt || input.updated_at || now,
@@ -330,7 +330,7 @@ async function createBrowserImageRecord(file, options = {}) {
 
   return {
     id,
-    project_id: options.projectId || DEFAULT_PROJECT.id,
+    project_id: options.projectId || "",
     original_file_name: file.name,
     fileName: file.name,
     image_path: `images/${exportImageFileName}`,

@@ -1061,6 +1061,15 @@ h2 {
   grid-template-columns: minmax(190px, 240px) minmax(0, 1fr) minmax(280px, 320px);
 }
 
+.compact-dashboard {
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(260px, 320px);
+  align-items: start;
+}
+
+.dashboard-wide {
+  grid-column: 1 / -1;
+}
+
 .table-wrap {
   overflow: auto;
   border: 1px solid var(--border-subtle);
