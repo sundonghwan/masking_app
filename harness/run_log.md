@@ -674,3 +674,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] ./scripts/harness/smoke-web.sh
 [REVIEW] finding=none-blocking scope=storage-hierarchy-training-set-export-design notes=checked-source-traceability-collision-policy-api-phase-and-open-question
 [CLOSE] status=storage-hierarchy-training-set-export-design-ready-for-commit
+[GIT] commit=9c4e259 message="Extend storage design for training exports"
+[GIT] push=origin/main status=passed range=210b777..9c4e259
