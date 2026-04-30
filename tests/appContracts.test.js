@@ -200,6 +200,31 @@ test("discovery controls expose image search and operational filters", () => {
   assert.match(app, /function restoreImageListScroll\(position\)/);
 });
 
+test("workbench exposes version settings account and training operations", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="taskSelector"/);
+  assert.match(html, /id="versionSelector"/);
+  assert.match(html, /id="cloneVersionButton"/);
+  assert.match(html, /id="deleteVersionButton"/);
+  assert.match(html, /id="restoreVersionButton"/);
+  assert.match(html, /id="purgeVersionButton"/);
+  assert.match(html, /id="trainingSourcePicker"/);
+  assert.match(html, /id="trainingExportButton"/);
+  assert.match(html, /id="saveProjectSettingsButton"/);
+  assert.match(html, /id="saveUserButton"/);
+  assert.match(app, /taskId: DEFAULT_TASK_ID/);
+  assert.match(app, /versionId: DEFAULT_VERSION_ID/);
+  assert.match(app, /function refreshVersionContext\(/);
+  assert.match(app, /apiClient\.cloneTaskVersion/);
+  assert.match(app, /apiClient\.purgeTaskVersion/);
+  assert.match(app, /apiClient\.updateProjectSettings/);
+  assert.match(app, /apiClient\.downloadTrainingSetExport/);
+  assert.match(app, /apiClient\.createUser/);
+  assert.match(app, /apiClient\.updateUser/);
+});
+
 test("project discovery searches full server project list without four item cap", () => {
   const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");

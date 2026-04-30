@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const DEFAULT_MANIFEST = {
@@ -186,6 +186,7 @@ export function createFileStorage({ rootDir = "data" } = {}) {
         created_by: String(input.createdBy || input.created_by || ""),
         created_at: now,
         updated_at: now,
+        revision: normalizeRevision(input.revision, 1),
         images: Array.isArray(input.images) ? input.images.map((image) => normalizeVersionImageRecord(image, paths, now)) : [],
       };
       await this.writeVersionManifest(paths.projectId, paths.taskId, paths.versionId, manifest);
@@ -216,10 +217,152 @@ export function createFileStorage({ rootDir = "data" } = {}) {
     },
     async writeVersionManifest(projectId, taskId = DEFAULT_TASK_ID, versionId = DEFAULT_VERSION_ID, manifest) {
       const paths = this.getHierarchyPaths(projectId, taskId, versionId);
-      assertJsonSerializable(manifest, "versionManifest");
+      const normalizedManifest = {
+        ...manifest,
+        project_id: paths.projectId,
+        task_id: paths.taskId,
+        version_id: paths.versionId,
+        revision: normalizeRevision(manifest?.revision, 1),
+      };
+      assertJsonSerializable(normalizedManifest, "versionManifest");
       await ensureVersionDirs(paths.versionRoot);
-      await writeJsonFile(paths.versionManifestPath, manifest);
-      return manifest;
+      await writeJsonFile(paths.versionManifestPath, normalizedManifest);
+      return normalizedManifest;
+    },
+    async cloneVersionManifest(projectId, taskId, sourceVersionId, targetVersionId, input = {}) {
+      const sourcePaths = this.getHierarchyPaths(projectId, taskId, sourceVersionId);
+      const targetPaths = this.getHierarchyPaths(projectId, taskId, targetVersionId);
+      const source = await this.readVersionManifest(sourcePaths.projectId, sourcePaths.taskId, sourcePaths.versionId);
+      if (!source) {
+        throw new TypeError("Source version manifest is required");
+      }
+
+      const existing = await this.readVersionManifest(targetPaths.projectId, targetPaths.taskId, targetPaths.versionId);
+      if (existing) {
+        throw new TypeError("Target version manifest already exists");
+      }
+
+      await this.ensureTaskMetadata(targetPaths.projectId, targetPaths.taskId, {
+        currentVersion: targetPaths.versionId,
+        now: input.now,
+      });
+      const now = normalizeNow(input.now);
+      const images = Array.isArray(source.images)
+        ? source.images.map((image) => cloneVersionImageRecord(image, targetPaths, now))
+        : [];
+      for (const image of images) {
+        await copyVersionRecordFiles(sourcePaths.versionRoot, targetPaths.versionRoot, image);
+      }
+      const manifest = {
+        ...source,
+        project_id: targetPaths.projectId,
+        task_id: targetPaths.taskId,
+        version_id: targetPaths.versionId,
+        status: String(input.status || "in_progress"),
+        created_by: String(input.createdBy || input.created_by || source.created_by || ""),
+        created_at: now,
+        updated_at: now,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+        source_version_id: sourcePaths.versionId,
+        revision: 1,
+        images,
+      };
+      return this.writeVersionManifest(targetPaths.projectId, targetPaths.taskId, targetPaths.versionId, manifest);
+    },
+    async softDeleteVersionManifest(projectId, taskId, versionId, input = {}) {
+      return this.updateVersionManifestDeletion(projectId, taskId, versionId, {
+        mode: "delete",
+        actor: input.deletedBy || input.deleted_by || "",
+        reason: input.reason || input.deleteReason || input.delete_reason || "",
+        now: input.now,
+      });
+    },
+    async restoreVersionManifest(projectId, taskId, versionId, input = {}) {
+      return this.updateVersionManifestDeletion(projectId, taskId, versionId, {
+        mode: "restore",
+        now: input.now,
+      });
+    },
+    async updateVersionManifestDeletion(projectId, taskId, versionId, operation) {
+      const paths = this.getHierarchyPaths(projectId, taskId, versionId);
+      const manifest = await this.readVersionManifest(paths.projectId, paths.taskId, paths.versionId);
+      if (!manifest) {
+        throw new TypeError("Version manifest is required");
+      }
+
+      const now = normalizeNow(operation.now);
+      let updatedManifest;
+      if (operation.mode === "delete") {
+        updatedManifest = {
+          ...manifest,
+          deleted_at: manifest.deleted_at || now,
+          deleted_by: String(operation.actor || ""),
+          delete_reason: String(operation.reason || ""),
+          updated_at: now,
+          revision: incrementRevision(manifest.revision),
+        };
+      } else if (operation.mode === "restore") {
+        updatedManifest = {
+          ...manifest,
+          deleted_at: "",
+          deleted_by: "",
+          delete_reason: "",
+          updated_at: now,
+          revision: incrementRevision(manifest.revision),
+        };
+      } else {
+        throw new TypeError("Unsupported version manifest deletion operation");
+      }
+
+      return this.writeVersionManifest(paths.projectId, paths.taskId, paths.versionId, updatedManifest);
+    },
+    async purgeSoftDeletedVersionFiles(projectId, taskId, versionId) {
+      const paths = this.getHierarchyPaths(projectId, taskId, versionId);
+      const manifest = await this.readVersionManifest(paths.projectId, paths.taskId, paths.versionId);
+      if (!manifest) {
+        throw new TypeError("Version manifest is required");
+      }
+
+      const result = {
+        deleted_count: 0,
+        missing_count: 0,
+        skipped_count: 0,
+        deleted_paths: [],
+        missing_paths: [],
+        skipped_paths: [],
+      };
+      const seen = new Set();
+      const images = Array.isArray(manifest.images) ? manifest.images : [];
+
+      for (const image of images) {
+        const references = [image.image_path, image.current_mask_path].filter(Boolean);
+        if (!image.deleted_at) {
+          result.skipped_count += references.length;
+          result.skipped_paths.push(...references.map((relativePath) => sanitizeRelativePath(relativePath)));
+          continue;
+        }
+
+        for (const relativePath of references) {
+          const safeRelative = sanitizeRelativePath(relativePath);
+          if (seen.has(safeRelative)) continue;
+          seen.add(safeRelative);
+          const deletedPaths = await purgeVersionRelativeFile(paths.versionRoot, safeRelative);
+          if (deletedPaths.length === 0) {
+            result.missing_count += 1;
+            result.missing_paths.push(safeRelative);
+          } else {
+            result.deleted_count += deletedPaths.length;
+            result.deleted_paths.push(...deletedPaths);
+          }
+        }
+      }
+
+      result.deleted_paths.sort();
+      result.missing_paths.sort();
+      result.skipped_paths.sort();
+      return result;
     },
     async writeVersionImageFromDataUrl(projectId, taskId, versionId, imageId, fileName, dataUrl) {
       const { buffer, mimeType } = decodeDataUrl(dataUrl, {
@@ -317,6 +460,7 @@ export function createFileStorage({ rootDir = "data" } = {}) {
         ...manifest,
         images,
         updated_at: now,
+        revision: incrementRevision(manifest.revision),
       };
       await this.writeVersionManifest(paths.projectId, paths.taskId, paths.versionId, updatedManifest);
       return images[index];
@@ -562,6 +706,22 @@ export function writeVersionManifest(projectId, taskId, versionId, manifest) {
   return defaultStorage.writeVersionManifest(projectId, taskId, versionId, manifest);
 }
 
+export function cloneVersionManifest(projectId, taskId, sourceVersionId, targetVersionId, input = {}) {
+  return defaultStorage.cloneVersionManifest(projectId, taskId, sourceVersionId, targetVersionId, input);
+}
+
+export function softDeleteVersionManifest(projectId, taskId, versionId, input = {}) {
+  return defaultStorage.softDeleteVersionManifest(projectId, taskId, versionId, input);
+}
+
+export function restoreVersionManifest(projectId, taskId, versionId, input = {}) {
+  return defaultStorage.restoreVersionManifest(projectId, taskId, versionId, input);
+}
+
+export function purgeSoftDeletedVersionFiles(projectId, taskId, versionId) {
+  return defaultStorage.purgeSoftDeletedVersionFiles(projectId, taskId, versionId);
+}
+
 export function writeVersionImageFromDataUrl(projectId, taskId, versionId, imageId, fileName, dataUrl) {
   return defaultStorage.writeVersionImageFromDataUrl(projectId, taskId, versionId, imageId, fileName, dataUrl);
 }
@@ -774,6 +934,15 @@ function normalizeNow(value) {
   return value ? String(value) : new Date().toISOString();
 }
 
+function normalizeRevision(value, fallback = 1) {
+  const revision = Number(value);
+  return Number.isSafeInteger(revision) && revision > 0 ? revision : fallback;
+}
+
+function incrementRevision(value) {
+  return normalizeRevision(value, 1) + 1;
+}
+
 function normalizeVersionImageRecord(record, paths, now) {
   const imageId = sanitizeSegment(record.id, "imageId");
   return {
@@ -796,10 +965,53 @@ function normalizeVersionImageRecord(record, paths, now) {
   };
 }
 
+function cloneVersionImageRecord(record, paths, now) {
+  const imageId = sanitizeSegment(record.id, "imageId");
+  return {
+    ...record,
+    id: imageId,
+    project_id: paths.projectId,
+    task_id: paths.taskId,
+    version_id: paths.versionId,
+    image_path: record.image_path ? sanitizeRelativePath(record.image_path) : "",
+    current_mask_path: record.current_mask_path ? sanitizeRelativePath(record.current_mask_path) : "",
+    created_at: now,
+    updated_at: now,
+  };
+}
+
 async function moveVersionRecordFiles(versionRoot, record, mode) {
   const paths = [record.image_path, record.current_mask_path].filter(Boolean);
   for (const relativePath of paths) {
     await moveVersionRelativeFile(versionRoot, relativePath, mode);
+  }
+}
+
+async function copyVersionRecordFiles(sourceVersionRoot, targetVersionRoot, record) {
+  const paths = [record.image_path, record.current_mask_path].filter(Boolean);
+  for (const relativePath of paths) {
+    await copyVersionRelativeFile(sourceVersionRoot, targetVersionRoot, relativePath);
+  }
+}
+
+async function copyVersionRelativeFile(sourceVersionRoot, targetVersionRoot, relativePath) {
+  const safeRelative = sanitizeRelativePath(relativePath);
+  const [kind, ...rest] = safeRelative.split("/");
+  if (!["images", "masks"].includes(kind) || rest.length === 0) {
+    throw new TypeError("Only version image and mask files can be cloned");
+  }
+
+  const sourcePath = safeJoin(sourceVersionRoot, safeRelative);
+  const targetPath = safeJoin(targetVersionRoot, safeRelative);
+  try {
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    if (await fileExists(targetPath)) {
+      throw new TypeError("Target clone file already exists");
+    }
+    await copyFile(sourcePath, targetPath);
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
   }
 }
 
@@ -825,6 +1037,32 @@ async function moveVersionRelativeFile(versionRoot, relativePath, mode) {
     if (error.code === "ENOENT") return;
     throw error;
   }
+}
+
+async function purgeVersionRelativeFile(versionRoot, relativePath) {
+  const safeRelative = sanitizeRelativePath(relativePath);
+  const [kind, ...rest] = safeRelative.split("/");
+  if (!["images", "masks"].includes(kind) || rest.length === 0) {
+    throw new TypeError("Only version image and mask files can be purged");
+  }
+
+  const candidates = [
+    { file: safeJoin(versionRoot, safeRelative), relativePath: safeRelative },
+    { file: safeJoin(versionRoot, "trash", kind, ...rest), relativePath: toArchivePath("trash", kind, ...rest) },
+  ];
+  const deletedPaths = [];
+  for (const candidate of candidates) {
+    try {
+      const info = await stat(candidate.file);
+      if (!info.isFile()) continue;
+      await rm(candidate.file);
+      deletedPaths.push(candidate.relativePath);
+    } catch (error) {
+      if (error.code === "ENOENT") continue;
+      throw error;
+    }
+  }
+  return deletedPaths;
 }
 
 async function fileExists(file) {

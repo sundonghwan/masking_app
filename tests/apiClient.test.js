@@ -45,6 +45,51 @@ test("creates a project with upload policy settings", async () => {
   });
 });
 
+test("updates project settings with upload policy, magic preset, and revision guard", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { token: "sess_admin" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ settings: { revision: 3 } }, 200);
+    },
+  });
+
+  const result = await client.updateProjectSettings("project 1", {
+    uploadPolicy: {
+      maxFileBytes: 1048576,
+      allowedMimeTypes: ["image/png"],
+      allowedExtensions: [".png"],
+    },
+    magicToolPreset: {
+      colorTolerance: 24,
+      edgeThreshold: 72,
+      maxPixels: 50000,
+      smoothIterations: 1,
+    },
+    ifMatchRevision: 2,
+  });
+
+  assert.equal(result.settings.revision, 3);
+  assert.equal(calls[0].url, "/api/projects/project%201/settings");
+  assert.equal(calls[0].options.method, "PATCH");
+  assert.equal(calls[0].options.headers.authorization, "Bearer sess_admin");
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    upload_policy: {
+      maxFileBytes: 1048576,
+      allowedMimeTypes: ["image/png"],
+      allowedExtensions: [".png"],
+    },
+    magic_tool_preset: {
+      colorTolerance: 24,
+      edgeThreshold: 72,
+      maxPixels: 50000,
+      smoothIterations: 1,
+    },
+    if_match_revision: 2,
+  });
+});
+
 test("uploads an image and URL-encodes the project path segment", async () => {
   const calls = [];
   const client = createMaskingApiClient({
@@ -154,6 +199,47 @@ test("lists assignment users with optional role filter", async () => {
   assert.equal(result.users[0].user_id, "worker");
 });
 
+test("creates and updates local MVP users without exposing password fields", async () => {
+  const requests = [];
+  const client = createMaskingApiClient({
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return jsonResponse({ user: { user_id: "worker-2", role: "worker" } }, 200);
+    },
+    session: { token: "token-1" },
+  });
+
+  await client.createUser({
+    userId: "worker-2",
+    displayName: "Worker 2",
+    role: "worker",
+    password: "secret",
+    active: true,
+  });
+  await client.updateUser("worker-2", {
+    displayName: "Worker Two",
+    password: "new-secret",
+    active: false,
+  });
+
+  assert.equal(requests[0].url, "/api/users");
+  assert.equal(requests[0].options.method, "POST");
+  assert.deepEqual(JSON.parse(requests[0].options.body), {
+    user_id: "worker-2",
+    display_name: "Worker 2",
+    role: "worker",
+    password: "secret",
+    active: true,
+  });
+  assert.equal(requests[1].url, "/api/users/worker-2");
+  assert.equal(requests[1].options.method, "PUT");
+  assert.deepEqual(JSON.parse(requests[1].options.body), {
+    display_name: "Worker Two",
+    password: "new-secret",
+    active: false,
+  });
+});
+
 test("lists, creates, and reads project tasks", async () => {
   const calls = [];
   const client = createMaskingApiClient({
@@ -225,6 +311,59 @@ test("lists, creates, and reads task versions", async () => {
     status: "draft",
   });
   assert.equal(calls[2].url, "/api/projects/project-1/tasks/task%201/versions/v2");
+});
+
+test("mutates task versions and lists training sources", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { token: "sess_admin" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      if (url.endsWith("/clone")) return jsonResponse({ version: { version_id: "v2" } }, 201);
+      if (url.endsWith("/restore")) return jsonResponse({ version: { version_id: "v1", deleted_at: "" } }, 200);
+      if (url.endsWith("/purge")) return jsonResponse({ purge: { deleted_files: 2 } }, 200);
+      if (url === "/api/training-sources") return jsonResponse({ sources: [{ project_id: "project-1" }], total_sources: 1 }, 200);
+      return jsonResponse({ version: { version_id: "v1", deleted_at: "2026-04-30T00:00:00.000Z" } }, 200);
+    },
+  });
+
+  const cloned = await client.cloneTaskVersion("project-1", "task 1", "v1", {
+    newVersionId: "v2",
+    ifMatchRevision: 4,
+  });
+  const removed = await client.deleteTaskVersion("project-1", "task 1", "v1", {
+    reason: "bad source",
+    ifMatchRevision: 5,
+  });
+  const restored = await client.restoreTaskVersion("project-1", "task 1", "v1", {
+    ifMatchRevision: 6,
+  });
+  const purged = await client.purgeTaskVersion("project-1", "task 1", "v1");
+  const sources = await client.listTrainingSources();
+
+  assert.equal(cloned.version.version_id, "v2");
+  assert.ok(removed.version.deleted_at);
+  assert.equal(restored.version.deleted_at, "");
+  assert.equal(purged.purge.deleted_files, 2);
+  assert.equal(sources.total_sources, 1);
+  assert.equal(calls[0].url, "/api/projects/project-1/tasks/task%201/versions/v1/clone");
+  assert.deepEqual(JSON.parse(calls[0].options.body), {
+    new_version_id: "v2",
+    if_match_revision: 4,
+  });
+  assert.equal(calls[1].url, "/api/projects/project-1/tasks/task%201/versions/v1");
+  assert.equal(calls[1].options.method, "DELETE");
+  assert.deepEqual(JSON.parse(calls[1].options.body), {
+    delete_reason: "bad source",
+    if_match_revision: 5,
+  });
+  assert.equal(calls[2].url, "/api/projects/project-1/tasks/task%201/versions/v1/restore");
+  assert.deepEqual(JSON.parse(calls[2].options.body), {
+    if_match_revision: 6,
+  });
+  assert.equal(calls[3].url, "/api/projects/project-1/tasks/task%201/versions/v1/purge");
+  assert.equal(calls[3].options.method, "POST");
+  assert.equal(calls[4].url, "/api/training-sources");
 });
 
 test("logs in and sends bearer token on protected requests", async () => {

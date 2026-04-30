@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { mkdtemp } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { Readable } from "node:stream";
 import test from "node:test";
 import { deflateSync } from "node:zlib";
 
 import { createApiRouter } from "../src/server/api.js";
 import { createMinimalPngHeader } from "../src/server/maskValidation.js";
+import { createUserDirectory } from "../src/server/userDirectory.js";
 
 const VALID_MASK_DATA_URL = toPngDataUrl(createGrayscalePng({ width: 2, height: 2, pixels: [0, 255, 0, 0] }));
 const DIMENSION_MISMATCH_DATA_URL = toPngDataUrl(createGrayscalePng({ width: 3, height: 2, pixels: [0, 255, 0, 0, 0, 0] }));
@@ -125,6 +129,92 @@ test("admin lists assignment users and role filters", async () => {
   assert.equal(response.body.users.some((user) => Object.hasOwn(user, "password")), false);
 });
 
+test("admin creates users through the API without exposing passwords", async () => {
+  const directory = await createTempUserDirectory();
+  const { route } = createApiHarness({ userDirectory: directory });
+  const adminHeaders = await loginHeaders(route, "admin");
+  const workerHeaders = await loginHeaders(route, "worker");
+
+  const rejected = await callJson(route, "POST", "/api/users", {
+    user_id: "worker-2",
+    role: "worker",
+    display_name: "Worker Two",
+    password: "worker2-pass",
+  }, workerHeaders);
+  assert.equal(rejected.statusCode, 403);
+
+  const created = await callJson(route, "POST", "/api/users", {
+    user_id: "worker-2",
+    role: "worker",
+    display_name: "Worker Two",
+    password: "worker2-pass",
+  }, adminHeaders);
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(created.body.user.user_id, "worker-2");
+  assert.equal(created.body.user.role, "worker");
+  assert.equal(created.body.user.active, true);
+  assert.equal(Object.hasOwn(created.body.user, "password"), false);
+
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "worker-2",
+    password: "worker2-pass",
+  }, {});
+  assert.equal(login.statusCode, 201);
+  assert.equal(login.body.session.role, "worker");
+});
+
+test("admin updates, resets password, deactivates, and reactivates API users", async () => {
+  const directory = await createTempUserDirectory();
+  const { route } = createApiHarness({ userDirectory: directory });
+  const adminHeaders = await loginHeaders(route, "admin");
+  await callJson(route, "POST", "/api/users", {
+    user_id: "reviewer-2",
+    role: "reviewer",
+    display_name: "Reviewer Two",
+    password: "old-pass",
+  }, adminHeaders);
+
+  const updated = await callJson(route, "PUT", "/api/users/reviewer-2", {
+    role: "worker",
+    display_name: "Worker Two",
+    password: "new-pass",
+  }, adminHeaders);
+  assert.equal(updated.statusCode, 200);
+  assert.equal(updated.body.user.role, "worker");
+  assert.equal(updated.body.user.display_name, "Worker Two");
+  assert.equal(Object.hasOwn(updated.body.user, "password"), false);
+  assert.equal((await callJson(route, "POST", "/api/session/login", {
+    user_id: "reviewer-2",
+    password: "old-pass",
+  }, {})).statusCode, 401);
+  assert.equal((await callJson(route, "POST", "/api/session/login", {
+    user_id: "reviewer-2",
+    password: "new-pass",
+  }, {})).statusCode, 201);
+
+  const deactivated = await callJson(route, "PUT", "/api/users/reviewer-2", {
+    active: false,
+  }, adminHeaders);
+  assert.equal(deactivated.statusCode, 200);
+  assert.equal(deactivated.body.user.active, false);
+  assert.equal((await callJson(route, "POST", "/api/session/login", {
+    user_id: "reviewer-2",
+    password: "new-pass",
+  }, {})).statusCode, 401);
+  assert.deepEqual((await callJson(route, "GET", "/api/users?role=worker", null, adminHeaders)).body.users.map((user) => user.user_id), ["worker"]);
+
+  const reactivated = await callJson(route, "PUT", "/api/users/reviewer-2", {
+    active: true,
+  }, adminHeaders);
+  assert.equal(reactivated.statusCode, 200);
+  assert.equal(reactivated.body.user.active, true);
+  assert.equal((await callJson(route, "POST", "/api/session/login", {
+    user_id: "reviewer-2",
+    password: "new-pass",
+  }, {})).statusCode, 201);
+});
+
 test("persistent session store can authorize later requests", async () => {
   const sessionRecords = new Map();
   const sessionStore = {
@@ -222,6 +312,55 @@ test("project upload policy is used during image upload validation", async () =>
 
   assert.equal(response.statusCode, 413);
   assert.equal(storage.imageWrites.length, 0);
+});
+
+test("admin updates project settings and revision guard rejects stale writes", async () => {
+  const { route, storage } = createApiHarness();
+  const adminHeaders = await loginHeaders(route, "admin");
+  const workerHeaders = await loginHeaders(route, "worker");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.writeProjectManifest("project-1", {
+    ...(await storage.readProjectManifest("project-1")),
+    revision: 2,
+  });
+
+  const rejectedRole = await callJson(route, "PATCH", "/api/projects/project-1/settings", {
+    upload_policy: { maxFileBytes: 1024 },
+  }, workerHeaders);
+  assert.equal(rejectedRole.statusCode, 403);
+
+  const stale = await callJson(route, "PATCH", "/api/projects/project-1/settings", {
+    if_match_revision: 1,
+    upload_policy: { maxFileBytes: 1024 },
+  }, adminHeaders);
+  assert.equal(stale.statusCode, 409);
+  assert.equal(stale.body.error, "revision_conflict");
+
+  const updated = await callJson(route, "PATCH", "/api/projects/project-1/settings", {
+    if_match_revision: 2,
+    upload_policy: {
+      maxFileBytes: 1024,
+      allowedMimeTypes: ["image/png"],
+      allowedExtensions: ["png"],
+    },
+    magic_tool_preset: {
+      colorTolerance: 24,
+      edgeThreshold: 72,
+      maxPixels: 50000,
+      smoothIterations: 1,
+    },
+  }, adminHeaders);
+
+  assert.equal(updated.statusCode, 200);
+  assert.equal(updated.body.settings.upload_policy.maxFileBytes, 1024);
+  assert.deepEqual(updated.body.settings.upload_policy.allowedExtensions, [".png"]);
+  assert.equal(updated.body.settings.magic_tool_preset.colorTolerance, 24);
+  assert.equal(updated.body.settings.revision, 3);
+
+  const manifest = await storage.readProjectManifest("project-1");
+  assert.equal(manifest.upload_policy.maxFileBytes, 1024);
+  assert.equal(manifest.magic_tool_preset.edgeThreshold, 72);
+  assert.equal(manifest.revision, 3);
 });
 
 test("review events use authenticated session identity instead of request body reviewer", async () => {
@@ -948,6 +1087,104 @@ test("admin creates versions and authorized users list and read version manifest
   assert.deepEqual(read.body.version.images, []);
 });
 
+test("admin clones, soft deletes, and restores version manifests through storage helpers", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.ensureTaskMetadata("project-1", "task-1", { name: "Task 1" });
+  await storage.ensureVersionManifest("project-1", "task-1", "v1", {
+    status: "ready",
+    images: [{ id: "image-1", status: "approved" }],
+  });
+  await storage.writeVersionManifest("project-1", "task-1", "v1", {
+    ...(await storage.readVersionManifest("project-1", "task-1", "v1")),
+    revision: 4,
+  });
+  const adminHeaders = await loginHeaders(route, "admin");
+  const workerHeaders = await loginHeaders(route, "worker");
+
+  const rejectedRole = await callJson(route, "POST", "/api/projects/project-1/tasks/task-1/versions/v1/clone", {
+    new_version_id: "v2",
+  }, workerHeaders);
+  assert.equal(rejectedRole.statusCode, 403);
+
+  const cloned = await callJson(route, "POST", "/api/projects/project-1/tasks/task-1/versions/v1/clone", {
+    new_version_id: "v2",
+    if_match_revision: 4,
+  }, adminHeaders);
+  const deleted = await callJson(route, "DELETE", "/api/projects/project-1/tasks/task-1/versions/v2", {
+    delete_reason: "bad labels",
+    if_match_revision: 1,
+  }, adminHeaders);
+  const restored = await callJson(route, "POST", "/api/projects/project-1/tasks/task-1/versions/v2/restore", {
+    if_match_revision: 2,
+  }, adminHeaders);
+  const purged = await callJson(route, "POST", "/api/projects/project-1/tasks/task-1/versions/v2/purge", {}, adminHeaders);
+
+  assert.equal(cloned.statusCode, 201);
+  assert.equal(cloned.body.version.version_id, "v2");
+  assert.equal(cloned.body.version.revision, 1);
+  assert.equal(cloned.body.version.cloned_from_version_id, "v1");
+  assert.equal(deleted.statusCode, 200);
+  assert.equal(deleted.body.version.deleted_by, "admin");
+  assert.equal(deleted.body.version.delete_reason, "bad labels");
+  assert.equal(deleted.body.version.revision, 2);
+  assert.equal(restored.statusCode, 200);
+  assert.equal(restored.body.version.deleted_at, "");
+  assert.equal(restored.body.version.revision, 3);
+  assert.equal(purged.statusCode, 200);
+  assert.equal(purged.body.purge.deleted_files, 0);
+});
+
+test("version mutation revision guard returns conflict before storage helper mutation", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.ensureTaskMetadata("project-1", "task-1", { name: "Task 1" });
+  await storage.ensureVersionManifest("project-1", "task-1", "v1", { status: "ready" });
+  await storage.writeVersionManifest("project-1", "task-1", "v1", {
+    ...(await storage.readVersionManifest("project-1", "task-1", "v1")),
+    revision: 7,
+  });
+  const adminHeaders = await loginHeaders(route, "admin");
+
+  const response = await callJson(route, "DELETE", "/api/projects/project-1/tasks/task-1/versions/v1", {
+    if_match_revision: 6,
+  }, adminHeaders);
+
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.body.error, "revision_conflict");
+  assert.equal(response.body.expected_revision, 7);
+  assert.equal((await storage.readVersionManifest("project-1", "task-1", "v1")).deleted_at, undefined);
+});
+
+test("authorized users discover training export sources from project task versions", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.ensureProject("legacy-project", { name: "Legacy Project" });
+  await storage.addImage("legacy-project", { ...baseImage(), id: "legacy-approved", status: "approved" });
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.ensureTaskMetadata("project-1", "task-1", { name: "Task 1" });
+  await storage.ensureVersionManifest("project-1", "task-1", "v1", {
+    status: "ready",
+    images: [
+      { ...baseImage(), id: "approved-1", status: "approved" },
+      { ...baseImage(), id: "deleted-1", status: "approved", deleted_at: "2026-04-30T00:00:00.000Z" },
+    ],
+  });
+  const headers = await loginHeaders(route, "reviewer");
+
+  const response = await callJson(route, "GET", "/api/training-sources", null, headers);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.total_sources, 2);
+  assert.deepEqual(response.body.sources.map((source) => `${source.project_id}/${source.task_id}/${source.version_id}`).sort(), [
+    "legacy-project/legacy_project/legacy",
+    "project-1/task-1/v1",
+  ]);
+  const versionSource = response.body.sources.find((source) => source.version_id === "v1");
+  assert.equal(versionSource.total_images, 2);
+  assert.equal(versionSource.active_images, 1);
+  assert.equal(versionSource.approved_images, 1);
+});
+
 test("task and version routes do not replace legacy project manifest routes", async () => {
   const { route, storage } = createApiHarness();
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -966,6 +1203,11 @@ function createApiHarness(options = {}) {
     storage,
     route: createApiRouter({ storage, ...options }),
   };
+}
+
+async function createTempUserDirectory() {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), "masking-api-users-test-"));
+  return createUserDirectory({ rootDir });
 }
 
 function createMemoryStorage() {
@@ -1120,6 +1362,67 @@ function createMemoryStorage() {
       return versions.has(`${projectId}/${safeTaskId}/${safeVersionId}`)
         ? clone(versions.get(`${projectId}/${safeTaskId}/${safeVersionId}`))
         : null;
+    },
+    async writeVersionManifest(projectId, taskId, versionId, manifest) {
+      const safeTaskId = String(taskId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      const safeVersionId = String(versionId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");
+      const next = {
+        ...clone(manifest),
+        project_id: projectId,
+        task_id: safeTaskId,
+        version_id: safeVersionId,
+      };
+      versions.set(`${projectId}/${safeTaskId}/${safeVersionId}`, next);
+      return clone(next);
+    },
+    async cloneVersionManifest(projectId, taskId, sourceVersionId, newVersionId, input = {}) {
+      const source = await this.readVersionManifest(projectId, taskId, sourceVersionId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      return this.writeVersionManifest(projectId, taskId, newVersionId, {
+        ...source,
+        version_id: newVersionId,
+        status: "draft",
+        created_by: input.createdBy || input.created_by || source.created_by || "",
+        created_at: now,
+        updated_at: now,
+        cloned_from_version_id: source.version_id,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+        revision: 1,
+      });
+    },
+    async softDeleteVersionManifest(projectId, taskId, versionId, input = {}) {
+      const version = await this.readVersionManifest(projectId, taskId, versionId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      return this.writeVersionManifest(projectId, taskId, versionId, {
+        ...version,
+        deleted_at: version.deleted_at || now,
+        deleted_by: input.deletedBy || input.deleted_by || "",
+        delete_reason: input.reason || input.deleteReason || input.delete_reason || "",
+        updated_at: now,
+        revision: Number(version.revision || 0) + 1,
+      });
+    },
+    async restoreVersionManifest(projectId, taskId, versionId, input = {}) {
+      const version = await this.readVersionManifest(projectId, taskId, versionId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      return this.writeVersionManifest(projectId, taskId, versionId, {
+        ...version,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+        updated_at: now,
+        revision: Number(version.revision || 0) + 1,
+      });
+    },
+    async purgeSoftDeletedVersionFiles() {
+      return {
+        deleted_files: 0,
+        deletedFiles: 0,
+        deleted_paths: [],
+        missing_paths: [],
+      };
     },
     async listTaskVersions(projectId, taskId) {
       const safeTaskId = String(taskId).trim().replace(/[^a-zA-Z0-9._-]/g, "_");

@@ -77,6 +77,70 @@ test("user directory role filter returns active assignment candidates only", asy
   assert.equal(await directory.userHasRole("disabled-worker", ROLES.WORKER), false);
 });
 
+test("user directory creates users without returning stored passwords", async () => {
+  const { directory, rootDir } = await createTempUserDirectory();
+
+  const created = await directory.createUser({
+    user_id: "worker-2",
+    role: ROLES.WORKER,
+    display_name: "Worker Two",
+    password: "initial-pass",
+  });
+
+  assert.equal(created.user_id, "worker-2");
+  assert.equal(created.role, ROLES.WORKER);
+  assert.equal(created.display_name, "Worker Two");
+  assert.equal(Object.hasOwn(created, "password"), false);
+  assert.equal((await directory.validateCredentials({ user_id: "worker-2", password: "initial-pass" })).role, ROLES.WORKER);
+
+  const stored = JSON.parse(await readFile(path.join(rootDir, "identity", "users.json"), "utf8"));
+  assert.equal(stored.users.find((user) => user.user_id === "worker-2").password, "initial-pass");
+});
+
+test("user directory updates profile fields and rotates passwords", async () => {
+  const { directory } = await createTempUserDirectory();
+  await directory.createUser({
+    user_id: "reviewer-2",
+    role: ROLES.REVIEWER,
+    display_name: "Reviewer Two",
+    password: "old-pass",
+  });
+
+  const updated = await directory.updateUser("reviewer-2", {
+    role: ROLES.WORKER,
+    display_name: "Worker Former Reviewer",
+    password: "new-pass",
+  });
+
+  assert.equal(updated.user_id, "reviewer-2");
+  assert.equal(updated.role, ROLES.WORKER);
+  assert.equal(updated.display_name, "Worker Former Reviewer");
+  assert.equal(Object.hasOwn(updated, "password"), false);
+  assert.equal(await directory.validateCredentials({ user_id: "reviewer-2", password: "old-pass" }), null);
+  assert.equal((await directory.validateCredentials({ user_id: "reviewer-2", password: "new-pass" })).role, ROLES.WORKER);
+});
+
+test("user directory deactivates and reactivates stored users", async () => {
+  const { directory } = await createTempUserDirectory();
+  await directory.createUser({
+    user_id: "worker-3",
+    role: ROLES.WORKER,
+    display_name: "Worker Three",
+    password: "worker-pass",
+  });
+
+  const deactivated = await directory.deactivateUser("worker-3");
+  assert.equal(deactivated.active, false);
+  assert.equal(Object.hasOwn(deactivated, "password"), false);
+  assert.equal(await directory.validateCredentials({ user_id: "worker-3", password: "worker-pass" }), null);
+  assert.deepEqual((await directory.listUsersByRole(ROLES.WORKER)).map((user) => user.user_id), ["worker"]);
+
+  const reactivated = await directory.reactivateUser("worker-3");
+  assert.equal(reactivated.active, true);
+  assert.equal((await directory.validateCredentials({ user_id: "worker-3", password: "worker-pass" })).role, ROLES.WORKER);
+  assert.deepEqual((await directory.listUsersByRole(ROLES.WORKER)).map((user) => user.user_id), ["worker", "worker-3"]);
+});
+
 test("user directory exposes module-level integration helpers", () => {
   assert.equal(typeof ensureUserDirectorySeeded, "function");
   assert.equal(typeof listUsers, "function");

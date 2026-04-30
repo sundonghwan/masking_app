@@ -88,11 +88,45 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       });
     }
 
+    if (url.pathname === "/api/users" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      if (!userDirectory?.createUser) return userDirectoryUnavailable(response);
+
+      const body = await readJsonBody(request);
+      try {
+        const user = await userDirectory.createUser(userPayloadFromBody(body, { includeUserId: true }));
+        return sendJson(response, 201, { user });
+      } catch (error) {
+        return sendUserDirectoryError(response, error);
+      }
+    }
+
+    if (parts[0] === "api" && parts[1] === "users" && parts[2] && parts.length === 3 && request.method === "PUT") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      if (!userDirectory?.updateUser) return userDirectoryUnavailable(response);
+
+      const body = await readJsonBody(request);
+      try {
+        const user = await userDirectory.updateUser(decodePathSegment(parts[2]), userPayloadFromBody(body));
+        return sendJson(response, 200, { user });
+      } catch (error) {
+        return sendUserDirectoryError(response, error);
+      }
+    }
+
     if (url.pathname === "/api/training-sets/export" && request.method === "POST") {
       const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       const body = await readJsonBody(request);
       return exportTrainingSet(response, body, context);
+    }
+
+    if (url.pathname === "/api/training-sources" && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
+      return listTrainingSources(response);
     }
 
     if (url.pathname === "/api/projects" && request.method === "POST") {
@@ -154,6 +188,38 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
 
     if (parts[1] === "tasks") {
       return routeProjectTasks(request, response, projectId, parts.slice(2));
+    }
+
+    if (parts.length === 2 && parts[1] === "settings" && ["PATCH", "PUT"].includes(request.method)) {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const manifest = await storage.readProjectManifest(projectId);
+      if (!manifest) throw createHttpError(404, "Project not found");
+      if (!assertRevisionMatch(response, request, body, manifest.revision)) return;
+
+      const now = new Date().toISOString();
+      const updated = {
+        ...manifest,
+        ...(Object.hasOwn(body, "upload_policy") || Object.hasOwn(body, "uploadPolicy")
+          ? { upload_policy: normalizeUploadPolicy(body.upload_policy || body.uploadPolicy || {}, manifest.upload_policy) }
+          : {}),
+        ...(Object.hasOwn(body, "magic_tool_preset") || Object.hasOwn(body, "magicToolPreset")
+          ? { magic_tool_preset: normalizeMagicToolPreset(body.magic_tool_preset || body.magicToolPreset || {}, manifest.magic_tool_preset) }
+          : {}),
+        revision: nextRevision(manifest.revision),
+        updated_at: now,
+      };
+      await storage.writeProjectManifest(projectId, updated);
+      return sendJson(response, 200, {
+        settings: {
+          project_id: updated.project_id || projectId,
+          upload_policy: updated.upload_policy || normalizeUploadPolicy({}),
+          magic_tool_preset: updated.magic_tool_preset || normalizeMagicToolPreset({}),
+          revision: updated.revision,
+          updated_at: updated.updated_at,
+        },
+      });
     }
 
     if (parts.length === 2 && parts[1] === "images" && request.method === "POST") {
@@ -365,6 +431,81 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       const version = await storage.readVersionManifest(projectId, taskId, decodePathSegment(parts[0]));
       if (!version) throw createHttpError(404, "Version not found");
       return sendJson(response, 200, { version });
+    }
+
+    if (parts.length === 2 && parts[1] === "clone" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const sourceVersionId = decodePathSegment(parts[0]);
+      const body = await readJsonBody(request);
+      const newVersionId = body.new_version_id || body.newVersionId || body.version_id || body.versionId || body.id;
+      if (!newVersionId) {
+        return sendJson(response, 400, {
+          error: "version_id_required",
+          message: "New version ID is required",
+        });
+      }
+      const source = await storage.readVersionManifest(projectId, taskId, sourceVersionId);
+      if (!source) throw createHttpError(404, "Version not found");
+      if (!assertRevisionMatch(response, request, body, source.revision)) return;
+
+      const version = storage.cloneVersionManifest
+        ? await storage.cloneVersionManifest(projectId, taskId, sourceVersionId, newVersionId, { createdBy: session.userId })
+        : await cloneVersionManifest(projectId, taskId, source, newVersionId, session);
+      return sendJson(response, 201, { version });
+    }
+
+    if (parts.length === 1 && request.method === "DELETE") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const versionId = decodePathSegment(parts[0]);
+      const body = await readJsonBody(request);
+      const version = await storage.readVersionManifest(projectId, taskId, versionId);
+      if (!version) throw createHttpError(404, "Version not found");
+      if (!assertRevisionMatch(response, request, body, version.revision)) return;
+
+      const updated = storage.softDeleteVersionManifest
+        ? await storage.softDeleteVersionManifest(projectId, taskId, versionId, {
+            deletedBy: session.userId,
+            reason: body.delete_reason || body.deleteReason || body.reason,
+          })
+        : await updateVersionDeletion(projectId, taskId, version, {
+            mode: "delete",
+            actor: session.userId,
+            reason: body.delete_reason || body.deleteReason || body.reason,
+          });
+      return sendJson(response, 200, { version: updated });
+    }
+
+    if (parts.length === 2 && parts[1] === "restore" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const versionId = decodePathSegment(parts[0]);
+      const body = await readJsonBody(request);
+      const version = await storage.readVersionManifest(projectId, taskId, versionId);
+      if (!version) throw createHttpError(404, "Version not found");
+      if (!assertRevisionMatch(response, request, body, version.revision)) return;
+
+      const updated = storage.restoreVersionManifest
+        ? await storage.restoreVersionManifest(projectId, taskId, versionId)
+        : await updateVersionDeletion(projectId, taskId, version, { mode: "restore" });
+      return sendJson(response, 200, { version: updated });
+    }
+
+    if (parts.length === 2 && parts[1] === "purge" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const versionId = decodePathSegment(parts[0]);
+      const version = await storage.readVersionManifest(projectId, taskId, versionId);
+      if (!version) throw createHttpError(404, "Version not found");
+      if (!storage.purgeSoftDeletedVersionFiles) {
+        return sendJson(response, 501, {
+          error: "purge_unavailable",
+          message: "Version purge storage helper is not available",
+        });
+      }
+      const purge = await storage.purgeSoftDeletedVersionFiles(projectId, taskId, versionId);
+      return sendJson(response, 200, { purge });
     }
 
     return notFound(response);
@@ -678,6 +819,35 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       .sort((left, right) => left.user_id.localeCompare(right.user_id));
   }
 
+  function userDirectoryUnavailable(response) {
+    return sendJson(response, 501, {
+      error: "user_directory_unavailable",
+      message: "Writable user directory is not configured",
+    });
+  }
+
+  function sendUserDirectoryError(response, error) {
+    const statusCode = Number(error?.statusCode || 500);
+    if (statusCode >= 400 && statusCode < 500) {
+      return sendJson(response, statusCode, {
+        error: error.code || "user_directory_error",
+        message: error.message || "User directory request failed",
+      });
+    }
+    throw error;
+  }
+
+  function userPayloadFromBody(body = {}, options = {}) {
+    const payload = {};
+    if (options.includeUserId) payload.user_id = body.user_id || body.userId;
+    if (Object.hasOwn(body, "role")) payload.role = body.role;
+    if (Object.hasOwn(body, "display_name")) payload.display_name = body.display_name;
+    if (Object.hasOwn(body, "displayName")) payload.displayName = body.displayName;
+    if (Object.hasOwn(body, "password")) payload.password = body.password;
+    if (Object.hasOwn(body, "active")) payload.active = body.active;
+    return payload;
+  }
+
   async function readImageUpload(request) {
     const contentType = String(request.headers["content-type"] || "");
     if (contentType.toLowerCase().startsWith("multipart/form-data")) {
@@ -823,6 +993,167 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     manifest.updated_at = now;
     await storage.writeProjectManifest(projectId, manifest);
     return updated;
+  }
+
+  async function cloneVersionManifest(projectId, taskId, source, newVersionId, session) {
+    if (!storage.writeVersionManifest) {
+      throw createHttpError(501, "Version clone storage helper is not available");
+    }
+    const now = new Date().toISOString();
+    const version = {
+      ...source,
+      version_id: String(newVersionId || ""),
+      status: "draft",
+      created_by: session.userId || source.created_by || "",
+      created_at: now,
+      updated_at: now,
+      cloned_from_version_id: source.version_id,
+      deleted_at: "",
+      deleted_by: "",
+      delete_reason: "",
+      revision: 1,
+    };
+    await storage.writeVersionManifest(projectId, taskId, version.version_id, version);
+    return version;
+  }
+
+  async function updateVersionDeletion(projectId, taskId, version, operation) {
+    if (!storage.writeVersionManifest) {
+      throw createHttpError(501, "Version mutation storage helper is not available");
+    }
+    const now = new Date().toISOString();
+    const updated = operation.mode === "delete"
+      ? {
+          ...version,
+          deleted_at: version.deleted_at || now,
+          deleted_by: String(operation.actor || ""),
+          delete_reason: String(operation.reason || ""),
+          updated_at: now,
+          revision: nextRevision(version.revision),
+        }
+      : {
+          ...version,
+          deleted_at: "",
+          deleted_by: "",
+          delete_reason: "",
+          updated_at: now,
+          revision: nextRevision(version.revision),
+        };
+    await storage.writeVersionManifest(projectId, taskId, version.version_id, updated);
+    return updated;
+  }
+
+  function assertRevisionMatch(response, request, body = {}, currentRevision = 0) {
+    const expected = readIfMatchRevision(request, body);
+    if (expected === null) return true;
+    const actual = normalizeRevision(currentRevision);
+    if (expected === actual) return true;
+    sendJson(response, 409, {
+      error: "revision_conflict",
+      message: "The requested mutation is based on a stale revision",
+      expected_revision: actual,
+      received_revision: expected,
+    });
+    return false;
+  }
+
+  function readIfMatchRevision(request, body = {}) {
+    const value = body.if_match_revision ?? body.ifMatchRevision ?? request.headers["if-match"] ?? request.headers["If-Match"];
+    if (value === undefined || value === null || value === "") return null;
+    const cleaned = String(value).trim().replace(/^W\//i, "").replace(/^"|"$/g, "");
+    const revision = Number(cleaned);
+    return Number.isFinite(revision) ? revision : null;
+  }
+
+  function normalizeRevision(value) {
+    const revision = Number(value || 0);
+    return Number.isFinite(revision) && revision >= 0 ? revision : 0;
+  }
+
+  function nextRevision(value) {
+    return normalizeRevision(value) + 1;
+  }
+
+  function normalizeMagicToolPreset(input = {}, fallback = {}) {
+    const source = input && typeof input === "object" ? input : {};
+    const base = fallback && typeof fallback === "object" ? fallback : {};
+    return {
+      colorTolerance: clampNumber(source.colorTolerance ?? source.color_tolerance ?? base.colorTolerance ?? 42, 0, 255),
+      edgeThreshold: clampNumber(source.edgeThreshold ?? source.edge_threshold ?? base.edgeThreshold ?? 55, 0, 255),
+      maxPixels: clampNumber(source.maxPixels ?? source.max_pixels ?? base.maxPixels ?? 70000, 1, 10000000),
+      smoothIterations: clampNumber(source.smoothIterations ?? source.smooth_iterations ?? base.smoothIterations ?? 1, 0, 8),
+    };
+  }
+
+  function clampNumber(value, min, max) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return min;
+    return Math.min(max, Math.max(min, Math.round(numeric)));
+  }
+
+  async function listTrainingSources(response) {
+    const projects = await storage.listProjects();
+    const sources = [];
+    for (const project of projects) {
+      const projectId = project.project_id || project.id;
+      if (!projectId) continue;
+      const tasks = storage.listProjectTasks ? await storage.listProjectTasks(projectId) : [];
+      if (!Array.isArray(tasks) || tasks.length === 0) {
+        const manifest = await storage.readProjectManifest(projectId);
+        if (manifest) sources.push(createTrainingSourceSummary({
+          project: manifest,
+          task: { task_id: "legacy_project", name: "Legacy Project" },
+          version: {
+            project_id: projectId,
+            task_id: "legacy_project",
+            version_id: "legacy",
+            status: "legacy",
+            created_at: manifest.created_at,
+            updated_at: manifest.updated_at,
+            images: manifest.images || [],
+          },
+        }));
+        continue;
+      }
+      for (const task of tasks) {
+        const versions = storage.listTaskVersions ? await storage.listTaskVersions(projectId, task.task_id) : [];
+        for (const versionSummary of versions) {
+          const version = storage.readVersionManifest
+            ? await storage.readVersionManifest(projectId, task.task_id, versionSummary.version_id)
+            : versionSummary;
+          if (version) {
+            sources.push(createTrainingSourceSummary({ project, task, version }));
+          }
+        }
+      }
+    }
+    sources.sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
+    return sendJson(response, 200, {
+      sources,
+      total_sources: sources.length,
+    });
+  }
+
+  function createTrainingSourceSummary({ project = {}, task = {}, version = {} }) {
+    const images = Array.isArray(version.images) ? version.images : [];
+    const active = filterActiveImages(images);
+    return {
+      project_id: version.project_id || project.project_id,
+      project_name: project.name || version.project_name || version.project_id || project.project_id,
+      task_id: version.task_id || task.task_id || "legacy_project",
+      task_name: task.name || version.task_name || version.task_id || "Legacy Project",
+      version_id: version.version_id || "legacy",
+      status: version.status || "",
+      created_at: version.created_at || "",
+      updated_at: version.updated_at || "",
+      revision: normalizeRevision(version.revision),
+      total_images: images.length,
+      active_images: active.length,
+      submitted_images: active.filter((image) => image.status === "submitted").length,
+      approved_images: active.filter((image) => image.status === "approved").length,
+      rejected_images: active.filter((image) => image.status === "rejected").length,
+      deleted_at: version.deleted_at || "",
+    };
   }
 
   async function exportProject(response, projectId, context, options = {}) {

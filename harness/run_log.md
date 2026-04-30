@@ -865,3 +865,32 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=image-list-scroll-retention note=localized-render-side-effect-fix
 [CLOSE] status=ready-for-commit
+[START] task=complete-remaining-feature-batch subsystem=version-workbench,settings,accounts,training-export,concurrency,purge
+[PLAN] scope=all-remaining-feature-status-items risks=shared-app-controller,shared-server-api,revision-local-first-compatibility,destructive-purge-boundary
+[IMPACT] status=suspected chain=renderWorkbenchSelectors(src/app.js:*)->loadSelectedVersion(src/app.js:*)->apiClient task/version methods(src/api/client.js:*)->routeTaskVersions(src/server/api.js:*)->storage.readVersionManifest(src/server/storage.js:*)
+[IMPACT] status=suspected chain=version mutation UI(src/app.js:*)->apiClient version mutation(src/api/client.js:*)->routeTaskVersions(src/server/api.js:*)->storage clone/delete/restore helpers(src/server/storage.js:*)
+[IMPACT] status=suspected chain=projectSettingsForm(src/app.js:*)->apiClient.updateProjectSettings(src/api/client.js:*)->routeProject settings(src/server/api.js:*)->storage.writeProjectManifest/writeProjectMetadata(src/server/storage.js:*)
+[IMPACT] status=suspected chain=accountAdminForm(src/app.js:*)->apiClient user admin methods(src/api/client.js:*)->routeUsers(src/server/api.js:*)->userDirectory write helpers(src/server/userDirectory.js:*)
+[IMPACT] status=suspected chain=trainingSourcePicker(src/app.js:*)->apiClient source discovery/export(src/api/client.js:*)->exportTrainingSet(src/server/api.js:*)->createTrainingSetZipEntries(src/export/trainingSet.js:*)
+[IMPACT] status=suspected chain=revision-aware mutation(src/app.js:*)->API if_match_revision fields(src/server/api.js:*)->manifest revision update(src/server/storage.js:*)
+[FIX] scope=storage-hierarchy note=version-clone-soft-delete-restore-purge-and-revision-helpers-added
+[FIX] scope=account-admin note=local-user-create-update-deactivate-reactivate-and-password-rotation-added
+[FIX] scope=api-contracts note=project-settings-version-mutation-training-source-discovery-and-revision-conflict-routes-added
+[FIX] scope=frontend-workbench note=task-version-selector-settings-account-admin-training-source-picker-and-purge-controls-added
+[IMPACT_VALIDATE] task=complete-remaining-feature-batch chain=version-workbench-storage validation=appContracts-apiClient-serverApi-serverStorage-focused-tests-passed
+[IMPACT_VALIDATE] task=complete-remaining-feature-batch chain=project-settings validation=appContracts-apiClient-serverApi-focused-tests-passed
+[IMPACT_VALIDATE] task=complete-remaining-feature-batch chain=account-admin validation=appContracts-apiClient-serverApi-userDirectory-focused-tests-passed
+[IMPACT_VALIDATE] task=complete-remaining-feature-batch chain=training-source-picker-export validation=appContracts-apiClient-serverApi-focused-tests-passed
+[IMPACT_VALIDATE] task=complete-remaining-feature-batch chain=revision-guard validation=serverApi-focused-tests-passed
+[DOC] updated=docs/FEATURE_STATUS.md note=remaining-feature-items-closed-and-optional-hardening-separated
+[CMD] node --test tests/apiClient.test.js tests/serverApi.test.js tests/appContracts.test.js status=passed tests=92
+[FIX] scope=frontend-workbench note=non-admin-task-version-empty-state-now-uses-read-only-fallback-instead-of-admin-create-routes
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=194
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health,admin-login,users,projects,training-sources,index-head
+[IMPACT_VALIDATE] task=complete-remaining-feature-batch chain=version-workbench-storage validation=full-tests-and-live-http-smoke-passed
+[REVIEW] finding=none-blocking scope=complete-remaining-feature-batch note=role-boundary-fallback-fixed-before-closeout
+[CLOSE] status=ready-for-commit server=http://localhost:4173

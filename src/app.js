@@ -31,6 +31,9 @@ const SCREENS = {
   WORKBENCH: "workbench",
 };
 
+const DEFAULT_TASK_ID = "default_task";
+const DEFAULT_VERSION_ID = "v1";
+
 const state = {
   projectId: "",
   projectName: "",
@@ -66,6 +69,27 @@ const state = {
   projectCreateName: "",
   projectUploadLimitMb: 15,
   projectCreateMessage: "",
+  taskId: DEFAULT_TASK_ID,
+  versionId: DEFAULT_VERSION_ID,
+  taskSummaries: [],
+  versionSummaries: [],
+  versionRevision: 0,
+  versionMessage: "",
+  trainingSources: [],
+  selectedTrainingSourceIds: new Set(),
+  projectSettingsMessage: "",
+  settingsAllowedFormats: "image/png,image/jpeg,image/bmp,image/webp",
+  settingsMagicTolerance: 42,
+  settingsMagicEdge: 55,
+  adminUsers: [],
+  adminUserDraft: {
+    userId: "",
+    displayName: "",
+    role: ROLES.WORKER,
+    password: "",
+    active: true,
+  },
+  adminUserMessage: "",
 };
 
 const apiClient = createMaskingApiClient({
@@ -110,6 +134,13 @@ const els = {
   progressText: document.querySelector("#progressText"),
   workbenchProjectsButton: document.querySelector("#workbenchProjectsButton"),
   workbenchDashboardButton: document.querySelector("#workbenchDashboardButton"),
+  taskSelector: document.querySelector("#taskSelector"),
+  versionSelector: document.querySelector("#versionSelector"),
+  refreshVersionsButton: document.querySelector("#refreshVersionsButton"),
+  cloneVersionButton: document.querySelector("#cloneVersionButton"),
+  deleteVersionButton: document.querySelector("#deleteVersionButton"),
+  restoreVersionButton: document.querySelector("#restoreVersionButton"),
+  purgeVersionButton: document.querySelector("#purgeVersionButton"),
   queueAllCount: document.querySelector("#queueAllCount"),
   queueWorkCount: document.querySelector("#queueWorkCount"),
   queueReviewCount: document.querySelector("#queueReviewCount"),
@@ -165,6 +196,25 @@ const els = {
   exportErrorList: document.querySelector("#exportErrorList"),
   exportFilePreview: document.querySelector("#exportFilePreview"),
   exportPolicyMessage: document.querySelector("#exportPolicyMessage"),
+  trainingSourcePicker: document.querySelector("#trainingSourcePicker"),
+  trainingExportButton: document.querySelector("#trainingExportButton"),
+  settingsUploadLimitMb: document.querySelector("#settingsUploadLimitMb"),
+  settingsAllowedFormats: document.querySelector("#settingsAllowedFormats"),
+  settingsMagicTolerance: document.querySelector("#settingsMagicTolerance"),
+  settingsMagicToleranceValue: document.querySelector("#settingsMagicToleranceValue"),
+  settingsMagicEdge: document.querySelector("#settingsMagicEdge"),
+  settingsMagicEdgeValue: document.querySelector("#settingsMagicEdgeValue"),
+  saveProjectSettingsButton: document.querySelector("#saveProjectSettingsButton"),
+  projectSettingsMessage: document.querySelector("#projectSettingsMessage"),
+  adminUserId: document.querySelector("#adminUserId"),
+  adminDisplayName: document.querySelector("#adminDisplayName"),
+  adminUserRole: document.querySelector("#adminUserRole"),
+  adminPassword: document.querySelector("#adminPassword"),
+  adminUserActive: document.querySelector("#adminUserActive"),
+  saveUserButton: document.querySelector("#saveUserButton"),
+  deactivateUserButton: document.querySelector("#deactivateUserButton"),
+  adminUserList: document.querySelector("#adminUserList"),
+  adminUserMessage: document.querySelector("#adminUserMessage"),
   syncProjectStatus: document.querySelector("#syncProjectStatus"),
   syncImageStatus: document.querySelector("#syncImageStatus"),
   syncMaskStatus: document.querySelector("#syncMaskStatus"),
@@ -197,6 +247,8 @@ async function init() {
   if (canEnterProjects()) {
     void refreshProjectSummaries();
     void refreshAssignmentUsers();
+    void refreshVersionContext();
+    void refreshTrainingSources();
   }
   render();
   renderScreen();
@@ -327,6 +379,13 @@ function bindEvents() {
   els.refreshProjectsButton.addEventListener("click", () => void refreshProjectSummaries());
   els.workbenchProjectsButton.addEventListener("click", () => routeToScreen(SCREENS.PROJECTS));
   els.workbenchDashboardButton.addEventListener("click", () => routeToScreen(SCREENS.DASHBOARD));
+  els.refreshVersionsButton.addEventListener("click", () => void refreshVersionContext());
+  els.taskSelector.addEventListener("change", () => void selectTaskContext(els.taskSelector.value));
+  els.versionSelector.addEventListener("change", () => void selectVersionContext(els.versionSelector.value));
+  els.cloneVersionButton.addEventListener("click", () => void cloneSelectedVersion());
+  els.deleteVersionButton.addEventListener("click", () => void deleteSelectedVersion());
+  els.restoreVersionButton.addEventListener("click", () => void restoreSelectedVersion());
+  els.purgeVersionButton.addEventListener("click", () => void purgeSelectedVersionFiles());
   els.dashboardProjectsButton.addEventListener("click", () => routeToScreen(SCREENS.PROJECTS));
   els.dashboardWorkbenchButton.addEventListener("click", () => routeToScreen(SCREENS.WORKBENCH));
   els.projectCreateForm.addEventListener("submit", (event) => {
@@ -388,6 +447,41 @@ function bindEvents() {
     state.exportApprovedOnly = els.approvedOnlyExport.checked;
     void persistProject();
     render();
+  });
+  els.trainingExportButton.addEventListener("click", () => void exportSelectedTrainingSet());
+  els.settingsUploadLimitMb.addEventListener("input", () => {
+    renderProjectSettingsPanel();
+  });
+  els.settingsAllowedFormats.addEventListener("input", () => {
+    renderProjectSettingsPanel();
+  });
+  els.settingsMagicTolerance.addEventListener("input", () => {
+    state.settingsMagicTolerance = Number(els.settingsMagicTolerance.value || 42);
+    editor.setMagicOptions({ colorTolerance: state.settingsMagicTolerance });
+    renderProjectSettingsPanel();
+  });
+  els.settingsMagicEdge.addEventListener("input", () => {
+    state.settingsMagicEdge = Number(els.settingsMagicEdge.value || 55);
+    editor.setMagicOptions({ edgeThreshold: state.settingsMagicEdge });
+    renderProjectSettingsPanel();
+  });
+  els.saveProjectSettingsButton.addEventListener("click", () => void saveProjectSettings());
+  els.saveUserButton.addEventListener("click", () => void saveAdminUser());
+  els.deactivateUserButton.addEventListener("click", () => void deactivateAdminUser());
+  els.adminUserId.addEventListener("input", () => {
+    state.adminUserDraft.userId = normalizeActorId(els.adminUserId.value);
+  });
+  els.adminDisplayName.addEventListener("input", () => {
+    state.adminUserDraft.displayName = els.adminDisplayName.value;
+  });
+  els.adminUserRole.addEventListener("change", () => {
+    state.adminUserDraft.role = normalizeRole(els.adminUserRole.value, ROLES.WORKER);
+  });
+  els.adminPassword.addEventListener("input", () => {
+    state.adminUserDraft.password = els.adminPassword.value;
+  });
+  els.adminUserActive.addEventListener("change", () => {
+    state.adminUserDraft.active = els.adminUserActive.checked;
   });
 
   window.addEventListener("hashchange", () => {
@@ -522,6 +616,286 @@ async function refreshProjectSummaries() {
   }
 }
 
+async function refreshVersionContext() {
+  if (!state.projectId || !state.sessionAuthenticated) return;
+  try {
+    const taskResponse = await apiClient.listProjectTasks(state.projectId);
+    state.taskSummaries = normalizeTaskSummaries(taskResponse.tasks || []);
+    if (state.taskSummaries.length === 0) {
+      if (canAdminMutateProject()) {
+        const created = await apiClient.createProjectTask(state.projectId, {
+          taskId: DEFAULT_TASK_ID,
+          name: DEFAULT_TASK_ID,
+        });
+        state.taskSummaries = normalizeTaskSummaries([created.task]);
+      } else {
+        state.taskSummaries = normalizeTaskSummaries([{
+          task_id: state.taskId || DEFAULT_TASK_ID,
+          name: state.taskId || DEFAULT_TASK_ID,
+        }]);
+      }
+    }
+    if (!state.taskSummaries.some((task) => task.task_id === state.taskId)) {
+      state.taskId = state.taskSummaries[0]?.task_id || DEFAULT_TASK_ID;
+    }
+    await refreshVersionSummaries();
+    state.versionMessage = "Task/Version 목록 갱신됨";
+    render();
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.versionMessage = normalized.message;
+    renderVersionContext();
+  }
+}
+
+async function refreshVersionSummaries() {
+  if (!state.projectId || !state.taskId) return;
+  const versionResponse = await apiClient.listTaskVersions(state.projectId, state.taskId);
+  state.versionSummaries = normalizeVersionSummaries(versionResponse.versions || []);
+  if (state.versionSummaries.length === 0) {
+    if (canAdminMutateProject()) {
+      const created = await apiClient.createTaskVersion(state.projectId, state.taskId, {
+        versionId: DEFAULT_VERSION_ID,
+        status: "in_progress",
+      });
+      state.versionSummaries = normalizeVersionSummaries([created.version]);
+    } else {
+      state.versionSummaries = normalizeVersionSummaries([{
+        version_id: state.versionId || DEFAULT_VERSION_ID,
+        status: "read_only",
+        revision: state.versionRevision || 0,
+      }]);
+    }
+  }
+  if (!state.versionSummaries.some((version) => version.version_id === state.versionId)) {
+    state.versionId = state.versionSummaries[0]?.version_id || DEFAULT_VERSION_ID;
+  }
+}
+
+async function selectTaskContext(taskId) {
+  state.taskId = sanitizeUiId(taskId) || DEFAULT_TASK_ID;
+  await refreshVersionSummaries();
+  await loadSelectedVersionManifest();
+}
+
+async function selectVersionContext(versionId) {
+  state.versionId = sanitizeUiId(versionId) || DEFAULT_VERSION_ID;
+  await loadSelectedVersionManifest();
+}
+
+async function loadSelectedVersionManifest() {
+  if (!state.projectId || !state.taskId || !state.versionId) return;
+  setSaveState("saving", "버전 로딩");
+  try {
+    const response = await apiClient.getTaskVersion(state.projectId, state.taskId, state.versionId);
+    const version = response.version || {};
+    state.versionRevision = Number(version.revision || 0);
+    if (Array.isArray(version.images) && version.images.length > 0) {
+      await restoreServerManifest({
+        ...version,
+        project_id: version.project_id || state.projectId,
+        name: version.project_name || state.projectName || state.projectId,
+      });
+    } else {
+      state.versionMessage = "선택 버전에 이미지가 없어 현재 프로젝트 목록을 유지합니다.";
+      render();
+    }
+    setSaveState("saved", "버전 선택됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.versionMessage = normalized.message;
+    setSaveState("failed", `버전 로딩 실패: ${normalized.message}`);
+    renderVersionContext();
+  }
+}
+
+async function cloneSelectedVersion() {
+  if (!canAdminMutateProject()) return;
+  const nextVersionId = window.prompt("새 버전 ID", nextVersionName(state.versionId));
+  if (!nextVersionId) return;
+  setSaveState("saving", "버전 복제 중");
+  try {
+    const response = await apiClient.cloneTaskVersion(state.projectId, state.taskId, state.versionId, {
+      newVersionId: nextVersionId,
+      ifMatchRevision: state.versionRevision || undefined,
+    });
+    state.versionId = response.version?.version_id || sanitizeUiId(nextVersionId);
+    await refreshVersionSummaries();
+    state.versionMessage = "버전 복제 완료";
+    render();
+    setSaveState("saved", "버전 복제됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.versionMessage = normalized.message;
+    setSaveState("failed", `버전 복제 실패: ${normalized.message}`);
+  }
+}
+
+async function deleteSelectedVersion() {
+  if (!canAdminMutateProject()) return;
+  const reason = window.prompt("버전 삭제 사유", "wrong_version");
+  if (reason === null) return;
+  if (!window.confirm("선택 버전은 soft delete 처리됩니다. 계속할까요?")) return;
+  setSaveState("saving", "버전 삭제 중");
+  try {
+    const response = await apiClient.deleteTaskVersion(state.projectId, state.taskId, state.versionId, {
+      reason,
+      ifMatchRevision: state.versionRevision || undefined,
+    });
+    state.versionRevision = Number(response.version?.revision || state.versionRevision || 0);
+    await refreshVersionSummaries();
+    state.versionMessage = "버전 삭제됨";
+    render();
+    setSaveState("saved", "버전 삭제됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.versionMessage = normalized.message;
+    setSaveState("failed", `버전 삭제 실패: ${normalized.message}`);
+  }
+}
+
+async function restoreSelectedVersion() {
+  if (!canAdminMutateProject()) return;
+  setSaveState("saving", "버전 복원 중");
+  try {
+    const response = await apiClient.restoreTaskVersion(state.projectId, state.taskId, state.versionId, {
+      ifMatchRevision: state.versionRevision || undefined,
+    });
+    state.versionRevision = Number(response.version?.revision || state.versionRevision || 0);
+    await refreshVersionSummaries();
+    state.versionMessage = "버전 복원됨";
+    render();
+    setSaveState("saved", "버전 복원됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.versionMessage = normalized.message;
+    setSaveState("failed", `버전 복원 실패: ${normalized.message}`);
+  }
+}
+
+async function purgeSelectedVersionFiles() {
+  if (!canAdminMutateProject()) return;
+  if (!window.confirm("soft delete된 이미지/마스크 파일만 실제 삭제합니다. 복구할 수 없습니다. 계속할까요?")) return;
+  setSaveState("saving", "삭제 파일 정리 중");
+  try {
+    const response = await apiClient.purgeTaskVersion(state.projectId, state.taskId, state.versionId);
+    const count = Number(response.purge?.deleted_files || response.purge?.deletedFiles || 0);
+    state.versionMessage = `${count}개 파일 정리됨`;
+    renderVersionContext();
+    setSaveState("saved", "삭제 파일 정리됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.versionMessage = normalized.message;
+    setSaveState("failed", `삭제 파일 정리 실패: ${normalized.message}`);
+  }
+}
+
+async function refreshTrainingSources() {
+  if (!state.sessionAuthenticated || ![ROLES.ADMIN, ROLES.REVIEWER].includes(state.sessionRole)) return;
+  try {
+    const response = await apiClient.listTrainingSources();
+    state.trainingSources = Array.isArray(response.sources) ? response.sources : [];
+    if (state.selectedTrainingSourceIds.size === 0 && state.projectId && state.taskId && state.versionId) {
+      state.selectedTrainingSourceIds.add(sourceKey({
+        project_id: state.projectId,
+        task_id: state.taskId,
+        version_id: state.versionId,
+      }));
+    }
+    renderTrainingSourcePicker();
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.trainingSources = [];
+    state.lastExportMessage = `source 목록 실패: ${normalized.message}`;
+  }
+}
+
+async function saveProjectSettings() {
+  if (!canAdminMutateProject()) return;
+  const maxFileBytes = Math.max(1, Number(els.settingsUploadLimitMb.value || 15)) * 1024 * 1024;
+  const allowedMimeTypes = parseCsv(els.settingsAllowedFormats.value);
+  setSaveState("saving", "프로젝트 설정 저장 중");
+  try {
+    const response = await apiClient.updateProjectSettings(state.projectId, {
+      uploadPolicy: {
+        maxFileBytes,
+        allowedMimeTypes,
+      },
+      magicToolPreset: {
+        colorTolerance: Number(els.settingsMagicTolerance.value || state.settingsMagicTolerance),
+        edgeThreshold: Number(els.settingsMagicEdge.value || state.settingsMagicEdge),
+      },
+    });
+    state.uploadPolicy = normalizeUploadPolicy(response.settings?.upload_policy || {}, state.uploadPolicy);
+    const preset = response.settings?.magic_tool_preset || {};
+    state.settingsMagicTolerance = Number(preset.color_tolerance || preset.colorTolerance || state.settingsMagicTolerance);
+    state.settingsMagicEdge = Number(preset.edge_threshold || preset.edgeThreshold || state.settingsMagicEdge);
+    editor.setMagicOptions({
+      colorTolerance: state.settingsMagicTolerance,
+      edgeThreshold: state.settingsMagicEdge,
+    });
+    state.projectSettingsMessage = "프로젝트 설정 저장됨";
+    await persistProject();
+    render();
+    setSaveState("saved", "프로젝트 설정 저장됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.projectSettingsMessage = normalized.message;
+    setSaveState("failed", `설정 저장 실패: ${normalized.message}`);
+  }
+}
+
+async function saveAdminUser() {
+  if (state.sessionRole !== ROLES.ADMIN) return;
+  const draft = state.adminUserDraft;
+  if (!draft.userId) {
+    state.adminUserMessage = "사용자 ID를 입력하세요";
+    renderAccountAdminPanel();
+    return;
+  }
+  setSaveState("saving", "사용자 저장 중");
+  try {
+    const payload = {
+      userId: draft.userId,
+      displayName: draft.displayName || draft.userId,
+      role: draft.role,
+      password: draft.password || undefined,
+      active: draft.active,
+    };
+    const exists = state.adminUsers.some((user) => user.user_id === draft.userId);
+    const response = exists
+      ? await apiClient.updateUser(draft.userId, payload)
+      : await apiClient.createUser(payload);
+    state.adminUserMessage = `${response.user?.user_id || draft.userId} 저장됨`;
+    state.adminUserDraft.password = "";
+    els.adminPassword.value = "";
+    await refreshAssignmentUsers();
+    renderAccountAdminPanel();
+    setSaveState("saved", "사용자 저장됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.adminUserMessage = normalized.message;
+    setSaveState("failed", `사용자 저장 실패: ${normalized.message}`);
+  }
+}
+
+async function deactivateAdminUser() {
+  if (state.sessionRole !== ROLES.ADMIN || !state.adminUserDraft.userId) return;
+  setSaveState("saving", "사용자 비활성화 중");
+  try {
+    await apiClient.updateUser(state.adminUserDraft.userId, { active: false });
+    state.adminUserDraft.active = false;
+    state.adminUserMessage = `${state.adminUserDraft.userId} 비활성화됨`;
+    await refreshAssignmentUsers();
+    renderAccountAdminPanel();
+    setSaveState("saved", "사용자 비활성화됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.adminUserMessage = normalized.message;
+    setSaveState("failed", `사용자 비활성화 실패: ${normalized.message}`);
+  }
+}
+
 async function loginSession() {
   try {
     const response = await apiClient.login({
@@ -569,15 +943,17 @@ async function logoutSession() {
 async function refreshAssignmentUsers() {
   if (!state.sessionAuthenticated || state.sessionRole !== ROLES.ADMIN) return;
   try {
-    const [workerResponse, reviewerResponse] = await Promise.all([
+    const [workerResponse, reviewerResponse, allResponse] = await Promise.all([
       apiClient.listUsers({ role: ROLES.WORKER }),
       apiClient.listUsers({ role: ROLES.REVIEWER }),
+      apiClient.listUsers(),
     ]);
     state.assignmentUsers = {
       workers: Array.isArray(workerResponse.users) ? workerResponse.users : [],
       reviewers: Array.isArray(reviewerResponse.users) ? reviewerResponse.users : [],
       error: "",
     };
+    state.adminUsers = Array.isArray(allResponse.users) ? allResponse.users : [];
   } catch (error) {
     const normalized = normalizeApiError(error);
     state.assignmentUsers = {
@@ -585,6 +961,7 @@ async function refreshAssignmentUsers() {
       reviewers: [],
       error: normalized.message,
     };
+    state.adminUsers = [];
     logger.warn("assignment.users.failed", {
       project_id: state.projectId,
       error: normalized,
@@ -748,6 +1125,26 @@ async function exportProject() {
   setSaveState("saved", "ZIP 내보냄");
 }
 
+async function exportSelectedTrainingSet() {
+  const sources = selectedTrainingSources();
+  if (sources.length === 0) {
+    setSaveState("failed", "Training source를 선택하세요");
+    return;
+  }
+  setSaveState("saving", "Training set 내보내는 중");
+  try {
+    const zip = await apiClient.downloadTrainingSetExport({
+      sources,
+      approvedOnly: state.exportApprovedOnly,
+    });
+    downloadBlob(zip, `training_set_${new Date().toISOString().slice(0, 10)}.zip`);
+    setSaveState("saved", "Training set ZIP 내보냄");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `Training export 실패: ${normalized.message}`);
+  }
+}
+
 async function syncUploadedImage(image, file) {
   try {
     const ready = await ensureBackendProject();
@@ -850,6 +1247,8 @@ async function ensureBackendProject() {
     state.backendProjectError = "";
     await persistProject();
     void refreshProjectSummaries();
+    void refreshVersionContext();
+    void refreshTrainingSources();
     render();
     return true;
   } catch (error) {
@@ -1179,6 +1578,7 @@ function render() {
   renderProjectCreateForm();
   renderProjectSummaries();
   renderProjectHeader();
+  renderVersionContext();
   renderDashboard();
   renderImageList();
   renderMetadata();
@@ -1188,6 +1588,9 @@ function render() {
   renderReviewPanel();
   renderReviewIdentity();
   renderExportPolicy();
+  renderTrainingSourcePicker();
+  renderProjectSettingsPanel();
+  renderAccountAdminPanel();
   renderSyncStatus();
   renderRolePanels();
   updateStatusbar();
@@ -1402,7 +1805,32 @@ function renderProjectCreateForm() {
 }
 
 function renderProjectHeader() {
-  els.projectName.textContent = state.projectName || "프로젝트 미선택";
+  const versionLabel = state.projectId ? ` · ${state.taskId}/${state.versionId}` : "";
+  els.projectName.textContent = `${state.projectName || "프로젝트 미선택"}${versionLabel}`;
+}
+
+function renderVersionContext() {
+  replaceSelectOptions(els.taskSelector, state.taskSummaries, {
+    valueKey: "task_id",
+    label: (task) => task.name || task.task_id,
+    selected: state.taskId,
+    fallback: { value: state.taskId || DEFAULT_TASK_ID, label: state.taskId || DEFAULT_TASK_ID },
+  });
+  replaceSelectOptions(els.versionSelector, state.versionSummaries, {
+    valueKey: "version_id",
+    label: (version) => {
+      const suffix = version.deleted_at ? " 삭제됨" : "";
+      return `${version.version_id}${suffix}`;
+    },
+    selected: state.versionId,
+    fallback: { value: state.versionId || DEFAULT_VERSION_ID, label: state.versionId || DEFAULT_VERSION_ID },
+  });
+  const canMutate = canAdminMutateProject();
+  els.refreshVersionsButton.disabled = !state.projectId || !state.sessionAuthenticated;
+  els.cloneVersionButton.disabled = !canMutate || !state.versionId;
+  els.deleteVersionButton.disabled = !canMutate || !state.versionId || selectedVersionSummary()?.deleted_at;
+  els.restoreVersionButton.disabled = !canMutate || !selectedVersionSummary()?.deleted_at;
+  els.purgeVersionButton.disabled = !canMutate || !state.versionId;
 }
 
 function renderDashboard() {
@@ -1581,6 +2009,8 @@ async function loadServerProject(projectId) {
   try {
     const manifest = await apiClient.getProject(projectId);
     await restoreServerManifest(manifest);
+    await refreshVersionContext();
+    await refreshTrainingSources();
     routeToScreen(SCREENS.DASHBOARD);
     setSaveState("saved", "서버 프로젝트 선택됨");
   } catch (error) {
@@ -1625,6 +2055,13 @@ function setActiveProjectFromManifest(manifest = {}, options = {}) {
   state.projectId = manifest.project_id || manifest.id || options.fallbackId || state.projectId;
   state.projectName = manifest.name || manifest.project_name || options.fallbackName || state.projectId;
   state.uploadPolicy = normalizeUploadPolicy(manifest.upload_policy || manifest.uploadPolicy || state.uploadPolicy);
+  const magicPreset = manifest.magic_tool_preset || manifest.magicToolPreset || {};
+  state.settingsMagicTolerance = Number(magicPreset.color_tolerance || magicPreset.colorTolerance || state.settingsMagicTolerance);
+  state.settingsMagicEdge = Number(magicPreset.edge_threshold || magicPreset.edgeThreshold || state.settingsMagicEdge);
+  editor.setMagicOptions({
+    colorTolerance: state.settingsMagicTolerance,
+    edgeThreshold: state.settingsMagicEdge,
+  });
   state.backendProjectReady = Boolean(state.projectId);
   state.backendProjectError = "";
 }
@@ -1774,6 +2211,100 @@ function renderExportPolicy() {
     : `${validImages.length}개 제출/승인 항목을 내보냅니다.`;
   els.exportErrorList.replaceChildren(...exportState.excluded.slice(0, 5).map(renderExportErrorItem));
   els.exportFilePreview.textContent = exportPreviewPaths(validImages).join("\n");
+}
+
+function renderTrainingSourcePicker() {
+  const sources = state.trainingSources.length > 0
+    ? state.trainingSources
+    : [{
+        project_id: state.projectId,
+        project_name: state.projectName,
+        task_id: state.taskId,
+        version_id: state.versionId,
+        total_images: state.images.length,
+        exportable_images: getExportState().validImages.length,
+      }].filter((source) => source.project_id);
+  const rows = sources.map((source) => {
+    const key = sourceKey(source);
+    const label = document.createElement("label");
+    label.className = "source-option";
+    const checked = state.selectedTrainingSourceIds.has(key);
+    label.innerHTML = `
+      <input type="checkbox" ${checked ? "checked" : ""}>
+      <span>
+        <strong>${escapeHtml(source.project_name || source.project_id || "-")}</strong>
+        <small>${escapeHtml(source.task_id || DEFAULT_TASK_ID)} / ${escapeHtml(source.version_id || DEFAULT_VERSION_ID)} · ${Number(source.exportable_images || 0)}/${Number(source.total_images || 0)} export</small>
+      </span>
+    `;
+    label.querySelector("input").addEventListener("change", (event) => {
+      if (event.target.checked) {
+        state.selectedTrainingSourceIds.add(key);
+      } else {
+        state.selectedTrainingSourceIds.delete(key);
+      }
+    });
+    return label;
+  });
+  if (rows.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "empty-list-row";
+    empty.innerHTML = "<strong>source 없음</strong><small>project/task/version을 먼저 생성하세요.</small>";
+    rows.push(empty);
+  }
+  els.trainingSourcePicker.replaceChildren(...rows);
+  els.trainingExportButton.disabled = ![ROLES.ADMIN, ROLES.REVIEWER].includes(state.sessionRole);
+}
+
+function renderProjectSettingsPanel() {
+  if (document.activeElement !== els.settingsUploadLimitMb) {
+    els.settingsUploadLimitMb.value = String(Math.round(Number(state.uploadPolicy.maxFileBytes || UPLOAD_POLICY.maxFileBytes) / 1024 / 1024));
+  }
+  if (document.activeElement !== els.settingsAllowedFormats) {
+    els.settingsAllowedFormats.value = allowedFormatText(state.uploadPolicy);
+  }
+  if (document.activeElement !== els.settingsMagicTolerance) {
+    els.settingsMagicTolerance.value = String(state.settingsMagicTolerance);
+  }
+  if (document.activeElement !== els.settingsMagicEdge) {
+    els.settingsMagicEdge.value = String(state.settingsMagicEdge);
+  }
+  els.settingsMagicToleranceValue.textContent = String(els.settingsMagicTolerance.value || state.settingsMagicTolerance);
+  els.settingsMagicEdgeValue.textContent = String(els.settingsMagicEdge.value || state.settingsMagicEdge);
+  els.projectSettingsMessage.textContent = state.projectSettingsMessage || "프로젝트별 업로드/도구 기본값을 관리합니다.";
+  els.saveProjectSettingsButton.disabled = !canAdminMutateProject();
+}
+
+function renderAccountAdminPanel() {
+  const draft = state.adminUserDraft;
+  if (document.activeElement !== els.adminUserId) els.adminUserId.value = draft.userId;
+  if (document.activeElement !== els.adminDisplayName) els.adminDisplayName.value = draft.displayName;
+  if (document.activeElement !== els.adminUserRole) els.adminUserRole.value = draft.role;
+  if (document.activeElement !== els.adminUserActive) els.adminUserActive.checked = draft.active !== false;
+  els.adminUserMessage.textContent = state.adminUserMessage || "로컬 MVP 사용자 계정을 관리합니다.";
+  els.saveUserButton.disabled = state.sessionRole !== ROLES.ADMIN;
+  els.deactivateUserButton.disabled = state.sessionRole !== ROLES.ADMIN || !draft.userId;
+  els.adminUserList.replaceChildren(...state.adminUsers.map((user) => {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "project-summary-row";
+    row.innerHTML = `
+      <span>
+        <strong>${escapeHtml(user.display_name || user.user_id)}</strong>
+        <small>${escapeHtml(user.user_id)} · ${escapeHtml(user.role)}${user.active === false ? " · inactive" : ""}</small>
+      </span>
+    `;
+    row.addEventListener("click", () => {
+      state.adminUserDraft = {
+        userId: user.user_id,
+        displayName: user.display_name || user.user_id,
+        role: user.role,
+        password: "",
+        active: user.active !== false,
+      };
+      renderAccountAdminPanel();
+    });
+    return row;
+  }));
 }
 
 function getExportState() {
@@ -1975,6 +2506,10 @@ function reviewStatusMessage(image) {
   }[image.status] || "리뷰 상태 저장됨";
 }
 
+function canAdminMutateProject() {
+  return state.sessionAuthenticated && state.sessionRole === ROLES.ADMIN && Boolean(state.projectId);
+}
+
 function canEditImageCollection() {
   return state.sessionAuthenticated && [ROLES.ADMIN, ROLES.WORKER].includes(state.sessionRole);
 }
@@ -2133,6 +2668,98 @@ function filterProjectsBySearch(projects = [], search = "") {
   ].some((value) => normalizeSearchQuery(value).includes(query)));
 }
 
+function normalizeTaskSummaries(tasks = []) {
+  return tasks
+    .map((task) => ({
+      task_id: sanitizeUiId(task.task_id || task.taskId || task.id),
+      name: String(task.name || task.task_id || task.id || "").trim(),
+      current_version: sanitizeUiId(task.current_version || task.currentVersion || DEFAULT_VERSION_ID),
+    }))
+    .filter((task) => task.task_id);
+}
+
+function normalizeVersionSummaries(versions = []) {
+  return versions
+    .map((version) => ({
+      ...version,
+      version_id: sanitizeUiId(version.version_id || version.versionId || version.id),
+      revision: Number(version.revision || 0),
+      deleted_at: version.deleted_at || version.deletedAt || "",
+    }))
+    .filter((version) => version.version_id);
+}
+
+function replaceSelectOptions(select, items = [], options = {}) {
+  const selected = options.selected || "";
+  const values = items.length > 0 ? items : [options.fallback].filter(Boolean);
+  const optionNodes = values.map((item) => {
+    const node = document.createElement("option");
+    const value = item.value || item[options.valueKey] || "";
+    node.value = value;
+    node.textContent = item.label || options.label?.(item) || value;
+    node.selected = value === selected;
+    return node;
+  });
+  select.replaceChildren(...optionNodes);
+}
+
+function selectedVersionSummary() {
+  return state.versionSummaries.find((version) => version.version_id === state.versionId) || null;
+}
+
+function selectedTrainingSources() {
+  const sources = state.trainingSources.length > 0
+    ? state.trainingSources
+    : [{
+        project_id: state.projectId,
+        project_name: state.projectName,
+        task_id: state.taskId,
+        version_id: state.versionId,
+        images: state.images.map(toDashboardImage),
+      }].filter((source) => source.project_id);
+  return sources
+    .filter((source) => state.selectedTrainingSourceIds.has(sourceKey(source)))
+    .map((source) => ({
+      project_id: source.project_id,
+      project_name: source.project_name || source.project_id,
+      task_id: source.task_id || DEFAULT_TASK_ID,
+      version_id: source.version_id || DEFAULT_VERSION_ID,
+      images: source.images || [],
+    }));
+}
+
+function sourceKey(source = {}) {
+  return [
+    source.project_id || source.projectId || "",
+    source.task_id || source.taskId || DEFAULT_TASK_ID,
+    source.version_id || source.versionId || DEFAULT_VERSION_ID,
+  ].map(sanitizeUiId).join("/");
+}
+
+function nextVersionName(current) {
+  const match = String(current || DEFAULT_VERSION_ID).match(/^(.*?)(\d+)$/);
+  if (!match) return `${current || DEFAULT_VERSION_ID}_copy`;
+  return `${match[1]}${Number(match[2]) + 1}`;
+}
+
+function parseCsv(value) {
+  return String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function allowedFormatText(policy = {}) {
+  return (policy.allowedMimeTypes || policy.allowed_mime_types || UPLOAD_POLICY.allowedMimeTypes || []).join(",");
+}
+
+function sanitizeUiId(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function normalizeSearchQuery(value) {
   return String(value || "").trim().toLocaleLowerCase();
 }
@@ -2224,6 +2851,12 @@ async function persistProject() {
     assignmentReviewerId: state.assignmentReviewerId,
     uploadRejections: state.uploadRejections || [],
     uploadPolicy: state.uploadPolicy,
+    taskId: state.taskId,
+    versionId: state.versionId,
+    versionRevision: state.versionRevision,
+    settingsMagicTolerance: state.settingsMagicTolerance,
+    settingsMagicEdge: state.settingsMagicEdge,
+    selectedTrainingSourceIds: Array.from(state.selectedTrainingSourceIds),
     images: state.images.map(toSerializableImage),
   };
   await projectStore.saveProjectSnapshot(serializable);
@@ -2254,6 +2887,12 @@ async function restoreProject() {
     state.assignmentReviewerId = normalizeActorId(saved.assignmentReviewerId) || state.assignmentReviewerId;
     state.uploadRejections = Array.isArray(saved.uploadRejections) ? saved.uploadRejections : [];
     state.uploadPolicy = normalizeUploadPolicy(saved.uploadPolicy || {}, UPLOAD_POLICY);
+    state.taskId = sanitizeUiId(saved.taskId) || state.taskId;
+    state.versionId = sanitizeUiId(saved.versionId) || state.versionId;
+    state.versionRevision = Number(saved.versionRevision || 0);
+    state.settingsMagicTolerance = Number(saved.settingsMagicTolerance || state.settingsMagicTolerance);
+    state.settingsMagicEdge = Number(saved.settingsMagicEdge || state.settingsMagicEdge);
+    state.selectedTrainingSourceIds = new Set(Array.isArray(saved.selectedTrainingSourceIds) ? saved.selectedTrainingSourceIds : []);
     state.images = await Promise.all((saved.images || []).map(rehydrateImageRecord));
     setSaveState("saved", "작업 복구됨");
   } catch {

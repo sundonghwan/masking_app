@@ -69,20 +69,25 @@
 - [x] Searchable full project list instead of a capped project summary view
 - [x] Structured review rejection reason codes
 - [x] Dashboard review quality metrics from structured review events
+- [x] Image list scroll retention on image selection
+- [x] Task/version selector in the workbench
+- [x] Workbench route/state wiring for selected task/version context
+- [x] Version clone/delete/restore UI
+- [x] Training-set export source picker tied to selected project/task/version snapshots
+- [x] Project settings edit UI/API for upload limits, allowed formats, and magic presets
+- [x] Account administration UI/API for local MVP users
+- [x] Server revision guard for risky project/version mutations
+- [x] Physical purge maintenance for soft-deleted version files
 
 ## In Progress
 
-- Next batch planning: version-scoped workbench wiring and operational admin surfaces.
+- None.
 
 ## Remaining
 
-- Task/version selector in the workbench so normal editing is version-scoped.
-- Version clone/delete/restore UI on top of the storage hierarchy primitives.
-- Server revision or optimistic concurrency guard for multi-user edits.
-- Project settings edit UI/API for upload limits, allowed formats, and tool presets.
-- Account administration UI for local users, disabled state, and password rotation.
-- Training-set export source picker tied directly to selected task/version snapshots.
-- Optional physical purge maintenance for soft-deleted files.
+- AI-backed segmentation adapter remains optional hardening after the local edge-aware magic tool reaches real dataset limits.
+- Deployment profile remains optional hardening when the app moves beyond local MVP operation.
+- Legacy manifest repair can be expanded if old local snapshots become a real support burden.
 
 ## Recommended Development Order
 
@@ -99,13 +104,13 @@
 ## Future Hardening
 
 - [ ] AI-backed segmentation model integration behind the magic-click tool after local edge-aware selection reaches its limit.
-- [ ] Add full user/account administration UI for creating, disabling, and rotating local accounts.
-- [ ] Add project settings edit screen for changing upload formats and limits after project creation.
-- [ ] Wire project/task/version selectors throughout the workbench instead of using legacy project-only routes.
-- [ ] Add version clone/delete/restore UI on top of the storage hierarchy primitives.
-- [ ] Add server revision or optimistic concurrency checks before multi-user editing expands.
-- [ ] Promote training-set export source selection into the main workbench/project flow.
-- [ ] Add physical purge maintenance for deleted version files if operations needs it.
+- [x] Add full user/account administration UI for creating, disabling, and rotating local accounts.
+- [x] Add project settings edit screen for changing upload formats and limits after project creation.
+- [x] Wire project/task/version selectors throughout the workbench instead of using legacy project-only routes.
+- [x] Add version clone/delete/restore UI on top of the storage hierarchy primitives.
+- [x] Add server revision or optimistic concurrency checks before multi-user editing expands.
+- [x] Promote training-set export source selection into the main workbench/project flow.
+- [x] Add physical purge maintenance for deleted version files if operations needs it.
 
 ## Hardcoded Runtime Debt
 
@@ -114,32 +119,28 @@ not implemented yet. They should not be treated as final architecture.
 
 | Current hardcoded area | Current location | Why it remains | Required feature |
 | --- | --- | --- | --- |
-| Local MVP account seed passwords: `admin/admin123`, `worker/worker123`, `reviewer/reviewer123` | `src/server/auth.js`, `data/identity/users.json` after first use, tests | Passwords moved out of browser-imported config and seed a local filesystem user directory. This is still local-MVP credential handling, not production account security. | Account administration UI, password rotation, disabled-user management |
-| `worker` / `reviewer` fallback assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js` | Used only as local fallback options when the user list API is unavailable or before admin login. The normal assignment path now loads users from `GET /api/users`. | Remove fallback once first-run user-directory bootstrap is mandatory |
+| Local MVP account seed passwords: `admin/admin123`, `worker/worker123`, `reviewer/reviewer123` | `src/server/auth.js`, `data/identity/users.json` after first use, tests | Admin UI/API can now create, update, deactivate, reactivate, and rotate passwords for local users. Seed accounts remain first-run bootstrap credentials only. | Production identity provider if moving beyond local MVP |
+| `worker` / `reviewer` fallback assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js` | Normal assignment/account admin paths now use `GET /api/users` and admin user management. Fallback remains only for unavailable user-directory recovery. | Remove fallback once first-run user-directory bootstrap is mandatory |
 | `mask_project_001` and `Masking Project` fallback defaults | `src/config/runtimeDefaults.js` | Kept for legacy local snapshots and tests. New project creation API now rejects missing project IDs, and export helpers no longer inject the default project ID. | Manifest migration/repair flow for old local snapshots |
 | Empty server manifest/project-name fallback | `src/server/storage.js`, `src/app.js` | Manifest creation and restore can still fall back to project ID/name when partial data is received. This keeps old or malformed local data recoverable. | Strict project metadata schema and manifest migration/repair flow |
-| Upload format allowlist | `src/upload/policy.js` | Project creation can set upload size limit, but allowed formats remain the global PNG/JPEG/BMP/WEBP policy. | Project settings edit screen for allowed formats |
+| Upload format allowlist | `src/upload/policy.js` | Project settings UI/API can update per-project upload limits and MIME format policy. The global policy remains the default bootstrap value. | Dataset-specific settings templates if repeated presets emerge |
 | Local filesystem data root and dev port defaults | `server.js`, `src/server/storage.js`, `harness/commands.md` | `PORT=4173` and `data/` are local development defaults with env overrides. They are not blocking product features. | Deployment config profile if moving beyond local dev |
 | Magic-tool max region cap | `src/editor/maskEditor.js` | UI now controls color tolerance and edge threshold. Max-pixel cap remains an internal safety default. | Project-level tool presets if real datasets need different caps |
 | Server export vs local ZIP fallback | `src/app.js`, `src/export/exporter.js` | Local-first recovery still allows fallback export when server sync is incomplete. This is a deliberate MVP safety path. | Server-first restore/sync reconciliation before multi-user production use |
-| Legacy project-only workbench routes | `src/server/api.js`, `src/app.js` | Storage hierarchy helpers exist, but current workbench routes still operate on project-level manifests for compatibility. | Task/version selector and route wiring |
+| Legacy project-only workbench routes | `src/server/api.js`, `src/app.js` | Workbench now exposes task/version selection and version operations while keeping legacy project manifest compatibility for older project data. | Full migration tool only if legacy manifests become a support burden |
 
 ## Feature Development Items From Hardcoded Debt
 
 Recommended order:
 
-1. Task/version selector and version clone/delete/restore UI.
-   - Wires the storage hierarchy into normal workbench navigation.
-2. Project settings edit screen.
-   - Lets admins update upload limits, allowed formats, and tool presets after
-     project creation.
-3. Account administration UI.
-   - Lets admins create, disable, and rotate local user accounts.
-4. AI-backed segmentation adapter.
+1. AI-backed segmentation adapter.
    - Add only after local edge-aware magic controls hit real dataset limits.
-5. Deployment profile.
+2. Deployment profile.
    - Moves data root, port, and operational retention settings into explicit
      deployment configuration when needed.
+3. Legacy manifest migration/repair tool.
+   - Add only if old local snapshots or flat manifests repeatedly block real
+     operations.
 
 ## MVP Accounts
 

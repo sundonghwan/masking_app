@@ -173,6 +173,26 @@ button {
   margin-left: auto;
 }
 
+.version-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.version-context label {
+  display: grid;
+  gap: 2px;
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.compact-select {
+  width: 112px;
+  height: 30px;
+  min-width: 0;
+}
+
 .save-dot {
   width: 8px;
   height: 8px;
@@ -524,6 +544,35 @@ h2 {
   gap: 6px;
   overflow-y: auto;
   padding: 0 12px 14px;
+}
+
+.image-list.compact-list {
+  max-height: 180px;
+  padding: 0;
+}
+
+.source-picker {
+  display: grid;
+  max-height: 180px;
+  gap: 6px;
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: #fbfcfd;
+}
+
+.source-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+}
+
+.source-option:hover {
+  background: #f3f7fa;
 }
 
 .empty-list-row {

@@ -13,6 +13,8 @@ import {
   listProjects,
   listProjectTasks,
   listTaskVersions,
+  cloneVersionManifest,
+  purgeSoftDeletedVersionFiles,
   readProjectManifest,
   writeMaskBuffer,
   writeImageFromDataUrl,
@@ -20,6 +22,8 @@ import {
   writeProjectManifest,
   softDeleteProjectImage,
   restoreProjectImage,
+  softDeleteVersionManifest,
+  restoreVersionManifest,
 } from "../src/server/storage.js";
 
 const PNG_DATA_URL = "data:image/png;base64,cG5nLWJ5dGVz";
@@ -181,6 +185,10 @@ test("module-level default APIs are exported for server integration", () => {
   assert.equal(typeof writeProjectManifest, "function");
   assert.equal(typeof softDeleteProjectImage, "function");
   assert.equal(typeof restoreProjectImage, "function");
+  assert.equal(typeof cloneVersionManifest, "function");
+  assert.equal(typeof softDeleteVersionManifest, "function");
+  assert.equal(typeof restoreVersionManifest, "function");
+  assert.equal(typeof purgeSoftDeletedVersionFiles, "function");
   assert.equal(typeof listProjectTasks, "function");
   assert.equal(typeof listTaskVersions, "function");
   assert.equal(typeof listProjectFiles, "function");
@@ -471,6 +479,238 @@ test("soft delete refuses to overwrite an existing trash file", async () => {
   await assert.rejects(
     () => storage.softDeleteVersionImage("project-1", "task-1", "v1", "image-1"),
     /Destination file already exists/,
+  );
+});
+
+test("clones a version manifest with preserved relative paths and new version metadata", async () => {
+  const { storage, rootDir } = await createTempStorage();
+  const sourceImage = await storage.writeVersionImageBuffer(
+    "project-1",
+    "task-1",
+    "v1",
+    "image-1",
+    "raw.jpg",
+    Buffer.from("source-image"),
+  );
+  const sourceMask = await storage.writeVersionMaskBuffer(
+    "project-1",
+    "task-1",
+    "v1",
+    "image-1",
+    Buffer.from("source-mask"),
+  );
+  await storage.ensureVersionManifest("project-1", "task-1", "v1", {
+    status: "approved",
+    now: "2026-04-30T01:00:00.000Z",
+    images: [
+      {
+        id: "image-1",
+        image_path: sourceImage.relativePath,
+        current_mask_path: sourceMask.relativePath,
+        status: "approved",
+        worker_id: "worker-a",
+        reviewer_id: "reviewer-a",
+        created_at: "2026-04-30T01:01:00.000Z",
+        updated_at: "2026-04-30T01:02:00.000Z",
+      },
+    ],
+  });
+
+  const cloned = await storage.cloneVersionManifest("project-1", "task-1", "v1", "v2", {
+    status: "draft",
+    now: "2026-04-30T02:00:00.000Z",
+  });
+
+  assert.equal(cloned.project_id, "project-1");
+  assert.equal(cloned.task_id, "task-1");
+  assert.equal(cloned.version_id, "v2");
+  assert.equal(cloned.status, "draft");
+  assert.equal(cloned.created_at, "2026-04-30T02:00:00.000Z");
+  assert.equal(cloned.updated_at, "2026-04-30T02:00:00.000Z");
+  assert.equal(cloned.revision, 1);
+  assert.equal(cloned.source_version_id, "v1");
+  assert.equal(cloned.images[0].version_id, "v2");
+  assert.equal(cloned.images[0].image_path, "images/image-1_raw.jpg");
+  assert.equal(cloned.images[0].current_mask_path, "masks/image-1_mask.png");
+  assert.equal(cloned.images[0].status, "approved");
+  assert.equal(cloned.images[0].worker_id, "worker-a");
+  assert.equal(cloned.images[0].reviewer_id, "reviewer-a");
+  assert.equal(cloned.images[0].created_at, "2026-04-30T02:00:00.000Z");
+  assert.equal(cloned.images[0].updated_at, "2026-04-30T02:00:00.000Z");
+
+  const source = await storage.readVersionManifest("project-1", "task-1", "v1");
+  assert.equal(source.version_id, "v1");
+  assert.equal(source.images[0].version_id, "v1");
+  assert.equal(
+    await readFile(
+      path.join(rootDir, "projects", "project-1", "tasks", "task-1", "versions", "v2", "images", "image-1_raw.jpg"),
+      "utf8",
+    ),
+    "source-image",
+  );
+  assert.equal(
+    await readFile(
+      path.join(rootDir, "projects", "project-1", "tasks", "task-1", "versions", "v2", "masks", "image-1_mask.png"),
+      "utf8",
+    ),
+    "source-mask",
+  );
+});
+
+test("soft deletes and restores a version manifest without moving files and increments revision", async () => {
+  const { storage } = await createTempStorage();
+  const image = await storage.writeVersionImageBuffer(
+    "project-1",
+    "task-1",
+    "v1",
+    "image-1",
+    "raw.jpg",
+    Buffer.from("image"),
+  );
+  const mask = await storage.writeVersionMaskBuffer("project-1", "task-1", "v1", "image-1", Buffer.from("mask"));
+  await storage.ensureVersionManifest("project-1", "task-1", "v1", {
+    now: "2026-04-30T01:00:00.000Z",
+    images: [{ id: "image-1", image_path: image.relativePath, current_mask_path: mask.relativePath }],
+  });
+
+  const deleted = await storage.softDeleteVersionManifest("project-1", "task-1", "v1", {
+    deletedBy: "lead",
+    reason: "bad batch",
+    now: "2026-04-30T02:00:00.000Z",
+  });
+
+  assert.equal(deleted.deleted_at, "2026-04-30T02:00:00.000Z");
+  assert.equal(deleted.deleted_by, "lead");
+  assert.equal(deleted.delete_reason, "bad batch");
+  assert.equal(deleted.updated_at, "2026-04-30T02:00:00.000Z");
+  assert.equal(deleted.revision, 2);
+  assert.equal(await readFile(image.path, "utf8"), "image");
+  assert.equal(await readFile(mask.path, "utf8"), "mask");
+
+  const restored = await storage.restoreVersionManifest("project-1", "task-1", "v1", {
+    now: "2026-04-30T03:00:00.000Z",
+  });
+
+  assert.equal(restored.deleted_at, "");
+  assert.equal(restored.deleted_by, "");
+  assert.equal(restored.delete_reason, "");
+  assert.equal(restored.updated_at, "2026-04-30T03:00:00.000Z");
+  assert.equal(restored.revision, 3);
+  assert.equal(await readFile(image.path, "utf8"), "image");
+  assert.equal(await readFile(mask.path, "utf8"), "mask");
+});
+
+test("purges only files referenced by soft-deleted version records", async () => {
+  const { storage, rootDir } = await createTempStorage();
+  const deletedImage = await storage.writeVersionImageBuffer(
+    "project-1",
+    "task-1",
+    "v1",
+    "deleted-image",
+    "raw.jpg",
+    Buffer.from("deleted-image"),
+  );
+  const deletedMask = await storage.writeVersionMaskBuffer(
+    "project-1",
+    "task-1",
+    "v1",
+    "deleted-image",
+    Buffer.from("deleted-mask"),
+  );
+  const activeImage = await storage.writeVersionImageBuffer(
+    "project-1",
+    "task-1",
+    "v1",
+    "active-image",
+    "raw.jpg",
+    Buffer.from("active-image"),
+  );
+  await storage.ensureVersionManifest("project-1", "task-1", "v1", {
+    images: [
+      {
+        id: "deleted-image",
+        image_path: deletedImage.relativePath,
+        current_mask_path: deletedMask.relativePath,
+        deleted_at: "2026-04-30T01:00:00.000Z",
+      },
+      {
+        id: "active-image",
+        image_path: activeImage.relativePath,
+        current_mask_path: "masks/missing-active-mask.png",
+        deleted_at: "",
+      },
+    ],
+  });
+
+  const result = await storage.purgeSoftDeletedVersionFiles("project-1", "task-1", "v1");
+
+  assert.equal(result.deleted_count, 2);
+  assert.equal(result.missing_count, 0);
+  assert.deepEqual(result.deleted_paths, ["images/deleted-image_raw.jpg", "masks/deleted-image_mask.png"]);
+  await assert.rejects(() => stat(deletedImage.path), { code: "ENOENT" });
+  await assert.rejects(() => stat(deletedMask.path), { code: "ENOENT" });
+  assert.equal(await readFile(activeImage.path, "utf8"), "active-image");
+  await assertStatDirectory(path.join(rootDir, "projects", "project-1", "tasks", "task-1", "versions", "v1", "images"));
+  await assertStatDirectory(path.join(rootDir, "projects", "project-1", "tasks", "task-1", "versions", "v1", "masks"));
+});
+
+test("purges version files moved to trash by image soft delete", async () => {
+  const { storage, rootDir } = await createTempStorage();
+  const image = await storage.writeVersionImageBuffer(
+    "project-1",
+    "task-1",
+    "v1",
+    "image-1",
+    "raw.jpg",
+    Buffer.from("image"),
+  );
+  const mask = await storage.writeVersionMaskBuffer("project-1", "task-1", "v1", "image-1", Buffer.from("mask"));
+  await storage.ensureVersionManifest("project-1", "task-1", "v1", {
+    images: [{ id: "image-1", image_path: image.relativePath, current_mask_path: mask.relativePath }],
+  });
+  await storage.softDeleteVersionImage("project-1", "task-1", "v1", "image-1", {
+    now: "2026-04-30T01:00:00.000Z",
+  });
+
+  const result = await storage.purgeSoftDeletedVersionFiles("project-1", "task-1", "v1");
+
+  assert.equal(result.deleted_count, 2);
+  assert.deepEqual(result.deleted_paths, ["trash/images/image-1_raw.jpg", "trash/masks/image-1_mask.png"]);
+  await assert.rejects(
+    () =>
+      stat(
+        path.join(
+          rootDir,
+          "projects",
+          "project-1",
+          "tasks",
+          "task-1",
+          "versions",
+          "v1",
+          "trash",
+          "images",
+          "image-1_raw.jpg",
+        ),
+      ),
+    { code: "ENOENT" },
+  );
+  await assert.rejects(
+    () =>
+      stat(
+        path.join(
+          rootDir,
+          "projects",
+          "project-1",
+          "tasks",
+          "task-1",
+          "versions",
+          "v1",
+          "trash",
+          "masks",
+          "image-1_mask.png",
+        ),
+      ),
+    { code: "ENOENT" },
   );
 });
 

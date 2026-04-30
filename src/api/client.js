@@ -48,9 +48,44 @@ export function createMaskingApiClient(options = {}) {
       const query = role ? `?role=${encodeURIComponent(role)}` : "";
       return requestJson(`/api/users${query}`);
     },
+    createUser(input = {}) {
+      return requestJson("/api/users", {
+        method: "POST",
+        body: {
+          user_id: input.userId || input.user_id,
+          display_name: input.displayName || input.display_name,
+          role: input.role,
+          password: input.password,
+          active: input.active,
+        },
+      });
+    },
+    updateUser(userId, input = {}) {
+      assertRequired(userId, "userId");
+      return requestJson(`/api/users/${encodeURIComponent(userId)}`, {
+        method: "PUT",
+        body: {
+          display_name: input.displayName || input.display_name,
+          role: input.role,
+          password: input.password,
+          active: input.active,
+        },
+      });
+    },
     getProject(projectId) {
       assertRequired(projectId, "projectId");
       return requestJson(`/api/projects/${encodeURIComponent(projectId)}`);
+    },
+    updateProjectSettings(projectId, input = {}) {
+      assertRequired(projectId, "projectId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/settings`, {
+        method: "PATCH",
+        body: {
+          upload_policy: input.uploadPolicy || input.upload_policy,
+          magic_tool_preset: input.magicToolPreset || input.magic_tool_preset,
+          if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
+        },
+      });
     },
     listProjectTasks(projectId) {
       assertRequired(projectId, "projectId");
@@ -93,6 +128,52 @@ export function createMaskingApiClient(options = {}) {
       assertRequired(taskId, "taskId");
       assertRequired(versionId, "versionId");
       return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}`);
+    },
+    cloneTaskVersion(projectId, taskId, versionId, input = {}) {
+      assertRequired(projectId, "projectId");
+      assertRequired(taskId, "taskId");
+      assertRequired(versionId, "versionId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}/clone`, {
+        method: "POST",
+        body: {
+          new_version_id: input.newVersionId || input.new_version_id || input.versionId || input.version_id || input.id,
+          if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
+        },
+      });
+    },
+    deleteTaskVersion(projectId, taskId, versionId, input = {}) {
+      assertRequired(projectId, "projectId");
+      assertRequired(taskId, "taskId");
+      assertRequired(versionId, "versionId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}`, {
+        method: "DELETE",
+        body: {
+          delete_reason: input.reason || input.deleteReason || input.delete_reason,
+          if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
+        },
+      });
+    },
+    restoreTaskVersion(projectId, taskId, versionId, input = {}) {
+      assertRequired(projectId, "projectId");
+      assertRequired(taskId, "taskId");
+      assertRequired(versionId, "versionId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}/restore`, {
+        method: "POST",
+        body: {
+          if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
+        },
+      });
+    },
+    purgeTaskVersion(projectId, taskId, versionId) {
+      assertRequired(projectId, "projectId");
+      assertRequired(taskId, "taskId");
+      assertRequired(versionId, "versionId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks/${encodeURIComponent(taskId)}/versions/${encodeURIComponent(versionId)}/purge`, {
+        method: "POST",
+      });
+    },
+    listTrainingSources() {
+      return requestJson("/api/training-sources");
     },
     async getProjectFileBlob(projectId, relativePath) {
       assertRequired(projectId, "projectId");
