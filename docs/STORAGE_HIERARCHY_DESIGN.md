@@ -358,6 +358,116 @@ Export rules:
 - include project/task/version identifiers in `annotations.json` and
   `export_summary.json`
 
+## Training Set Export
+
+The hierarchy must also support a later export mode that combines selected
+task/version outputs into one training dataset.
+
+Example selection:
+
+```text
+project=rail-defect-2026
+include:
+  - task=crack_masking version=v2
+  - task=scratch_masking version=v1
+  - task=corrosion_masking version=v3
+```
+
+This is not the same as a single version export. It produces a new derived
+artifact that records exactly which versions were included.
+
+Target layout:
+
+```text
+data/
+  projects/
+    rail-defect-2026/
+      training_sets/
+        trainset_2026_04_30/
+          training_set.json
+          images/
+          masks/
+          exports/
+            trainset_2026_04_30.zip
+```
+
+### `training_set.json`
+
+```json
+{
+  "training_set_id": "trainset_2026_04_30",
+  "project_id": "rail-defect-2026",
+  "name": "Rail Defect Training Set 2026-04-30",
+  "created_by": "admin",
+  "created_at": "2026-04-30T00:00:00.000Z",
+  "sources": [
+    {
+      "task_id": "crack_masking",
+      "version_id": "v2"
+    },
+    {
+      "task_id": "scratch_masking",
+      "version_id": "v1"
+    }
+  ],
+  "items": [
+    {
+      "source_task_id": "crack_masking",
+      "source_version_id": "v2",
+      "source_image_id": "image_0001",
+      "image_path": "images/crack_masking_v2_image_0001_frame_0014.jpg",
+      "mask_path": "masks/crack_masking_v2_image_0001_mask.png"
+    }
+  ]
+}
+```
+
+Training set export rules:
+
+- include only selected task/version pairs
+- include only non-deleted images
+- include only images passing the same binary mask validation required by normal
+  version export
+- preserve source identifiers for traceability:
+  `source_project_id`, `source_task_id`, `source_version_id`, `source_image_id`
+- rewrite output file names to avoid collisions across versions
+- include a `training_set.json` and `source_versions.json` in the ZIP
+- do not mutate source task/version manifests when creating a training set
+
+Collision policy:
+
+- output image and mask file names must include at least
+  `{task_id}_{version_id}_{image_id}`
+- if two source versions contain the same original file name, both can be
+  included because output paths are rewritten
+- if two selected versions contain the same `task_id/version_id/image_id`, treat
+  it as a duplicate selection and include it once
+
+ZIP layout:
+
+```text
+images/
+masks/
+annotations.json
+export_summary.json
+training_set.json
+source_versions.json
+```
+
+Future API intent:
+
+```http
+POST /api/projects/{project_id}/training-sets
+GET  /api/projects/{project_id}/training-sets
+GET  /api/projects/{project_id}/training-sets/{training_set_id}
+GET  /api/projects/{project_id}/training-sets/{training_set_id}/export
+```
+
+The first implementation can generate the ZIP directly from selected
+task/version sources without permanently copying source files into
+`training_sets/{id}/images` and `masks`. Durable copied training-set artifacts
+can come later if repeated download or audit requirements appear.
+
 ## API Plan
 
 Current API is project-level. The target API should add task/version routes
@@ -378,6 +488,9 @@ POST /api/projects/{project_id}/tasks/{task_id}/versions/{version_id}/images/{im
 
 PUT /api/projects/{project_id}/tasks/{task_id}/versions/{version_id}/images/{image_id}/mask
 GET /api/projects/{project_id}/tasks/{task_id}/versions/{version_id}/export
+
+POST /api/projects/{project_id}/training-sets
+GET  /api/projects/{project_id}/training-sets/{training_set_id}/export
 ```
 
 Keep legacy routes during migration:
@@ -544,6 +657,15 @@ MASKING_APP_DATA_DIR=/tmp/masking-app-smoke-data npm run dev
 - Isolate smoke/test data roots.
 - Remove or deprecate legacy routes after verification.
 
+### Phase 7: Training Set Export
+
+- Add source version selector for one project.
+- Add pure training-set summary builder.
+- Add collision-safe output path generation.
+- Add training-set ZIP export.
+- Add `training_set.json` and `source_versions.json` metadata.
+- Keep source versions immutable during training-set generation.
+
 ## Validation
 
 Minimum validation for storage hierarchy implementation:
@@ -568,6 +690,9 @@ Manual smoke after UI integration:
 - create `v2` from `v1`
 - add more images to `v2`
 - export only `v2`
+- select `v1` and `v2` sources
+- export a combined training set
+- verify duplicate file names are rewritten without collisions
 
 ## Risks
 
@@ -580,6 +705,8 @@ Manual smoke after UI integration:
 - `src/app.js` already owns a lot of state. Keep task/version selector changes
   narrow, or split pure selectors/helpers first.
 - Export metadata must remain archive-relative.
+- Training set export must preserve source task/version/image traceability while
+  rewriting output paths to avoid collisions.
 - Smoke/test data should be isolated by data root, not hidden by name filters.
 
 ## Alternatives Considered
@@ -631,3 +758,5 @@ Cons:
 - Should workers be allowed to create versions, or only admins?
 - Should deleted images be restorable by reviewers, or admin only?
 - Should `task_id` be user-defined, generated from task name, or both?
+- Should training sets physically copy files into `training_sets/{id}`, or is
+  generated-on-demand ZIP enough for the first implementation?

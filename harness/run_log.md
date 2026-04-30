@@ -664,3 +664,13 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=storage-hierarchy-design-ready-for-commit
 [GIT] commit=6aa7f4f message="Design project task version storage"
 [GIT] push=origin/main status=passed range=9e2c096..6aa7f4f
+[START] task=storage-hierarchy-training-set-export-design subsystem=storage,export
+[PLAN] scope=extend-storage-hierarchy-design-for-selected-version-training-set-export risks=path-collisions,source-traceability,source-version-mutation
+[DOC] updated=docs/STORAGE_HIERARCHY_DESIGN.md note=added-training-set-export-design
+[DOC] updated=docs/FEATURE_STATUS.md note=added-training-set-export-future-work
+[CMD] rg -n "Training Set Export|training_set|source_versions|collision|training-sets|Phase 7|traceability" docs/STORAGE_HIERARCHY_DESIGN.md docs/FEATURE_STATUS.md
+[CMD] rg -n "TBD|TODO" docs/STORAGE_HIERARCHY_DESIGN.md
+[CMD] git diff --check
+[CMD] ./scripts/harness/smoke-web.sh
+[REVIEW] finding=none-blocking scope=storage-hierarchy-training-set-export-design notes=checked-source-traceability-collision-policy-api-phase-and-open-question
+[CLOSE] status=storage-hierarchy-training-set-export-design-ready-for-commit

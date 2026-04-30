@@ -81,6 +81,7 @@
 - [ ] Add a magic-tool sensitivity control if edge-aware defaults are not enough across datasets.
 - [ ] Add dataset/project settings for upload limits and allowed formats if these need to vary by project.
 - [ ] Implement project/task/version file-storage hierarchy from `docs/STORAGE_HIERARCHY_DESIGN.md`.
+- [ ] Implement training set export that combines selected task/version outputs.
 
 ## Hardcoded Runtime Debt
 
