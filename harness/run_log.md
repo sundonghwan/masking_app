@@ -662,3 +662,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] ./scripts/harness/smoke-web.sh
 [REVIEW] finding=none-blocking scope=storage-hierarchy-design notes=checked-no-placeholders-delete-restore-version-export-migration-and-legacy-compatibility
 [CLOSE] status=storage-hierarchy-design-ready-for-commit
+[GIT] commit=6aa7f4f message="Design project task version storage"
+[GIT] push=origin/main status=passed range=9e2c096..6aa7f4f
