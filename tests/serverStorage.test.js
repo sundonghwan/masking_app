@@ -14,12 +14,16 @@ import {
   listProjectTasks,
   listTaskVersions,
   cloneVersionManifest,
+  archiveProject,
   purgeSoftDeletedVersionFiles,
+  purgeProject,
   readProjectManifest,
+  restoreProject,
   writeMaskBuffer,
   writeImageFromDataUrl,
   writeMaskFromDataUrl,
   writeProjectManifest,
+  updateProjectManifest,
   softDeleteProjectImage,
   restoreProjectImage,
   softDeleteVersionManifest,
@@ -141,6 +145,47 @@ test("lists project summaries from manifests", async () => {
   assert.equal(projects[0].rejected_images, 1);
 });
 
+test("updates archives restores and purges project manifests", async () => {
+  const { storage, rootDir } = await createTempStorage();
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.writeProjectManifest("project-1", {
+    ...(await storage.readProjectManifest("project-1")),
+    revision: 1,
+    images: [{ id: "image-1", status: "submitted" }],
+  });
+
+  const updated = await storage.updateProjectManifest("project-1", {
+    name: "Project Updated",
+    description: "night batch",
+    now: "2026-04-30T01:00:00.000Z",
+  });
+  assert.equal(updated.name, "Project Updated");
+  assert.equal(updated.description, "night batch");
+  assert.equal(updated.revision, 2);
+
+  const archived = await storage.archiveProject("project-1", {
+    deletedBy: "admin",
+    reason: "wrong_project",
+    now: "2026-04-30T02:00:00.000Z",
+  });
+  assert.equal(archived.deleted_by, "admin");
+  assert.equal(archived.delete_reason, "wrong_project");
+  assert.equal((await storage.listProjects()).length, 0);
+  assert.equal((await storage.listProjects({ includeDeleted: true }))[0].deleted_at, "2026-04-30T02:00:00.000Z");
+
+  const restored = await storage.restoreProject("project-1", { now: "2026-04-30T03:00:00.000Z" });
+  assert.equal(restored.deleted_at, "");
+  assert.equal((await storage.listProjects()).length, 1);
+
+  await storage.archiveProject("project-1", { deletedBy: "admin", reason: "cleanup" });
+  await storage.purgeProject("project-1");
+  assert.equal(await storage.readProjectManifest("project-1"), null);
+  await assert.rejects(
+    () => stat(path.join(rootDir, "project-1")),
+    /ENOENT/,
+  );
+});
+
 test("returns null or empty lists for missing project manifest and files", async () => {
   const { storage } = await createTempStorage();
 
@@ -183,6 +228,10 @@ test("module-level default APIs are exported for server integration", () => {
   assert.equal(typeof writeMaskBuffer, "function");
   assert.equal(typeof readProjectManifest, "function");
   assert.equal(typeof writeProjectManifest, "function");
+  assert.equal(typeof updateProjectManifest, "function");
+  assert.equal(typeof archiveProject, "function");
+  assert.equal(typeof restoreProject, "function");
+  assert.equal(typeof purgeProject, "function");
   assert.equal(typeof softDeleteProjectImage, "function");
   assert.equal(typeof restoreProjectImage, "function");
   assert.equal(typeof cloneVersionManifest, "function");

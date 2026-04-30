@@ -90,6 +90,51 @@ test("updates project settings with upload policy, magic preset, and revision gu
   });
 });
 
+test("lists archived projects and mutates project lifecycle", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { token: "sess_admin" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ ok: true }, 200);
+    },
+  });
+
+  await client.listProjects({ includeDeleted: true });
+  await client.updateProjectSettings("project 1", {
+    name: "Renamed",
+    description: "night batch",
+    ifMatchRevision: 3,
+  });
+  await client.archiveProject("project 1", {
+    reason: "wrong_project",
+    ifMatchRevision: 4,
+  });
+  await client.restoreProject("project 1", { ifMatchRevision: 5 });
+  await client.purgeProject("project 1");
+
+  assert.equal(calls[0].url, "/api/projects?include_deleted=1");
+  assert.equal(calls[1].url, "/api/projects/project%201/settings");
+  assert.deepEqual(JSON.parse(calls[1].options.body), {
+    name: "Renamed",
+    description: "night batch",
+    if_match_revision: 3,
+  });
+  assert.equal(calls[2].url, "/api/projects/project%201");
+  assert.equal(calls[2].options.method, "DELETE");
+  assert.deepEqual(JSON.parse(calls[2].options.body), {
+    delete_reason: "wrong_project",
+    if_match_revision: 4,
+  });
+  assert.equal(calls[3].url, "/api/projects/project%201/restore");
+  assert.equal(calls[3].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[3].options.body), {
+    if_match_revision: 5,
+  });
+  assert.equal(calls[4].url, "/api/projects/project%201/purge");
+  assert.equal(calls[4].options.method, "POST");
+});
+
 test("uploads an image and URL-encodes the project path segment", async () => {
   const calls = [];
   const client = createMaskingApiClient({

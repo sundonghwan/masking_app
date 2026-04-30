@@ -40,8 +40,10 @@ export function createMaskingApiClient(options = {}) {
         },
       });
     },
-    listProjects() {
-      return requestJson("/api/projects");
+    listProjects(options = {}) {
+      const includeDeleted = options.includeDeleted || options.include_deleted;
+      const query = includeDeleted ? "?include_deleted=1" : "";
+      return requestJson(`/api/projects${query}`);
     },
     listUsers(options = {}) {
       const role = String(options.role || "").trim();
@@ -81,10 +83,37 @@ export function createMaskingApiClient(options = {}) {
       return requestJson(`/api/projects/${encodeURIComponent(projectId)}/settings`, {
         method: "PATCH",
         body: {
+          name: input.name,
+          description: input.description,
           upload_policy: input.uploadPolicy || input.upload_policy,
           magic_tool_preset: input.magicToolPreset || input.magic_tool_preset,
           if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
         },
+      });
+    },
+    archiveProject(projectId, input = {}) {
+      assertRequired(projectId, "projectId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}`, {
+        method: "DELETE",
+        body: {
+          delete_reason: input.reason || input.deleteReason || input.delete_reason,
+          if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
+        },
+      });
+    },
+    restoreProject(projectId, input = {}) {
+      assertRequired(projectId, "projectId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/restore`, {
+        method: "POST",
+        body: {
+          if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
+        },
+      });
+    },
+    purgeProject(projectId) {
+      assertRequired(projectId, "projectId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/purge`, {
+        method: "POST",
       });
     },
     listProjectTasks(projectId) {

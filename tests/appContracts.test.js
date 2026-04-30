@@ -212,6 +212,8 @@ test("workbench exposes version settings account and training operations", () =>
   assert.match(html, /id="purgeVersionButton"/);
   assert.match(html, /id="trainingSourcePicker"/);
   assert.match(html, /id="trainingExportButton"/);
+  assert.match(html, /id="settingsProjectName"/);
+  assert.match(html, /id="settingsProjectDescription"/);
   assert.match(html, /id="saveProjectSettingsButton"/);
   assert.match(html, /id="saveUserButton"/);
   assert.match(app, /taskId: DEFAULT_TASK_ID/);
@@ -223,6 +225,27 @@ test("workbench exposes version settings account and training operations", () =>
   assert.match(app, /apiClient\.downloadTrainingSetExport/);
   assert.match(app, /apiClient\.createUser/);
   assert.match(app, /apiClient\.updateUser/);
+});
+
+test("project management exposes edit archive restore and purge controls", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const api = fs.readFileSync(new URL("../src/api/client.js", import.meta.url), "utf8");
+  const server = fs.readFileSync(new URL("../src/server/api.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="includeDeletedProjects"/);
+  assert.match(app, /function editProjectFromSummary\(/);
+  assert.match(app, /function archiveProjectFromSummary\(/);
+  assert.match(app, /function restoreProjectFromSummary\(/);
+  assert.match(app, /function purgeProjectFromSummary\(/);
+  assert.match(app, /apiClient\.archiveProject/);
+  assert.match(app, /apiClient\.restoreProject/);
+  assert.match(app, /apiClient\.purgeProject/);
+  assert.match(api, /archiveProject\(projectId/);
+  assert.match(api, /restoreProject\(projectId/);
+  assert.match(api, /purgeProject\(projectId/);
+  assert.match(server, /include_deleted/);
+  assert.match(server, /project_not_archived/);
 });
 
 test("project discovery searches full server project list without four item cap", () => {

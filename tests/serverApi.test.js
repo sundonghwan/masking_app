@@ -338,6 +338,8 @@ test("admin updates project settings and revision guard rejects stale writes", a
 
   const updated = await callJson(route, "PATCH", "/api/projects/project-1/settings", {
     if_match_revision: 2,
+    name: "Renamed Project",
+    description: "night batch",
     upload_policy: {
       maxFileBytes: 1024,
       allowedMimeTypes: ["image/png"],
@@ -353,11 +355,15 @@ test("admin updates project settings and revision guard rejects stale writes", a
 
   assert.equal(updated.statusCode, 200);
   assert.equal(updated.body.settings.upload_policy.maxFileBytes, 1024);
+  assert.equal(updated.body.settings.name, "Renamed Project");
+  assert.equal(updated.body.settings.description, "night batch");
   assert.deepEqual(updated.body.settings.upload_policy.allowedExtensions, [".png"]);
   assert.equal(updated.body.settings.magic_tool_preset.colorTolerance, 24);
   assert.equal(updated.body.settings.revision, 3);
 
   const manifest = await storage.readProjectManifest("project-1");
+  assert.equal(manifest.name, "Renamed Project");
+  assert.equal(manifest.description, "night batch");
   assert.equal(manifest.upload_policy.maxFileBytes, 1024);
   assert.equal(manifest.magic_tool_preset.edgeThreshold, 72);
   assert.equal(manifest.revision, 3);
@@ -1039,6 +1045,61 @@ test("lists project summaries ordered by update time", async () => {
   assert.equal(response.body.projects[1].submitted_images, 1);
 });
 
+test("admin archives restores and purges projects while normal lists hide archived projects", async () => {
+  const { route, storage } = createApiHarness();
+  const adminHeaders = await loginHeaders(route, "admin");
+  const reviewerHeaders = await loginHeaders(route, "reviewer");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.writeProjectManifest("project-1", {
+    ...(await storage.readProjectManifest("project-1")),
+    revision: 1,
+  });
+
+  const rejectedRole = await callJson(route, "DELETE", "/api/projects/project-1", {
+    reason: "wrong_project",
+  }, reviewerHeaders);
+  assert.equal(rejectedRole.statusCode, 403);
+
+  const stale = await callJson(route, "DELETE", "/api/projects/project-1", {
+    if_match_revision: 0,
+    reason: "wrong_project",
+  }, adminHeaders);
+  assert.equal(stale.statusCode, 409);
+
+  const archived = await callJson(route, "DELETE", "/api/projects/project-1", {
+    if_match_revision: 1,
+    reason: "wrong_project",
+  }, adminHeaders);
+  assert.equal(archived.statusCode, 200);
+  assert.equal(archived.body.project.deleted_by, "admin");
+  assert.equal(archived.body.project.delete_reason, "wrong_project");
+
+  const activeList = await callJson(route, "GET", "/api/projects", null, reviewerHeaders);
+  assert.equal(activeList.body.total_projects, 0);
+
+  const rejectedDeletedList = await callJson(route, "GET", "/api/projects?include_deleted=1", null, reviewerHeaders);
+  assert.equal(rejectedDeletedList.statusCode, 403);
+
+  const deletedList = await callJson(route, "GET", "/api/projects?include_deleted=1", null, adminHeaders);
+  assert.equal(deletedList.statusCode, 200);
+  assert.equal(deletedList.body.projects[0].deleted_at, archived.body.project.deleted_at);
+
+  const restored = await callJson(route, "POST", "/api/projects/project-1/restore", {
+    if_match_revision: archived.body.project.revision,
+  }, adminHeaders);
+  assert.equal(restored.statusCode, 200);
+  assert.equal(restored.body.project.deleted_at, "");
+
+  await callJson(route, "DELETE", "/api/projects/project-1", {
+    if_match_revision: restored.body.project.revision,
+    reason: "cleanup",
+  }, adminHeaders);
+  const purged = await callJson(route, "POST", "/api/projects/project-1/purge", {}, adminHeaders);
+  assert.equal(purged.statusCode, 200);
+  assert.equal(purged.body.purge.purged, true);
+  assert.equal(await storage.readProjectManifest("project-1"), null);
+});
+
 test("admin creates tasks and authorized users list and read task metadata", async () => {
   const { route, storage } = createApiHarness();
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -1246,6 +1307,41 @@ function createMemoryStorage() {
       manifests.set(projectId, clone(manifest));
       return clone(manifest);
     },
+    async archiveProject(projectId, input = {}) {
+      const manifest = manifests.get(projectId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      const updated = {
+        ...manifest,
+        deleted_at: manifest.deleted_at || now,
+        deleted_by: input.deletedBy || input.deleted_by || "",
+        delete_reason: input.reason || input.deleteReason || input.delete_reason || "",
+        updated_at: now,
+        revision: Number(manifest.revision || 0) + 1,
+      };
+      manifests.set(projectId, clone(updated));
+      return clone(updated);
+    },
+    async restoreProject(projectId, input = {}) {
+      const manifest = manifests.get(projectId);
+      const now = input.now || "2026-04-30T00:00:00.000Z";
+      const updated = {
+        ...manifest,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+        updated_at: now,
+        revision: Number(manifest.revision || 0) + 1,
+      };
+      manifests.set(projectId, clone(updated));
+      return clone(updated);
+    },
+    async purgeProject(projectId) {
+      manifests.delete(projectId);
+      return {
+        project_id: projectId,
+        purged: true,
+      };
+    },
     async softDeleteProjectImage(projectId, imageId, input = {}) {
       const manifest = manifests.get(projectId);
       const now = input.now || "2026-04-30T00:00:00.000Z";
@@ -1276,14 +1372,18 @@ function createMemoryStorage() {
       manifest.updated_at = now;
       return clone(updated);
     },
-    async listProjects() {
-      return [...manifests.values()].map((manifest) => {
+    async listProjects(options = {}) {
+      return [...manifests.values()].filter((manifest) => options.includeDeleted || !manifest.deleted_at).map((manifest) => {
         const images = (manifest.images || []).filter((image) => !image.deleted_at);
         return {
           project_id: manifest.project_id,
           name: manifest.name,
           created_at: manifest.created_at,
           updated_at: manifest.updated_at,
+          revision: Number(manifest.revision || 0),
+          deleted_at: manifest.deleted_at || "",
+          deleted_by: manifest.deleted_by || "",
+          delete_reason: manifest.delete_reason || "",
           total_images: images.length,
           submitted_images: images.filter((image) => image.status === "submitted").length,
           approved_images: images.filter((image) => image.status === "approved").length,

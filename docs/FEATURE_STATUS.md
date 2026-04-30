@@ -75,6 +75,9 @@
 - [x] Version clone/delete/restore UI
 - [x] Training-set export source picker tied to selected project/task/version snapshots
 - [x] Project settings edit UI/API for upload limits, allowed formats, and magic presets
+- [x] Project edit UI/API for name and description corrections
+- [x] Project archive/restore UI/API for mistaken or obsolete projects
+- [x] Project purge maintenance for archived project files
 - [x] Account administration UI/API for local MVP users
 - [x] Server revision guard for risky project/version mutations
 - [x] Physical purge maintenance for soft-deleted version files

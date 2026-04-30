@@ -65,10 +65,12 @@ const state = {
   projectSummaries: [],
   projectSummariesError: "",
   projectSearch: "",
+  includeDeletedProjects: false,
   projectCreateId: "",
   projectCreateName: "",
   projectUploadLimitMb: 15,
   projectCreateMessage: "",
+  projectDescription: "",
   taskId: DEFAULT_TASK_ID,
   versionId: DEFAULT_VERSION_ID,
   taskSummaries: [],
@@ -118,6 +120,7 @@ const els = {
   createProjectButton: document.querySelector("#createProjectButton"),
   projectCreateMessage: document.querySelector("#projectCreateMessage"),
   projectSearchInput: document.querySelector("#projectSearchInput"),
+  includeDeletedProjects: document.querySelector("#includeDeletedProjects"),
   projectSummaryList: document.querySelector("#projectSummaryList"),
   dashboardProjectName: document.querySelector("#dashboardProjectName"),
   dashboardProjectsButton: document.querySelector("#dashboardProjectsButton"),
@@ -198,6 +201,8 @@ const els = {
   exportPolicyMessage: document.querySelector("#exportPolicyMessage"),
   trainingSourcePicker: document.querySelector("#trainingSourcePicker"),
   trainingExportButton: document.querySelector("#trainingExportButton"),
+  settingsProjectName: document.querySelector("#settingsProjectName"),
+  settingsProjectDescription: document.querySelector("#settingsProjectDescription"),
   settingsUploadLimitMb: document.querySelector("#settingsUploadLimitMb"),
   settingsAllowedFormats: document.querySelector("#settingsAllowedFormats"),
   settingsMagicTolerance: document.querySelector("#settingsMagicTolerance"),
@@ -408,6 +413,10 @@ function bindEvents() {
     state.projectSearch = els.projectSearchInput.value;
     renderProjectSummaries();
   });
+  els.includeDeletedProjects.addEventListener("change", () => {
+    state.includeDeletedProjects = els.includeDeletedProjects.checked && state.sessionRole === ROLES.ADMIN;
+    void refreshProjectSummaries();
+  });
   els.loginButton.addEventListener("click", () => void loginSession());
   els.logoutButton.addEventListener("click", () => void logoutSession());
   els.approveButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.APPROVE));
@@ -449,6 +458,12 @@ function bindEvents() {
     render();
   });
   els.trainingExportButton.addEventListener("click", () => void exportSelectedTrainingSet());
+  els.settingsProjectName.addEventListener("input", () => {
+    renderProjectSettingsPanel();
+  });
+  els.settingsProjectDescription.addEventListener("input", () => {
+    renderProjectSettingsPanel();
+  });
   els.settingsUploadLimitMb.addEventListener("input", () => {
     renderProjectSettingsPanel();
   });
@@ -601,7 +616,9 @@ async function selectImage(imageId, options = {}) {
 
 async function refreshProjectSummaries() {
   try {
-    const response = await apiClient.listProjects();
+    const response = await apiClient.listProjects({
+      includeDeleted: state.includeDeletedProjects && state.sessionRole === ROLES.ADMIN,
+    });
     state.projectSummaries = Array.isArray(response.projects) ? response.projects : [];
     state.projectSummariesError = "";
     renderProjectSummaries();
@@ -817,6 +834,8 @@ async function saveProjectSettings() {
   setSaveState("saving", "프로젝트 설정 저장 중");
   try {
     const response = await apiClient.updateProjectSettings(state.projectId, {
+      name: els.settingsProjectName.value || state.projectName,
+      description: els.settingsProjectDescription.value || state.projectDescription || "",
       uploadPolicy: {
         maxFileBytes,
         allowedMimeTypes,
@@ -826,6 +845,8 @@ async function saveProjectSettings() {
         edgeThreshold: Number(els.settingsMagicEdge.value || state.settingsMagicEdge),
       },
     });
+    state.projectName = response.settings?.name || state.projectName;
+    state.projectDescription = response.settings?.description || state.projectDescription || "";
     state.uploadPolicy = normalizeUploadPolicy(response.settings?.upload_policy || {}, state.uploadPolicy);
     const preset = response.settings?.magic_tool_preset || {};
     state.settingsMagicTolerance = Number(preset.color_tolerance || preset.colorTolerance || state.settingsMagicTolerance);
@@ -906,6 +927,7 @@ async function loginSession() {
     state.sessionToken = session.token || "";
     state.sessionUserId = session.userId || session.user_id || state.sessionUserId;
     state.sessionRole = normalizeRole(session.role, state.sessionRole);
+    state.includeDeletedProjects = state.sessionRole === ROLES.ADMIN && state.includeDeletedProjects;
     state.sessionPassword = "";
     state.sessionAuthenticated = Boolean(state.sessionToken);
     await persistProject();
@@ -933,6 +955,7 @@ async function logoutSession() {
   }
   state.sessionToken = "";
   state.sessionAuthenticated = false;
+  state.includeDeletedProjects = false;
   state.assignmentUsers = { workers: [], reviewers: [], error: "" };
   await persistProject();
   render();
@@ -1760,19 +1783,41 @@ function renderProjectSummaries() {
   if (document.activeElement !== els.projectSearchInput) {
     els.projectSearchInput.value = state.projectSearch;
   }
+  els.includeDeletedProjects.checked = Boolean(state.includeDeletedProjects && state.sessionRole === ROLES.ADMIN);
+  els.includeDeletedProjects.disabled = state.sessionRole !== ROLES.ADMIN;
   const filteredProjects = filterProjectsBySearch(state.projectSummaries || [], state.projectSearch);
   const items = filteredProjects.map((project) => {
-    const row = document.createElement("button");
-    row.type = "button";
+    const row = document.createElement("div");
     row.className = `project-summary-row ${project.project_id === state.projectId ? "current" : ""}`;
-    row.addEventListener("click", () => void loadServerProject(project.project_id));
-    row.innerHTML = `
+    const main = document.createElement("button");
+    main.type = "button";
+    main.className = "project-summary-main";
+    main.disabled = Boolean(project.deleted_at);
+    main.addEventListener("click", () => void loadServerProject(project.project_id));
+    main.innerHTML = `
       <span>
         <strong>${escapeHtml(project.name || project.project_id || "Untitled")}</strong>
-        <small>${project.submitted_images || 0} 제출 · ${project.approved_images || 0} 승인 · ${project.rejected_images || 0} 반려</small>
+        <small>${project.deleted_at ? "삭제됨 · " : ""}${project.submitted_images || 0} 제출 · ${project.approved_images || 0} 승인 · ${project.rejected_images || 0} 반려</small>
       </span>
       <output>${project.total_images || 0}</output>
     `;
+    row.append(main);
+    if (state.sessionRole === ROLES.ADMIN) {
+      const actions = document.createElement("div");
+      actions.className = "project-summary-actions";
+      if (project.deleted_at) {
+        actions.append(
+          projectActionButton("복원", () => void restoreProjectFromSummary(project)),
+          projectActionButton("완전삭제", () => void purgeProjectFromSummary(project), "danger"),
+        );
+      } else {
+        actions.append(
+          projectActionButton("수정", () => void editProjectFromSummary(project)),
+          projectActionButton("삭제", () => void archiveProjectFromSummary(project), "danger"),
+        );
+      }
+      row.append(actions);
+    }
     return row;
   });
 
@@ -1785,6 +1830,18 @@ function renderProjectSummaries() {
     items.push(empty);
   }
   els.projectSummaryList.replaceChildren(...items);
+}
+
+function projectActionButton(label, handler, variant = "secondary") {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `button ${variant}`;
+  button.textContent = label;
+  button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    handler();
+  });
+  return button;
 }
 
 function renderProjectCreateForm() {
@@ -2021,6 +2078,92 @@ async function loadServerProject(projectId) {
   }
 }
 
+async function editProjectFromSummary(project) {
+  if (state.sessionRole !== ROLES.ADMIN || !project?.project_id) return;
+  const name = window.prompt("프로젝트 이름", project.name || project.project_id);
+  if (name === null) return;
+  const description = window.prompt("프로젝트 설명", project.description || "");
+  if (description === null) return;
+  setSaveState("saving", "프로젝트 수정 중");
+  try {
+    const response = await apiClient.updateProjectSettings(project.project_id, {
+      name,
+      description,
+      ifMatchRevision: project.revision || undefined,
+    });
+    if (project.project_id === state.projectId) {
+      state.projectName = response.settings?.name || name || state.projectName;
+      state.projectDescription = response.settings?.description || description || state.projectDescription;
+      await persistProject();
+    }
+    await refreshProjectSummaries();
+    render();
+    setSaveState("saved", "프로젝트 수정됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `프로젝트 수정 실패: ${normalized.message}`);
+  }
+}
+
+async function archiveProjectFromSummary(project) {
+  if (state.sessionRole !== ROLES.ADMIN || !project?.project_id) return;
+  const reason = window.prompt("프로젝트 삭제 사유", "wrong_project");
+  if (reason === null) return;
+  if (!window.confirm("프로젝트를 삭제됨 상태로 보냅니다. 복원 전까지 일반 목록과 작업에서 숨겨집니다. 계속할까요?")) return;
+  setSaveState("saving", "프로젝트 삭제 중");
+  try {
+    await apiClient.archiveProject(project.project_id, {
+      reason,
+      ifMatchRevision: project.revision || undefined,
+    });
+    if (project.project_id === state.projectId) {
+      await closeActiveProjectContext();
+      routeToScreen(SCREENS.PROJECTS);
+    }
+    await refreshProjectSummaries();
+    render();
+    setSaveState("saved", "프로젝트 삭제됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `프로젝트 삭제 실패: ${normalized.message}`);
+  }
+}
+
+async function restoreProjectFromSummary(project) {
+  if (state.sessionRole !== ROLES.ADMIN || !project?.project_id) return;
+  setSaveState("saving", "프로젝트 복원 중");
+  try {
+    await apiClient.restoreProject(project.project_id, {
+      ifMatchRevision: project.revision || undefined,
+    });
+    await refreshProjectSummaries();
+    render();
+    setSaveState("saved", "프로젝트 복원됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `프로젝트 복원 실패: ${normalized.message}`);
+  }
+}
+
+async function purgeProjectFromSummary(project) {
+  if (state.sessionRole !== ROLES.ADMIN || !project?.project_id || !project.deleted_at) return;
+  if (!window.confirm("삭제된 프로젝트 파일을 실제로 제거합니다. 복구할 수 없습니다. 계속할까요?")) return;
+  setSaveState("saving", "프로젝트 완전삭제 중");
+  try {
+    await apiClient.purgeProject(project.project_id);
+    if (project.project_id === state.projectId) {
+      await closeActiveProjectContext();
+      routeToScreen(SCREENS.PROJECTS);
+    }
+    await refreshProjectSummaries();
+    render();
+    setSaveState("saved", "프로젝트 완전삭제됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `프로젝트 완전삭제 실패: ${normalized.message}`);
+  }
+}
+
 async function restoreServerManifest(manifest = {}) {
   revokeImageUrls();
   await projectStore.clearProject();
@@ -2054,6 +2197,7 @@ function setActiveProjectFromManifest(manifest = {}, options = {}) {
   }
   state.projectId = manifest.project_id || manifest.id || options.fallbackId || state.projectId;
   state.projectName = manifest.name || manifest.project_name || options.fallbackName || state.projectId;
+  state.projectDescription = manifest.description || state.projectDescription || "";
   state.uploadPolicy = normalizeUploadPolicy(manifest.upload_policy || manifest.uploadPolicy || state.uploadPolicy);
   const magicPreset = manifest.magic_tool_preset || manifest.magicToolPreset || {};
   state.settingsMagicTolerance = Number(magicPreset.color_tolerance || magicPreset.colorTolerance || state.settingsMagicTolerance);
@@ -2256,6 +2400,12 @@ function renderTrainingSourcePicker() {
 }
 
 function renderProjectSettingsPanel() {
+  if (document.activeElement !== els.settingsProjectName) {
+    els.settingsProjectName.value = state.projectName || "";
+  }
+  if (document.activeElement !== els.settingsProjectDescription) {
+    els.settingsProjectDescription.value = state.projectDescription || "";
+  }
   if (document.activeElement !== els.settingsUploadLimitMb) {
     els.settingsUploadLimitMb.value = String(Math.round(Number(state.uploadPolicy.maxFileBytes || UPLOAD_POLICY.maxFileBytes) / 1024 / 1024));
   }
@@ -2833,6 +2983,7 @@ async function persistProject() {
   const serializable = {
     projectId: state.projectId,
     projectName: state.projectName,
+    projectDescription: state.projectDescription,
     selectedId: state.selectedId,
     filter: state.filter,
     imageSearch: state.imageSearch,
@@ -2869,6 +3020,7 @@ async function restoreProject() {
   try {
     state.projectId = saved.projectId || state.projectId;
     state.projectName = saved.projectName || state.projectName;
+    state.projectDescription = saved.projectDescription || state.projectDescription || "";
     state.selectedId = saved.selectedId || null;
     state.filter = saved.filter || "all";
     state.imageSearch = String(saved.imageSearch || "");
@@ -2907,6 +3059,7 @@ async function clearProject() {
   revokeImageUrls();
   state.projectId = "";
   state.projectName = "";
+  state.projectDescription = "";
   state.images = [];
   state.selectedId = null;
   state.filter = "all";
@@ -2936,6 +3089,37 @@ async function clearProject() {
   els.emptyState.hidden = false;
   setSaveState("saved", "초기화됨");
   render();
+}
+
+async function closeActiveProjectContext() {
+  revokeImageUrls();
+  state.projectId = "";
+  state.projectName = "";
+  state.projectDescription = "";
+  state.images = [];
+  state.selectedId = null;
+  state.filter = "all";
+  state.imageSearch = "";
+  state.queueMode = QUEUE_MODES.ALL;
+  state.savedAt = null;
+  state.backendProjectReady = false;
+  state.backendProjectError = "";
+  state.lastExportMode = "";
+  state.lastExportMessage = "";
+  state.exportApprovedOnly = false;
+  state.assignmentWorkerId = DEFAULT_ACTORS.worker;
+  state.assignmentReviewerId = DEFAULT_ACTORS.reviewer;
+  state.uploadRejections = [];
+  state.uploadPolicy = { ...UPLOAD_POLICY };
+  state.taskId = DEFAULT_TASK_ID;
+  state.versionId = DEFAULT_VERSION_ID;
+  state.taskSummaries = [];
+  state.versionSummaries = [];
+  state.versionRevision = 0;
+  state.selectedTrainingSourceIds = new Set();
+  await projectStore.clearProject();
+  editor.clear();
+  els.emptyState.hidden = false;
 }
 
 function revokeImageUrls() {

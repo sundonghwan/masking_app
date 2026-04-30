@@ -156,7 +156,16 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
 
-      const projects = await storage.listProjects();
+      const includeDeleted = url.searchParams.get("include_deleted") === "1" || url.searchParams.get("includeDeleted") === "1";
+      if (includeDeleted && session.role !== ROLES.ADMIN) {
+        return sendJson(response, 403, {
+          error: "forbidden",
+          message: "Deleted projects can only be listed by admins",
+          required_roles: [ROLES.ADMIN],
+          role: session.role || "",
+        });
+      }
+      const projects = await storage.listProjects({ includeDeleted });
       return sendJson(response, 200, {
         projects,
         total_projects: projects.length,
@@ -183,7 +192,64 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
 
       const manifest = await storage.readProjectManifest(projectId);
       if (!manifest) throw createHttpError(404, "Project not found");
+      if (manifest.deleted_at && session.role !== ROLES.ADMIN) throw createHttpError(404, "Project not found");
       return sendJson(response, 200, manifest);
+    }
+
+    if (parts.length === 1 && request.method === "DELETE") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const manifest = await storage.readProjectManifest(projectId);
+      if (!manifest) throw createHttpError(404, "Project not found");
+      if (!assertRevisionMatch(response, request, body, manifest.revision)) return;
+
+      const project = storage.archiveProject
+        ? await storage.archiveProject(projectId, {
+            deletedBy: session.userId,
+            reason: body.delete_reason || body.deleteReason || body.reason,
+          })
+        : await updateProjectArchiveState(projectId, manifest, {
+            mode: "archive",
+            actor: session.userId,
+            reason: body.delete_reason || body.deleteReason || body.reason,
+          });
+      return sendJson(response, 200, { project });
+    }
+
+    if (parts.length === 2 && parts[1] === "restore" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const manifest = await storage.readProjectManifest(projectId);
+      if (!manifest) throw createHttpError(404, "Project not found");
+      if (!assertRevisionMatch(response, request, body, manifest.revision)) return;
+
+      const project = storage.restoreProject
+        ? await storage.restoreProject(projectId)
+        : await updateProjectArchiveState(projectId, manifest, { mode: "restore" });
+      return sendJson(response, 200, { project });
+    }
+
+    if (parts.length === 2 && parts[1] === "purge" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const manifest = await storage.readProjectManifest(projectId);
+      if (!manifest) throw createHttpError(404, "Project not found");
+      if (!manifest.deleted_at) {
+        return sendJson(response, 409, {
+          error: "project_not_archived",
+          message: "Only archived projects can be purged",
+        });
+      }
+      if (!storage.purgeProject) {
+        return sendJson(response, 501, {
+          error: "purge_unavailable",
+          message: "Project purge storage helper is not available",
+        });
+      }
+      const purge = await storage.purgeProject(projectId);
+      return sendJson(response, 200, { purge });
     }
 
     if (parts[1] === "tasks") {
@@ -201,6 +267,12 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       const now = new Date().toISOString();
       const updated = {
         ...manifest,
+        ...(Object.hasOwn(body, "name") || Object.hasOwn(body, "project_name") || Object.hasOwn(body, "projectName")
+          ? { name: String(body.name || body.project_name || body.projectName || projectId).trim() || projectId }
+          : {}),
+        ...(Object.hasOwn(body, "description")
+          ? { description: String(body.description || "").trim() }
+          : {}),
         ...(Object.hasOwn(body, "upload_policy") || Object.hasOwn(body, "uploadPolicy")
           ? { upload_policy: normalizeUploadPolicy(body.upload_policy || body.uploadPolicy || {}, manifest.upload_policy) }
           : {}),
@@ -214,9 +286,12 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       return sendJson(response, 200, {
         settings: {
           project_id: updated.project_id || projectId,
+          name: updated.name || projectId,
+          description: updated.description || "",
           upload_policy: updated.upload_policy || normalizeUploadPolicy({}),
           magic_tool_preset: updated.magic_tool_preset || normalizeMagicToolPreset({}),
           revision: updated.revision,
+          deleted_at: updated.deleted_at || "",
           updated_at: updated.updated_at,
         },
       });
@@ -1040,6 +1115,32 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
           revision: nextRevision(version.revision),
         };
     await storage.writeVersionManifest(projectId, taskId, version.version_id, updated);
+    return updated;
+  }
+
+  async function updateProjectArchiveState(projectId, manifest, operation) {
+    if (!storage.writeProjectManifest) {
+      throw createHttpError(501, "Project archive storage helper is not available");
+    }
+    const now = new Date().toISOString();
+    const updated = operation.mode === "archive"
+      ? {
+          ...manifest,
+          deleted_at: manifest.deleted_at || now,
+          deleted_by: String(operation.actor || ""),
+          delete_reason: String(operation.reason || ""),
+          updated_at: now,
+          revision: nextRevision(manifest.revision),
+        }
+      : {
+          ...manifest,
+          deleted_at: "",
+          deleted_by: "",
+          delete_reason: "",
+          updated_at: now,
+          revision: nextRevision(manifest.revision),
+        };
+    await storage.writeProjectManifest(projectId, updated);
     return updated;
   }
 

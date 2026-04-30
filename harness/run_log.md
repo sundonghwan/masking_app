@@ -894,3 +894,20 @@ chains in `harness/tasks/`; keep this file short.
 [IMPACT_VALIDATE] task=complete-remaining-feature-batch chain=version-workbench-storage validation=full-tests-and-live-http-smoke-passed
 [REVIEW] finding=none-blocking scope=complete-remaining-feature-batch note=role-boundary-fallback-fixed-before-closeout
 [CLOSE] status=ready-for-commit server=http://localhost:4173
+[START] task=project-management subsystem=project-lifecycle
+[PLAN] scope=project-edit-archive-restore-purge risks=destructive-purge,archived-project-routing,project-list-filtering
+[IMPACT] status=suspected chain=projectManagementUI(src/app.js:*)->apiClient project lifecycle(src/api/client.js:*)->routeProject lifecycle(src/server/api.js:*)->storage project lifecycle(src/server/storage.js:*)
+[FIX] scope=project-lifecycle note=added-admin-project-edit-archive-restore-purge-api-client-storage-and-ui
+[DOC] updated=docs/PROJECT_MANAGEMENT_DESIGN.md note=project-edit-archive-restore-purge-product-and-system-design
+[DOC] updated=docs/FEATURE_STATUS.md note=project-edit-archive-restore-purge-marked-complete
+[CMD] node --test tests/serverStorage.test.js tests/serverApi.test.js tests/apiClient.test.js status=passed tests=93
+[CMD] node --test tests/appContracts.test.js tests/apiClient.test.js tests/serverApi.test.js tests/serverStorage.test.js status=passed tests=118
+[IMPACT_VALIDATE] task=project-management chain=project-lifecycle-ui-api-storage validation=focused-contract-tests-passed
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=198
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health,admin-include-deleted-projects,reviewer-include-deleted-forbidden,index-head
+[REVIEW] finding=none-blocking scope=project-management note=archive-before-purge-admin-only-boundary-verified
+[CLOSE] status=ready-for-commit server=http://localhost:4173

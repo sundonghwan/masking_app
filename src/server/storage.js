@@ -65,6 +65,64 @@ export function createFileStorage({ rootDir = "data" } = {}) {
       );
       return manifest;
     },
+    async updateProjectManifest(projectId, input = {}) {
+      const safeProjectId = sanitizeSegment(projectId, "projectId");
+      const manifest = await this.readProjectManifest(safeProjectId);
+      if (!manifest) throw new TypeError("Project manifest is required");
+      const now = normalizeNow(input.now);
+      const updated = {
+        ...manifest,
+        ...(Object.hasOwn(input, "name") ? { name: String(input.name || safeProjectId).trim() || safeProjectId } : {}),
+        ...(Object.hasOwn(input, "description") ? { description: String(input.description || "").trim() } : {}),
+        updated_at: now,
+        revision: incrementProjectRevision(manifest.revision),
+      };
+      return this.writeProjectManifest(safeProjectId, updated);
+    },
+    async archiveProject(projectId, input = {}) {
+      const safeProjectId = sanitizeSegment(projectId, "projectId");
+      const manifest = await this.readProjectManifest(safeProjectId);
+      if (!manifest) throw new TypeError("Project manifest is required");
+      const now = normalizeNow(input.now);
+      const updated = {
+        ...manifest,
+        deleted_at: manifest.deleted_at || now,
+        deleted_by: String(input.deletedBy || input.deleted_by || ""),
+        delete_reason: String(input.reason || input.deleteReason || input.delete_reason || ""),
+        updated_at: now,
+        revision: incrementProjectRevision(manifest.revision),
+      };
+      return this.writeProjectManifest(safeProjectId, updated);
+    },
+    async restoreProject(projectId, input = {}) {
+      const safeProjectId = sanitizeSegment(projectId, "projectId");
+      const manifest = await this.readProjectManifest(safeProjectId);
+      if (!manifest) throw new TypeError("Project manifest is required");
+      const now = normalizeNow(input.now);
+      const updated = {
+        ...manifest,
+        deleted_at: "",
+        deleted_by: "",
+        delete_reason: "",
+        updated_at: now,
+        revision: incrementProjectRevision(manifest.revision),
+      };
+      return this.writeProjectManifest(safeProjectId, updated);
+    },
+    async purgeProject(projectId) {
+      const safeProjectId = sanitizeSegment(projectId, "projectId");
+      const manifest = await this.readProjectManifest(safeProjectId);
+      if (!manifest) throw new TypeError("Project manifest is required");
+      if (!manifest.deleted_at) throw new TypeError("Only archived projects can be purged");
+      await Promise.all([
+        rm(projectPath(safeProjectId), { recursive: true, force: true }),
+        rm(hierarchyProjectPath(safeProjectId), { recursive: true, force: true }),
+      ]);
+      return {
+        project_id: safeProjectId,
+        purged: true,
+      };
+    },
     getHierarchyPaths(projectId, taskId = DEFAULT_TASK_ID, versionId = DEFAULT_VERSION_ID) {
       const safeProjectId = sanitizeSegment(projectId, "projectId");
       const safeTaskId = sanitizeSegment(taskId, "taskId");
@@ -590,7 +648,7 @@ export function createFileStorage({ rootDir = "data" } = {}) {
       await collectFiles(projectDir, projectDir, files);
       return files.sort((left, right) => left.path.localeCompare(right.path));
     },
-    async listProjects() {
+    async listProjects(options = {}) {
       let entries = [];
       try {
         entries = await readdir(absoluteRoot, { withFileTypes: true });
@@ -604,6 +662,7 @@ export function createFileStorage({ rootDir = "data" } = {}) {
         if (!entry.isDirectory()) continue;
         const manifest = await this.readProjectManifest(entry.name);
         if (!manifest) continue;
+        if (manifest.deleted_at && !options.includeDeleted) continue;
         projects.push(createProjectSummary(manifest));
       }
       return projects.sort((left, right) => String(right.updated_at || "").localeCompare(String(left.updated_at || "")));
@@ -652,6 +711,22 @@ export function readProjectManifest(projectId) {
 
 export function writeProjectManifest(projectId, manifest) {
   return defaultStorage.writeProjectManifest(projectId, manifest);
+}
+
+export function updateProjectManifest(projectId, input = {}) {
+  return defaultStorage.updateProjectManifest(projectId, input);
+}
+
+export function archiveProject(projectId, input = {}) {
+  return defaultStorage.archiveProject(projectId, input);
+}
+
+export function restoreProject(projectId, input = {}) {
+  return defaultStorage.restoreProject(projectId, input);
+}
+
+export function purgeProject(projectId) {
+  return defaultStorage.purgeProject(projectId);
 }
 
 export function softDeleteProjectImage(projectId, imageId, input = {}) {
@@ -750,8 +825,8 @@ export function listProjectFiles(projectId) {
   return defaultStorage.listProjectFiles(projectId);
 }
 
-export function listProjects() {
-  return defaultStorage.listProjects();
+export function listProjects(options = {}) {
+  return defaultStorage.listProjects(options);
 }
 
 export function clearStorageForTests() {
@@ -856,6 +931,10 @@ function createProjectSummary(manifest = {}) {
     name: manifest.name || manifest.project_id || manifest.id || "",
     created_at: manifest.created_at || "",
     updated_at: manifest.updated_at || "",
+    revision: Number(manifest.revision || 0),
+    deleted_at: manifest.deleted_at || "",
+    deleted_by: manifest.deleted_by || "",
+    delete_reason: manifest.delete_reason || "",
     total_images: images.length,
     submitted_images: images.filter((image) => image.status === "submitted").length,
     approved_images: images.filter((image) => image.status === "approved").length,
@@ -941,6 +1020,11 @@ function normalizeRevision(value, fallback = 1) {
 
 function incrementRevision(value) {
   return normalizeRevision(value, 1) + 1;
+}
+
+function incrementProjectRevision(value) {
+  const revision = Number(value || 0);
+  return Number.isFinite(revision) && revision >= 0 ? revision + 1 : 1;
 }
 
 function normalizeVersionImageRecord(record, paths, now) {

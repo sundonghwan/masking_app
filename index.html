@@ -68,6 +68,10 @@
           <span>프로젝트 검색</span>
           <input class="text-input" id="projectSearchInput" type="search" placeholder="프로젝트 이름 또는 ID" autocomplete="off">
         </label>
+        <label class="inline-check" data-role-panel="admin">
+          <input id="includeDeletedProjects" type="checkbox">
+          <span>삭제된 프로젝트 포함</span>
+        </label>
         <div class="project-summary-list" id="projectSummaryList" aria-live="polite"></div>
       </div>
     </section>
@@ -357,6 +361,14 @@
 
         <section class="panel-section" data-role-panel="admin">
           <h2>프로젝트 설정</h2>
+          <label class="stacked-field">
+            <span>프로젝트 이름</span>
+            <input class="text-input" id="settingsProjectName" type="text" autocomplete="off">
+          </label>
+          <label class="stacked-field">
+            <span>설명</span>
+            <input class="text-input" id="settingsProjectDescription" type="text" autocomplete="off">
+          </label>
           <label class="stacked-field">
             <span>업로드 제한 MB</span>
             <input class="text-input" id="settingsUploadLimitMb" type="number" min="1" max="512" value="15">
