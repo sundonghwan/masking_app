@@ -756,6 +756,19 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=12-feature-implementation-batch note=post-fix-review-confirmed-no-open-blocking-code-issues
 [CLOSE] status=ready-for-review commit=pending-push
+[START] task=dashboard-layout-regression subsystem=frontend-dashboard-css
+[PLAN] scope=dashboard-panel-width-grid-contract risks=screen-panel-width-inheritance,shared-section-style-leakage
+[IMPACT] status=suspected chain=dashboardScreen (index.html:71-110) -> .screen-panel (src/styles.css:69-77) -> .dashboard-layout (src/styles.css:1045-1062)
+[FIX] scope=dashboard-layout note=dashboard-panel-now-overrides-generic-520px-screen-panel-width-and-contains-three-column-grid
+[IMPACT_VALIDATE] chain=dashboardScreen->dashboard-panel->compact-dashboard validation=browser-visual-check-no-overlap
+[CMD] node --test tests/appContracts.test.js status=passed tests=20
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=161
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=dashboard-layout-regression note=visual-overlap-root-cause-fixed-and-contract-test-added
+[CLOSE] status=ready-for-commit
 [DOC] updated=docs/FEATURE_STATUS.md note=12-feature-batch-completed-and-next-hardening-updated
 [REVIEW] finding=important scope=upload-policy note=browser-upload-validation-used-active-policy-but-needed-persistence-and-contract-coverage
 [REVIEW] finding=important scope=project-upload-api note=missing-project-upload-implicitly-created-project-via-ensureProject

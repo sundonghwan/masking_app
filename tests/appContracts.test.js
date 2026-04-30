@@ -110,6 +110,18 @@ test("browser upload validation uses active project upload policy", () => {
   assert.match(app, /formatBytes\(state\.uploadPolicy\.maxFileBytes\)/);
 });
 
+test("dashboard screen has a full-width layout contract", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const styles = fs.readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
+
+  assert.match(html, /class="screen-panel dashboard-panel"/);
+  assert.match(styles, /\.dashboard-panel\s*\{/);
+  assert.match(styles, /width: min\(1120px, 100%\)/);
+  assert.match(styles, /\.compact-dashboard\s*\{/);
+  assert.match(styles, /grid-template-columns: minmax\(220px, 280px\) minmax\(0, 1fr\) minmax\(260px, 320px\)/);
+  assert.match(styles, /\.compact-dashboard \.panel-section\s*\{/);
+});
+
 test("server-first restore can fetch image and mask files into local recovery", () => {
   const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
   const api = fs.readFileSync(new URL("../src/api/client.js", import.meta.url), "utf8");

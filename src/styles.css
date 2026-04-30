@@ -85,6 +85,24 @@ button {
   width: min(760px, 100%);
 }
 
+.dashboard-panel {
+  display: grid;
+  gap: 16px;
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.dashboard-panel .screen-heading {
+  min-width: 0;
+}
+
+.dashboard-panel .review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 0;
+}
+
 .project-create-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
@@ -1064,6 +1082,14 @@ h2 {
 .compact-dashboard {
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(260px, 320px);
   align-items: start;
+  padding: 0;
+}
+
+.compact-dashboard .panel-section {
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: #fff;
 }
 
 .dashboard-wide {
