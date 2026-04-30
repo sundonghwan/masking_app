@@ -47,6 +47,7 @@
 - [x] Edge-aware magic tool using local image edge detection
 - [x] Spacebar temporary pan workflow for editor efficiency
 - [x] Dashboard planning and design for operational overview
+- [x] Project/task/version file-storage hierarchy design
 
 ## In Progress
 
@@ -79,6 +80,7 @@
 - [ ] Remove legacy default project and actor fallbacks from export/API helper paths.
 - [ ] Add a magic-tool sensitivity control if edge-aware defaults are not enough across datasets.
 - [ ] Add dataset/project settings for upload limits and allowed formats if these need to vary by project.
+- [ ] Implement project/task/version file-storage hierarchy from `docs/STORAGE_HIERARCHY_DESIGN.md`.
 
 ## Hardcoded Runtime Debt
 

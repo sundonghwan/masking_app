@@ -208,6 +208,11 @@ export_summary.json
 
 Export metadata must use archive-relative paths, never absolute server paths.
 
+The planned file-storage hierarchy is documented in
+`docs/STORAGE_HIERARCHY_DESIGN.md`. It moves runtime storage toward
+`projects/{project_id}/tasks/{task_id}/versions/{version_id}` while keeping the
+current project-level layout compatible during migration.
+
 ## 4. Target Architecture After MVP
 
 The target architecture keeps the same responsibility split but replaces the

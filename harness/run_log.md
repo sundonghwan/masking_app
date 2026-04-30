@@ -652,3 +652,13 @@ chains in `harness/tasks/`; keep this file short.
 [CLOSE] status=hardcoded-debt-audit-ready-for-commit
 [GIT] commit=ea24af3 message="Document hardcoded runtime debt"
 [GIT] push=origin/main status=passed range=0e10344..ea24af3
+[START] task=storage-hierarchy-design subsystem=storage,architecture
+[PLAN] scope=project-task-version-file-storage-design risks=migration-scope,data-loss-on-delete,export-path-drift
+[DOC] created=docs/STORAGE_HIERARCHY_DESIGN.md note=project-task-version-storage-hierarchy-design
+[DOC] updated=docs/ARCHITECTURE.md note=linked-storage-hierarchy-design
+[DOC] updated=docs/FEATURE_STATUS.md note=storage-hierarchy-design-complete-and-implementation-future-work
+[CMD] rg -n "TBD|TODO|project/task/version|trash|migration|archive-relative|legacy|Open Questions|Phase" docs/STORAGE_HIERARCHY_DESIGN.md
+[CMD] git diff --check
+[CMD] ./scripts/harness/smoke-web.sh
+[REVIEW] finding=none-blocking scope=storage-hierarchy-design notes=checked-no-placeholders-delete-restore-version-export-migration-and-legacy-compatibility
+[CLOSE] status=storage-hierarchy-design-ready-for-commit
