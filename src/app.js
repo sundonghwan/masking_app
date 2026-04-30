@@ -1260,6 +1260,7 @@ function renderQueueControls() {
 }
 
 function renderImageList() {
+  const listScroll = captureImageListScroll();
   const deletedOnly = state.filter === "deleted";
   const sourceImages = deletedOnly ? state.images.filter(isDeletedImage) : activeImages();
   const queueFiltered = filterImagesForQueue(sourceImages, {
@@ -1316,6 +1317,19 @@ function renderImageList() {
     rows.push(empty);
   }
   els.imageList.replaceChildren(...rows);
+  restoreImageListScroll(listScroll);
+}
+
+function captureImageListScroll() {
+  return {
+    top: els.imageList.scrollTop,
+    left: els.imageList.scrollLeft,
+  };
+}
+
+function restoreImageListScroll(position) {
+  els.imageList.scrollTop = position?.top || 0;
+  els.imageList.scrollLeft = position?.left || 0;
 }
 
 function renderUploadRejections() {

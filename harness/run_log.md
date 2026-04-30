@@ -855,3 +855,13 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] browser-smoke-dashboard status=passed note=dashboard-review-quality-card-rendered-no-layout-overlap
 [REVIEW] finding=none-blocking scope=12-feature-implementation-batch note=diff-review-and-harness-validation-complete
 [CLOSE] status=ready-for-commit
+[START] task=image-list-scroll-retention subsystem=frontend-image-list
+[PLAN] scope=preserve-image-list-scroll-on-row-selection risks=renderImageList-dom-replacement
+[IMPACT] status=suspected chain=selectImage(src/app.js:473-505)->render(src/app.js:1174-1189)->renderImageList(src/app.js:1262-1318)->imageList.scrollTop
+[FIX] scope=frontend-image-list note=capture-and-restore-image-list-scroll-around-replaceChildren
+[IMPACT_VALIDATE] task=image-list-scroll-retention chain=selectImage-renderImageList-scrollTop validation=appContracts-lint-diffcheck-passed
+[CMD] node --test tests/appContracts.test.js status=passed tests=23
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=image-list-scroll-retention note=localized-render-side-effect-fix
+[CLOSE] status=ready-for-commit

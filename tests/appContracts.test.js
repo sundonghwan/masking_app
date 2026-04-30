@@ -194,6 +194,10 @@ test("discovery controls expose image search and operational filters", () => {
   assert.match(app, /apiClient\.removeImage\(state\.projectId, image\.id/);
   assert.match(app, /apiClient\.restoreImage\(state\.projectId, image\.id\)/);
   assert.match(app, /function activeImages\(\)/);
+  assert.match(app, /const listScroll = captureImageListScroll\(\)/);
+  assert.match(app, /restoreImageListScroll\(listScroll\)/);
+  assert.match(app, /function captureImageListScroll\(\)/);
+  assert.match(app, /function restoreImageListScroll\(position\)/);
 });
 
 test("project discovery searches full server project list without four item cap", () => {
