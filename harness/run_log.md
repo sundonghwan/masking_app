@@ -686,3 +686,5 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] ./scripts/harness/smoke-web.sh
 [REVIEW] finding=none-blocking scope=spacebar-camera-pan-design notes=checked-hold-override-state-mask-nonmutation-undo-boundary-and-stuck-state-release
 [CLOSE] status=spacebar-camera-pan-design-ready-for-commit
+[GIT] commit=01114f3 message="Design spacebar camera pan"
+[GIT] push=origin/main status=passed range=d10cc01..01114f3
