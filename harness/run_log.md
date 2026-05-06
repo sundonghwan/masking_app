@@ -977,3 +977,4 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] live-http-smoke status=passed checks=health,admin-login,ai-capabilities,ai-infer,index-head
 [REVIEW] finding=resolved-before-closeout scope=remaining-hardening-batch note=repair-normalizer-no-longer-preserves-invalid-legacy-maskPath
 [CLOSE] status=ready-for-commit server=http://127.0.0.1:4173
+[GIT] commit=e17c905 push=origin/main status=passed
