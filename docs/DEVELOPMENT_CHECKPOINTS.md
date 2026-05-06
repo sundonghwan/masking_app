@@ -397,9 +397,65 @@ Completed:
 
 Remaining:
 
-- Generic AI API serving is parked until dataset packaging workflows are stable.
+- Generic AI API serving contract/stub is implemented. Real model adapters remain parked until dataset packaging workflows are stable.
 - Model-specific training/export presets can be added later if real training
   consumers need them.
+
+### 11. Deployment Profile
+
+Goal: make runtime mode, storage root, host/port, and AI serving flags explicit
+without introducing a deployment platform.
+
+Status: implemented for local/staging-style filesystem operation.
+
+Completed:
+
+- [x] server startup resolves a deployment profile from environment variables
+- [x] `GET /api/health` exposes safe deployment and AI serving status
+- [x] data root and public root are normalized before storage/server startup
+- [x] invalid ports and unsupported mode strings fail fast
+
+Runtime knobs:
+
+```bash
+PORT=4173
+MASKING_APP_HOST=127.0.0.1
+MASKING_APP_MODE=local
+MASKING_APP_DATA_DIR=/tmp/masking-app-data
+MASKING_APP_PUBLIC_ROOT=/path/to/masking_app
+MASKING_APP_AI_SERVING=1
+MASKING_APP_AI_TASKS=detection,segmentation,classification
+```
+
+### 12. Legacy Manifest Repair
+
+Goal: recover old or malformed project manifests without silently mutating data.
+
+Status: implemented as an admin-only preview/apply API.
+
+Completed:
+
+- [x] `POST /api/projects/:project_id/repair` previews normalized manifest output
+- [x] `apply=true` writes the repaired manifest and appends repair history
+- [x] non-admin users cannot run repair
+- [x] invalid image records are dropped instead of preserved as broken entries
+- [x] legacy camelCase fields are normalized into current snake_case fields
+
+### 13. Generic AI API Serving Contract
+
+Goal: reserve a model-agnostic API boundary for future detection, segmentation,
+and classification without pretending a model is already integrated.
+
+Status: implemented as a disabled-by-default stub contract.
+
+Completed:
+
+- [x] `GET /api/ai/capabilities` reports enabled tasks and output contracts
+- [x] `POST /api/ai/infer` validates task and image payload shape
+- [x] the stub response returns `202 accepted` with empty predictions and
+  `model: null`
+- [x] disabled deployments return `503` for inference
+- [x] the browser API client exposes capability and inference methods
 
 ## Work To Avoid For Now
 

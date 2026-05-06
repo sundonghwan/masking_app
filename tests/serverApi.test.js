@@ -114,6 +114,94 @@ test("project list and manifest endpoints require an authorized session", async 
   assert.equal(manifest.body.project_id, "project-1");
 });
 
+test("health exposes deployment profile and generic AI capabilities", async () => {
+  const { route } = createApiHarness({
+    deploymentProfile: {
+      mode: "test",
+      port: 4173,
+      dataRoot: "/tmp/masking-test",
+      publicRoot: "/repo",
+      aiServing: {
+        enabled: true,
+        provider: "stub",
+        tasks: ["detection", "segmentation"],
+        maxImageBytes: 2048,
+      },
+    },
+  });
+
+  const health = await callJson(route, "GET", "/api/health");
+  assert.equal(health.statusCode, 200);
+  assert.equal(health.body.deployment.mode, "test");
+  assert.equal(health.body.ai_serving.enabled, true);
+  assert.deepEqual(health.body.ai_serving.tasks, ["detection", "segmentation"]);
+});
+
+test("admin previews and applies legacy manifest repair", async () => {
+  const { route, storage } = createApiHarness();
+  await storage.writeProjectManifest("legacy-project", {
+    id: "legacy-project",
+    images: [{ id: "image 1", fileName: "frame.png", maskRatio: 0.5 }],
+  });
+  const adminHeaders = await loginHeaders(route, "admin");
+  const workerHeaders = await loginHeaders(route, "worker");
+
+  const rejected = await callJson(route, "POST", "/api/projects/legacy-project/repair", {
+    apply: true,
+  }, workerHeaders);
+  assert.equal(rejected.statusCode, 403);
+
+  const preview = await callJson(route, "POST", "/api/projects/legacy-project/repair", {
+    apply: false,
+  }, adminHeaders);
+  assert.equal(preview.statusCode, 200);
+  assert.equal(preview.body.repair.applied, false);
+  assert.equal(preview.body.repair.manifest.images[0].id, "image_1");
+  assert.equal((await storage.readProjectManifest("legacy-project")).images[0].id, "image 1");
+
+  const applied = await callJson(route, "POST", "/api/projects/legacy-project/repair", {
+    apply: true,
+  }, adminHeaders);
+  assert.equal(applied.statusCode, 200);
+  assert.equal(applied.body.repair.applied, true);
+  assert.equal((await storage.readProjectManifest("legacy-project")).images[0].id, "image_1");
+});
+
+test("generic AI serving contract is role protected and model agnostic", async () => {
+  const { route } = createApiHarness({
+    deploymentProfile: {
+      mode: "test",
+      aiServing: {
+        enabled: true,
+        provider: "stub",
+        tasks: ["detection", "segmentation", "classification"],
+        maxImageBytes: 1024,
+      },
+    },
+  });
+  const reviewerHeaders = await loginHeaders(route, "reviewer");
+
+  const capabilities = await callJson(route, "GET", "/api/ai/capabilities", null, reviewerHeaders);
+  assert.equal(capabilities.statusCode, 200);
+  assert.deepEqual(capabilities.body.capabilities.tasks, ["detection", "segmentation", "classification"]);
+  assert.equal(capabilities.body.capabilities.provider, "stub");
+
+  const response = await callJson(route, "POST", "/api/ai/infer", {
+    task: "segmentation",
+    image: {
+      data_url: VALID_IMAGE_DATA_URL,
+      width: 2,
+      height: 2,
+    },
+  }, reviewerHeaders);
+  assert.equal(response.statusCode, 202);
+  assert.equal(response.body.status, "accepted");
+  assert.equal(response.body.task, "segmentation");
+  assert.equal(response.body.provider, "stub");
+  assert.deepEqual(response.body.predictions, []);
+  assert.equal(response.body.model, null);
+});
+
 test("admin lists assignment users and role filters", async () => {
   const { route } = createApiHarness();
   const adminHeaders = await loginHeaders(route, "admin");

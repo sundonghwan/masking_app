@@ -51,6 +51,22 @@ Data root defaults to `data/`. Override it for isolated manual testing:
 MASKING_APP_DATA_DIR=/tmp/masking-app-data npm run dev
 ```
 
+Useful runtime profile overrides:
+
+```bash
+PORT=4173
+MASKING_APP_HOST=127.0.0.1
+MASKING_APP_MODE=local
+MASKING_APP_DATA_DIR=/tmp/masking-app-data
+MASKING_APP_PUBLIC_ROOT=/Users/polaris/Documents/sundonghwan/masking_app
+MASKING_APP_AI_SERVING=1
+MASKING_APP_AI_TASKS=detection,segmentation,classification
+npm run dev
+```
+
+`MASKING_APP_AI_SERVING=1` only enables the generic API contract/stub. It does
+not load a model or perform real inference.
+
 ## Lint
 
 Preferred wrapper:

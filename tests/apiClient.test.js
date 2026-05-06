@@ -135,6 +135,57 @@ test("lists archived projects and mutates project lifecycle", async () => {
   assert.equal(calls[4].options.method, "POST");
 });
 
+test("previews and applies project manifest repair", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { token: "sess_admin" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ repair: { applied: true } }, 200);
+    },
+  });
+
+  await client.repairProjectManifest("project 1", { apply: false });
+  await client.repairProjectManifest("project 1", { apply: true });
+
+  assert.equal(calls[0].url, "/api/projects/project%201/repair");
+  assert.equal(calls[0].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[0].options.body), { apply: false });
+  assert.deepEqual(JSON.parse(calls[1].options.body), { apply: true });
+});
+
+test("calls generic AI capabilities and inference endpoints", async () => {
+  const calls = [];
+  const client = createMaskingApiClient({
+    session: { token: "sess_reviewer" },
+    fetchImpl: async (url, options) => {
+      calls.push({ url, options });
+      return jsonResponse({ ok: true }, url.endsWith("/infer") ? 202 : 200);
+    },
+  });
+
+  await client.getAiCapabilities();
+  await client.requestAiInference({
+    task: "segmentation",
+    image: { dataUrl: "data:image/png;base64,aaaa", width: 2, height: 2 },
+    options: { threshold: 0.5 },
+  });
+
+  assert.equal(calls[0].url, "/api/ai/capabilities");
+  assert.equal(calls[0].options.method, "GET");
+  assert.equal(calls[1].url, "/api/ai/infer");
+  assert.equal(calls[1].options.method, "POST");
+  assert.deepEqual(JSON.parse(calls[1].options.body), {
+    task: "segmentation",
+    image: {
+      data_url: "data:image/png;base64,aaaa",
+      width: 2,
+      height: 2,
+    },
+    options: { threshold: 0.5 },
+  });
+});
+
 test("uploads an image and URL-encodes the project path segment", async () => {
   const calls = [];
   const client = createMaskingApiClient({

@@ -83,6 +83,9 @@
 - [x] Physical purge maintenance for soft-deleted version files
 - [x] Saved training set management with deterministic split, list, re-export, archive, and restore
 - [x] Previous-frame mask copy with draggable mask-position adjustment
+- [x] Deployment profile for explicit local/staging runtime configuration
+- [x] Legacy project manifest repair preview/apply API
+- [x] Generic AI API serving contract for detection, segmentation, and classification stubs
 
 ## In Progress
 
@@ -90,10 +93,9 @@
 
 ## Remaining
 
-- Generic AI API serving for future detection/segmentation/inference remains parked until dataset packaging and operations flows prove stable.
-- AI-backed segmentation adapter remains optional hardening after the local edge-aware magic tool reaches real dataset limits.
-- Deployment profile remains optional hardening when the app moves beyond local MVP operation.
-- Legacy manifest repair can be expanded if old local snapshots become a real support burden.
+- AI-backed segmentation adapter remains optional hardening after the generic AI serving contract and local edge-aware magic tool reach real dataset limits.
+- Production identity provider remains out of MVP scope.
+- Database-backed storage remains out of MVP scope until filesystem operation becomes a bottleneck.
 
 ## Recommended Development Order
 
@@ -127,10 +129,10 @@ not implemented yet. They should not be treated as final architecture.
 | --- | --- | --- | --- |
 | Local MVP account seed passwords: `admin/admin123`, `worker/worker123`, `reviewer/reviewer123` | `src/server/auth.js`, `data/identity/users.json` after first use, tests | Admin UI/API can now create, update, deactivate, reactivate, and rotate passwords for local users. Seed accounts remain first-run bootstrap credentials only. | Production identity provider if moving beyond local MVP |
 | `worker` / `reviewer` fallback assignment targets | `src/config/runtimeDefaults.js`, `index.html`, `src/app.js` | Normal assignment/account admin paths now use `GET /api/users` and admin user management. Fallback remains only for unavailable user-directory recovery. | Remove fallback once first-run user-directory bootstrap is mandatory |
-| `mask_project_001` and `Masking Project` fallback defaults | `src/config/runtimeDefaults.js` | Kept for legacy local snapshots and tests. New project creation API now rejects missing project IDs, and export helpers no longer inject the default project ID. | Manifest migration/repair flow for old local snapshots |
-| Empty server manifest/project-name fallback | `src/server/storage.js`, `src/app.js` | Manifest creation and restore can still fall back to project ID/name when partial data is received. This keeps old or malformed local data recoverable. | Strict project metadata schema and manifest migration/repair flow |
+| `mask_project_001` and `Masking Project` fallback defaults | `src/config/runtimeDefaults.js` | Kept for legacy local snapshots and tests. New project creation API now rejects missing project IDs, and export helpers no longer inject the default project ID. Admin manifest repair can normalize old project manifests in place. | Production migration only if old snapshots repeatedly block operation |
+| Empty server manifest/project-name fallback | `src/server/storage.js`, `src/app.js` | Manifest creation and restore can still fall back to project ID/name when partial data is received. Admin manifest repair can preview/apply normalization for malformed records. | Strict project metadata schema only if production storage is introduced |
 | Upload format allowlist | `src/upload/policy.js` | Project settings UI/API can update per-project upload limits and MIME format policy. The global policy remains the default bootstrap value. | Dataset-specific settings templates if repeated presets emerge |
-| Local filesystem data root and dev port defaults | `server.js`, `src/server/storage.js`, `harness/commands.md` | `PORT=4173` and `data/` are local development defaults with env overrides. They are not blocking product features. | Deployment config profile if moving beyond local dev |
+| Local filesystem data root and dev port defaults | `server.js`, `src/server/deploymentProfile.js`, `src/server/storage.js`, `harness/commands.md` | Deployment profile now centralizes mode, host, port, public root, data root, log level, and generic AI serving flags. | Production deployment packaging if moving beyond local dev |
 | Magic-tool max region cap | `src/editor/maskEditor.js` | UI now controls color tolerance and edge threshold. Max-pixel cap remains an internal safety default. | Project-level tool presets if real datasets need different caps |
 | Server export vs local ZIP fallback | `src/app.js`, `src/export/exporter.js` | Local-first recovery still allows fallback export when server sync is incomplete. This is a deliberate MVP safety path. | Server-first restore/sync reconciliation before multi-user production use |
 | Legacy project-only workbench routes | `src/server/api.js`, `src/app.js` | Workbench now exposes task/version selection and version operations while keeping legacy project manifest compatibility for older project data. | Full migration tool only if legacy manifests become a support burden |
@@ -141,16 +143,14 @@ Recommended order:
 
 1. AI-backed segmentation adapter.
    - Add only after local edge-aware magic controls hit real dataset limits.
-2. Generic AI API serving layer.
-   - Design a model-agnostic API contract that can serve detection,
-     segmentation, or future inference tasks without binding the app to one
-     model family.
-3. Deployment profile.
-   - Moves data root, port, and operational retention settings into explicit
-     deployment configuration when needed.
-4. Legacy manifest migration/repair tool.
-   - Add only if old local snapshots or flat manifests repeatedly block real
-     operations.
+2. Generic AI API serving layer. `[done: contract/stub]`
+   - Model-agnostic API contract can accept detection, segmentation, or
+     classification requests without binding the app to one model family.
+3. Deployment profile. `[done]`
+   - Data root, port, host, public root, log level, and AI serving flags are
+     centralized in server deployment config.
+4. Legacy manifest migration/repair tool. `[done: preview/apply repair]`
+   - Admins can preview and apply legacy project manifest normalization.
 
 ## MVP Accounts
 

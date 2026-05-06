@@ -109,6 +109,23 @@ export function createFileStorage({ rootDir = "data" } = {}) {
       };
       return this.writeProjectManifest(safeProjectId, updated);
     },
+    async repairProjectManifest(projectId, input = {}) {
+      const safeProjectId = sanitizeSegment(projectId, "projectId");
+      const manifest = await this.readProjectManifest(safeProjectId);
+      if (!manifest) throw new TypeError("Project manifest is required");
+      const repair = repairProjectManifestRecord(manifest, {
+        projectId: safeProjectId,
+        now: input.now,
+      });
+      if (input.apply) {
+        await this.writeProjectManifest(safeProjectId, repair.manifest);
+        return {
+          ...repair,
+          applied: true,
+        };
+      }
+      return repair;
+    },
     async purgeProject(projectId) {
       const safeProjectId = sanitizeSegment(projectId, "projectId");
       const manifest = await this.readProjectManifest(safeProjectId);
@@ -794,6 +811,10 @@ export function restoreProject(projectId, input = {}) {
   return defaultStorage.restoreProject(projectId, input);
 }
 
+export function repairProjectManifest(projectId, input = {}) {
+  return defaultStorage.repairProjectManifest(projectId, input);
+}
+
 export function purgeProject(projectId) {
   return defaultStorage.purgeProject(projectId);
 }
@@ -949,6 +970,92 @@ export function sanitizeRelativePath(value) {
   return parts.join("/");
 }
 
+export function repairProjectManifestRecord(manifest = {}, options = {}) {
+  const now = normalizeNow(options.now);
+  const projectId = sanitizeSegment(manifest.project_id || manifest.id || options.projectId, "projectId");
+  const originalImages = Array.isArray(manifest.images) ? manifest.images : [];
+  const changes = [];
+  const repairedImages = [];
+  const seenImageIds = new Set();
+
+  for (const image of originalImages) {
+    if (!image || typeof image !== "object") {
+      changes.push({ field: "images", action: "drop_invalid_record" });
+      continue;
+    }
+
+    const baseImageId = image.id || image.image_id || image.fileName || image.file_name || `image_${repairedImages.length + 1}`;
+    let imageId = sanitizeSegment(baseImageId, "imageId");
+    const initialImageId = imageId;
+    let suffix = 2;
+    while (seenImageIds.has(imageId)) {
+      imageId = `${initialImageId}_${suffix}`;
+      suffix += 1;
+    }
+    seenImageIds.add(imageId);
+
+    const imagePath = normalizeArchiveReference(image.image_path || image.imagePath || image.original_path || image.originalPath, "images");
+    const maskPath = normalizeArchiveReference(
+      image.current_mask_path || image.currentMaskPath || image.mask_path || image.maskPath,
+      "masks",
+    );
+    const repaired = {
+      ...image,
+      id: imageId,
+      image_id: imageId,
+      original_file_name: image.original_file_name || image.originalFileName || image.file_name || image.fileName || "",
+      image_path: imagePath,
+      current_mask_path: maskPath,
+      mask_path: maskPath,
+      status: String(image.status || "not_started"),
+      deleted_at: image.deleted_at || image.deletedAt || "",
+      deleted_by: image.deleted_by || image.deletedBy || "",
+      delete_reason: image.delete_reason || image.deleteReason || "",
+      mask_ratio: Number(image.mask_ratio ?? image.maskRatio ?? 0),
+      updated_at: image.updated_at || image.updatedAt || now,
+    };
+    delete repaired.fileName;
+    delete repaired.imagePath;
+    delete repaired.maskPath;
+    delete repaired.maskRatio;
+    delete repaired.originalFileName;
+    delete repaired.currentMaskPath;
+    delete repaired.deletedAt;
+
+    if (JSON.stringify(repaired) !== JSON.stringify(image)) {
+      changes.push({ field: `images.${imageId}`, action: "normalize_record" });
+    }
+    repairedImages.push(repaired);
+  }
+
+  const repairedManifest = {
+    ...manifest,
+    project_id: projectId,
+    id: projectId,
+    name: String(manifest.name || manifest.project_name || projectId).trim() || projectId,
+    images: repairedImages,
+    created_at: manifest.created_at || manifest.createdAt || now,
+    updated_at: now,
+    revision: incrementProjectRevision(manifest.revision),
+    repair_history: [
+      ...(Array.isArray(manifest.repair_history) ? manifest.repair_history : []),
+      {
+        repaired_at: now,
+        change_count: changes.length,
+      },
+    ],
+  };
+  delete repairedManifest.createdAt;
+
+  return {
+    applied: false,
+    project_id: projectId,
+    change_count: changes.length,
+    changes,
+    manifest: repairedManifest,
+  };
+}
+
 export function bufferFromDataUrl(dataUrl) {
   return decodeDataUrl(dataUrl).buffer;
 }
@@ -1000,6 +1107,12 @@ function safeJoin(root, ...segments) {
 
 function toArchivePath(...segments) {
   return segments.join("/").replace(/\\/g, "/").replace(/^\/+/, "");
+}
+
+function normalizeArchiveReference(value, expectedRoot) {
+  if (!value) return "";
+  const safeRelative = sanitizeRelativePath(value);
+  return safeRelative.startsWith(`${expectedRoot}/`) ? safeRelative : "";
 }
 
 function createStoredFileResult(buffer, absolutePath, relativePath, mimeType) {

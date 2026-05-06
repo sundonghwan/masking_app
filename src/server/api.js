@@ -1,5 +1,7 @@
 import { createZipBlob } from "../export/zip.js";
 import { createTrainingSetZipEntries } from "../export/trainingSet.js";
+import { createAiCapabilities, createAiServingResponse } from "./aiServing.js";
+import { publicDeploymentProfile } from "./deploymentProfile.js";
 import {
   createAnnotationsJson,
   createExportPaths,
@@ -14,6 +16,7 @@ import { createHttpError, methodNotAllowed, notFound, readJsonBody, readRawBody,
 import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimensions } from "./imageMetadata.js";
 import { validateMaskContract } from "./maskValidation.js";
 import { applyReviewTransition } from "../review/policy.js";
+import { repairProjectManifestRecord } from "./storage.js";
 import { UPLOAD_REASONS, normalizeUploadPolicy, validateImageDataUrlUpload, validateUploadCandidate } from "../upload/policy.js";
 import {
   DEFAULT_ACTORS,
@@ -25,7 +28,7 @@ import {
 } from "../config/runtimeDefaults.js";
 import { LOCAL_MVP_USER_ACCOUNTS, validateDirectoryCredentials } from "./auth.js";
 
-export function createApiRouter({ storage, logger = null, userDirectory = null, sessionStore = null } = {}) {
+export function createApiRouter({ storage, logger = null, userDirectory = null, sessionStore = null, deploymentProfile = {} } = {}) {
   const sessions = new Map();
 
   return async function routeApi(request, response, url, context = {}) {
@@ -33,7 +36,28 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
 
     if (url.pathname === "/api/health") {
       if (request.method !== "GET") return methodNotAllowed(response, ["GET"]);
-      return sendJson(response, 200, { ok: true, service: "masking-app-backend" });
+      return sendJson(response, 200, {
+        ok: true,
+        service: "masking-app-backend",
+        deployment: publicDeploymentProfile(deploymentProfile),
+        ai_serving: createAiCapabilities(deploymentProfile),
+      });
+    }
+
+    if (url.pathname === "/api/ai/capabilities" && request.method === "GET") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+      return sendJson(response, 200, {
+        capabilities: createAiCapabilities(deploymentProfile),
+      });
+    }
+
+    if (url.pathname === "/api/ai/infer" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.WORKER, ROLES.REVIEWER, ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      const result = createAiServingResponse(body, deploymentProfile);
+      return sendJson(response, result.statusCode, result.body);
     }
 
     if (url.pathname === "/api/session/login" && request.method === "POST") {
@@ -259,6 +283,20 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
         ? await storage.restoreProject(projectId)
         : await updateProjectArchiveState(projectId, manifest, { mode: "restore" });
       return sendJson(response, 200, { project });
+    }
+
+    if (parts.length === 2 && parts[1] === "repair" && request.method === "POST") {
+      const session = await readSession(request);
+      if (!requireRole(response, session, [ROLES.ADMIN])) return;
+      const body = await readJsonBody(request);
+      try {
+        const repair = storage.repairProjectManifest
+          ? await storage.repairProjectManifest(projectId, { apply: body.apply === true })
+          : await repairProjectManifestWithGenericStorage(projectId, { apply: body.apply === true });
+        return sendJson(response, 200, { repair });
+      } catch (error) {
+        return sendStorageMutationError(response, error);
+      }
     }
 
     if (parts.length === 2 && parts[1] === "purge" && request.method === "POST") {
@@ -940,6 +978,31 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       });
     }
     throw error;
+  }
+
+  function sendStorageMutationError(response, error) {
+    if (error instanceof TypeError) {
+      return sendJson(response, 400, {
+        error: "storage_mutation_error",
+        message: error.message,
+      });
+    }
+    throw error;
+  }
+
+  async function repairProjectManifestWithGenericStorage(projectId, input = {}) {
+    if (!storage.readProjectManifest || !storage.writeProjectManifest) {
+      throw createHttpError(501, "Project manifest repair is not available for this storage backend");
+    }
+    const manifest = await storage.readProjectManifest(projectId);
+    if (!manifest) throw new TypeError("Project manifest is required");
+    const repair = repairProjectManifestRecord(manifest, { projectId });
+    if (!input.apply) return repair;
+    await storage.writeProjectManifest(projectId, repair.manifest);
+    return {
+      ...repair,
+      applied: true,
+    };
   }
 
   function userPayloadFromBody(body = {}, options = {}) {

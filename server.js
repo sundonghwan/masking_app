@@ -6,21 +6,24 @@ import { fileURLToPath } from "node:url";
 
 import { createLogger, createRequestId } from "./src/observability/logger.js";
 import { createApiRouter } from "./src/server/api.js";
+import { resolveDeploymentProfile } from "./src/server/deploymentProfile.js";
 import { createHttpError, sendJson } from "./src/server/httpUtils.js";
 import { createSessionStore } from "./src/server/sessionStore.js";
 import { createFileStorage } from "./src/server/storage.js";
 import { createUserDirectory } from "./src/server/userDirectory.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = Number(process.env.PORT || 4173);
-const PUBLIC_ROOT = __dirname;
-const DATA_ROOT = process.env.MASKING_APP_DATA_DIR || path.join(__dirname, "data");
+const deploymentProfile = resolveDeploymentProfile(process.env, { cwd: __dirname });
+const PORT = deploymentProfile.port;
+const HOST = deploymentProfile.host === "localhost" ? undefined : deploymentProfile.host;
+const PUBLIC_ROOT = deploymentProfile.publicRoot;
+const DATA_ROOT = deploymentProfile.dataRoot;
 
 const logger = createLogger({ component: "server" });
 const storage = createFileStorage({ rootDir: DATA_ROOT });
 const userDirectory = createUserDirectory({ rootDir: DATA_ROOT });
 const sessionStore = createSessionStore({ rootDir: DATA_ROOT });
-const routeApi = createApiRouter({ storage, logger, userDirectory, sessionStore });
+const routeApi = createApiRouter({ storage, logger, userDirectory, sessionStore, deploymentProfile });
 
 const server = createServer(async (request, response) => {
   const startedAt = performance.now();
@@ -65,9 +68,11 @@ const server = createServer(async (request, response) => {
   }
 });
 
-server.listen(PORT, () => {
+const listenArgs = HOST ? [PORT, HOST] : [PORT];
+server.listen(...listenArgs, () => {
   console.log(`Masking App listening on http://localhost:${PORT}`);
   console.log(`Data root: ${DATA_ROOT}`);
+  console.log(`Deployment mode: ${deploymentProfile.mode}`);
 });
 
 async function serveStatic(request, response, url) {

@@ -150,6 +150,54 @@ test("lists project summaries from manifests", async () => {
   assert.equal(projects[0].rejected_images, 1);
 });
 
+test("repairs legacy project manifests with preview and apply modes", async () => {
+  const { storage } = await createTempStorage();
+  await storage.writeProjectManifest("legacy project", {
+    id: "legacy project",
+    name: "",
+    images: [
+      {
+        id: "image 1",
+        fileName: "frame.png",
+        maskPath: "masks/image_1_mask.png",
+        maskRatio: 0.25,
+      },
+      null,
+      {
+        id: "../bad image",
+        image_path: "images/bad.png",
+        maskPath: "../escape.png",
+        deletedAt: "2026-05-01T00:00:00.000Z",
+      },
+    ],
+  });
+
+  const preview = await storage.repairProjectManifest("legacy project", { apply: false });
+  assert.equal(preview.applied, false);
+  assert.equal(preview.change_count > 0, true);
+  assert.equal(preview.manifest.project_id, "legacy_project");
+  assert.equal(preview.manifest.name, "legacy_project");
+  assert.equal(preview.manifest.images.length, 2);
+  assert.equal(preview.manifest.images[0].id, "image_1");
+  assert.equal(preview.manifest.images[0].original_file_name, "frame.png");
+  assert.equal(preview.manifest.images[0].current_mask_path, "masks/image_1_mask.png");
+  assert.equal(preview.manifest.images[1].id, "bad_image");
+  assert.equal(preview.manifest.images[1].current_mask_path, "");
+  assert.equal(preview.manifest.images[1].mask_path, "");
+  assert.equal(Object.hasOwn(preview.manifest.images[1], "maskPath"), false);
+
+  const unchanged = await storage.readProjectManifest("legacy project");
+  assert.equal(unchanged.id, "legacy project");
+
+  const applied = await storage.repairProjectManifest("legacy project", { apply: true });
+  assert.equal(applied.applied, true);
+  assert.equal(applied.manifest.repair_history.length, 1);
+  const repaired = await storage.readProjectManifest("legacy project");
+  assert.equal(repaired.project_id, "legacy_project");
+  assert.equal(repaired.images.length, 2);
+  assert.equal(repaired.images[0].mask_ratio, 0.25);
+});
+
 test("updates archives restores and purges project manifests", async () => {
   const { storage, rootDir } = await createTempStorage();
   await storage.ensureProject("project-1", { name: "Project 1" });

@@ -955,3 +955,25 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=resolved-before-closeout scope=previous-frame-mask-copy note=render-side-effect-removed-and-alpha-only-mask-active-check-added
 [CLOSE] status=ready-for-commit server=http://localhost:4173
 [GIT] commit=2a1621f push=origin/main status=passed
+[START] task=remaining-hardening-batch subsystem=deployment,repair,ai-serving
+[PLAN] scope=deployment-profile,legacy-manifest-repair,generic-ai-serving-contract risks=runtime-env,manifest-mutation,admin-rbac,ai-contract-overclaim
+[IMPACT] status=suspected chain=server-startup(server.js:*)->resolveDeploymentProfile(src/server/deploymentProfile.js:*)->createFileStorage/createUserDirectory/createSessionStore
+[IMPACT] status=suspected chain=routeProject-repair(src/server/api.js:*)->storage.repairProjectManifest(src/server/storage.js:*)->writeProjectManifest(src/server/storage.js:*)
+[IMPACT] status=suspected chain=apiClient-ai-methods(src/api/client.js:*)->routeAi(src/server/api.js:*)->createAiServingResponse(src/server/aiServing.js:*)
+[FIX] scope=deployment-profile note=mode-host-port-public-root-data-root-log-level-and-ai-serving-flags-centralized
+[FIX] scope=legacy-repair note=admin-preview-apply-project-manifest-repair-added
+[FIX] scope=ai-serving note=generic-capabilities-and-infer-contract-added-with-stub-provider-and-empty-predictions
+[FIX] scope=repair-normalizer note=invalid-legacy-maskPath-no-longer-preserved-in-mask_path
+[DOC] updated=README.md,docs/FEATURE_STATUS.md,docs/DEVELOPMENT_CHECKPOINTS.md,harness/commands.md note=remaining-hardening-items-marked-complete
+[IMPACT_VALIDATE] task=remaining-hardening-batch chain=deployment-profile-startup-health validation=deploymentProfile-serverApi-tests-and-live-health-passed
+[IMPACT_VALIDATE] task=remaining-hardening-batch chain=legacy-manifest-repair validation=serverStorage-serverApi-tests-passed
+[IMPACT_VALIDATE] task=remaining-hardening-batch chain=generic-ai-serving-contract validation=apiClient-serverApi-tests-and-live-ai-smoke-passed
+[CMD] node --test tests/deploymentProfile.test.js tests/serverStorage.test.js tests/serverApi.test.js tests/apiClient.test.js status=passed tests=106
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=216
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health,admin-login,ai-capabilities,ai-infer,index-head
+[REVIEW] finding=resolved-before-closeout scope=remaining-hardening-batch note=repair-normalizer-no-longer-preserves-invalid-legacy-maskPath
+[CLOSE] status=ready-for-commit server=http://127.0.0.1:4173

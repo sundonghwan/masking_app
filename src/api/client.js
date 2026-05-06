@@ -116,6 +116,32 @@ export function createMaskingApiClient(options = {}) {
         method: "POST",
       });
     },
+    repairProjectManifest(projectId, input = {}) {
+      assertRequired(projectId, "projectId");
+      return requestJson(`/api/projects/${encodeURIComponent(projectId)}/repair`, {
+        method: "POST",
+        body: {
+          apply: input.apply === true,
+        },
+      });
+    },
+    getAiCapabilities() {
+      return requestJson("/api/ai/capabilities");
+    },
+    requestAiInference(input = {}) {
+      return requestJson("/api/ai/infer", {
+        method: "POST",
+        body: {
+          task: input.task,
+          image: {
+            data_url: input.image?.dataUrl || input.image?.data_url,
+            width: input.image?.width,
+            height: input.image?.height,
+          },
+          options: input.options || {},
+        },
+      });
+    },
     listProjectTasks(projectId) {
       assertRequired(projectId, "projectId");
       return requestJson(`/api/projects/${encodeURIComponent(projectId)}/tasks`);

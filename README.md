@@ -24,9 +24,13 @@ HTTP server. It supports:
 - browser-to-backend sync for uploads, mask saves, submitted masks, and server
   ZIP export when every exportable image is synced
 - harness-backed lint/typecheck/test/smoke commands
+- explicit deployment profile for local/staging runtime configuration
+- admin-only legacy project manifest repair preview/apply API
+- generic AI serving API contract/stub for future detection, segmentation, and
+  classification adapters
 
-Database storage, auth, review workflow, multipart uploads, and full PNG pixel
-decode validation are intentionally not part of this slice.
+Database storage, production identity, and real model inference are
+intentionally not part of this slice.
 
 ## Run Locally
 
@@ -47,12 +51,28 @@ needed:
 MASKING_APP_DATA_DIR=/tmp/masking-app-data npm run dev
 ```
 
+Optional deployment-profile overrides:
+
+```bash
+PORT=4173 \
+MASKING_APP_HOST=127.0.0.1 \
+MASKING_APP_MODE=local \
+MASKING_APP_AI_SERVING=1 \
+npm run dev
+```
+
+`MASKING_APP_AI_SERVING=1` enables only the generic contract/stub. It does not
+load or run an AI model.
+
 ## API Snapshot
 
 ```http
 GET  /api/health
+GET  /api/ai/capabilities
+POST /api/ai/infer
 POST /api/projects
 GET  /api/projects/:project_id
+POST /api/projects/:project_id/repair
 POST /api/projects/:project_id/images
 PUT  /api/images/:image_id/mask
 GET  /api/projects/:project_id/export
@@ -121,17 +141,15 @@ Current policy:
 
 - IndexedDB is the local work recovery source for this MVP slice.
 - Backend filesystem storage is a sync/export mirror.
-- The next development checkpoint is to harden mask save and export contracts
-  before adding review, admin, auth, DB, or AI assistance.
+- Review, admin, auth/session, dataset packaging, manifest repair, and generic
+  AI serving contracts are implemented at local-MVP depth.
 - Runtime logs use structured events for API requests, validation failures,
   export completion, and frontend backend-sync failures.
 
 ## Known Gaps
 
 - Backend storage is filesystem-based and local-only.
-- Upload endpoints use JSON data URLs, not multipart streaming.
-- Mask binary pixel validation is covered in the editor/export helper boundary,
-  while the backend currently validates PNG header, dimensions, and 8-bit
-  grayscale format only.
-- Server-first restore is not implemented yet. The app is intentionally
-  local-first until review/admin or multi-user workflows begin.
+- Upload endpoints accept multipart form data, but not true streaming upload.
+- AI endpoints are a model-agnostic contract/stub; no real model adapter is
+  configured yet.
+- Production deployment packaging and database-backed storage are not included.
