@@ -4,6 +4,8 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 
+import { resolveSourceRevision } from "./source-revision.mjs";
+
 const execFilePromise = promisify(execFile);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -45,9 +47,11 @@ export async function collectStagingEvidence(options = {}) {
   const env = { ...process.env, ...(options.env || {}) };
   const now = typeof options.now === "function" ? options.now : () => new Date().toISOString();
   const runCommand = options.runCommand || runJsonCommand;
+  const sourceRevision = options.sourceRevision || await resolveSourceRevision(cwd, env);
   const result = {
     ok: true,
     checked_at: now(),
+    source_revision: sourceRevision,
     data_root: dataRoot,
     backup_dir: backupDir,
     required_steps: [...REQUIRED_STEPS],

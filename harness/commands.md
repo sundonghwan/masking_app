@@ -286,6 +286,7 @@ scripts/harness/capacity-profile.sh --json --output release-artifacts/capacity-p
 Current behavior:
 
 - reads only; does not modify project data
+- records `source_revision` from git or `MASKING_APP_SOURCE_REVISION`
 - reports manifest, image, mask, other-file counts and byte totals
 - reports the largest manifest file
 - relaxed mode warns when default local/staging thresholds are exceeded
@@ -413,6 +414,7 @@ Current behavior:
 - runs `storage-verify`, `audit-verify`, `audit-retention` dry-run,
   `capacity-profile`, `backup-data-root`, `restore-verify`, and
   `production-gate` in JSON mode
+- records `source_revision` from git or `MASKING_APP_SOURCE_REVISION`
 - uses the backup archive created by the same run for restore rehearsal
 - records every sub-check result and exits non-zero when any required step fails
 - writes the same JSON evidence to `--output` when supplied, including failed
@@ -437,6 +439,8 @@ scripts/harness/release-candidate-gate.sh --json
 Current behavior:
 
 - verifies required release evidence JSON artifacts exist and have `ok: true`
+- verifies required release evidence artifacts have `source_revision` metadata
+  matching the gate's target revision
 - verifies `docs/PRODUCTION_BOUNDARY_DECISIONS.md` has explicit decisions for
   identity, metadata storage, network boundary, backup/restore, and audit/log
   retention

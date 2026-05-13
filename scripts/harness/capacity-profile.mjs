@@ -2,6 +2,8 @@ import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { resolveSourceRevision } from "./source-revision.mjs";
+
 const DEFAULT_LIMITS = {
   manifestBytesWarn: 5 * 1024 * 1024,
   totalBytesWarn: 10 * 1024 * 1024 * 1024,
@@ -25,6 +27,7 @@ if (isCliEntry()) {
 
 export async function profileCapacity(options = {}) {
   const dataRoot = path.resolve(options.dataRoot || "data");
+  const sourceRevision = options.sourceRevision || await resolveSourceRevision(process.cwd());
   const limits = {
     ...DEFAULT_LIMITS,
     ...(options.limits || {}),
@@ -33,6 +36,7 @@ export async function profileCapacity(options = {}) {
     ok: true,
     strict: Boolean(options.strict),
     checked_at: new Date().toISOString(),
+    source_revision: sourceRevision,
     data_root: dataRoot,
     limits,
     counts: {

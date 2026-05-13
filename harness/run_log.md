@@ -1819,3 +1819,20 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=capacity-profile-artifact note=evidence-labeled-local-and-not-final-production-host-evidence
+[GIT] commit=a91b093 push=origin/main status=passed
+[START] task=release-evidence-revision-gate subsystem=release,evidence,freshness
+[PLAN] scope=add-source-revision-to-evidence-and-require-matching-revision-in-release-gate risks=blocking-packaged-builds-without-git-metadata,accepting-stale-artifacts
+[TEST] red=passed note=release-gate-accepted-artifacts-without-source-revision-before-implementation
+[CODE] added=scripts/harness/source-revision.mjs note=shared-source-revision-from-env-or-git
+[CODE] updated=scripts/harness/release-candidate-gate.mjs note=required-artifacts-must-include-matching-source-revision
+[CODE] updated=scripts/harness/staging-evidence.mjs,scripts/harness/deployment-check.mjs,scripts/harness/capacity-profile.mjs note=evidence-outputs-include-source_revision
+[TEST] updated=tests/releaseCandidateGate.test.js,tests/stagingEvidence.test.js,tests/capacityProfile.test.js note=revision-missing-mismatch-and-evidence-fields-covered
+[DOC] updated=harness/commands.md,docs/REMAINING_WORK_BOARD.md note=release-artifact-revision-gate-documented
+[CMD] node --test tests/releaseCandidateGate.test.js tests/stagingEvidence.test.js tests/capacityProfile.test.js tests/checkSyntax.test.js status=passed tests=13
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=324
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=artifact_revision_missing,boundary_decisions_undecided
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=release-evidence-revision-gate note=gate-now-refuses-old-artifacts-without-source-revision

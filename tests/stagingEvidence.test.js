@@ -15,6 +15,7 @@ test("collectStagingEvidence runs core checks and restores the created backup ar
       MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION: "1",
     },
     baseUrl: "http://127.0.0.1:4173",
+    sourceRevision: "revision-abc",
     now: () => "2026-05-13T00:00:00.000Z",
     runCommand: async (step, command) => {
       calls.push({ step, command });
@@ -27,6 +28,7 @@ test("collectStagingEvidence runs core checks and restores the created backup ar
   });
 
   assert.equal(result.ok, true);
+  assert.equal(result.source_revision, "revision-abc");
   assert.deepEqual(result.required_steps, [
     "storage_verify",
     "audit_verify",

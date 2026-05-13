@@ -26,7 +26,7 @@ or production audit. This board separates:
 | Multi-class masks | Done for MVP | Label schema, selected label color, per-class masks, class-aware export/training metadata implemented |
 | Training-set output | Done | Selected sources, saved training sets, deterministic split, re-export/archive/restore implemented |
 | AI serving | Contract done | Generic detection/segmentation/classification API contract exists; real model adapter is deferred |
-| Validation harness | Strong baseline | lint, typecheck, 319 Node tests, smoke, browser E2E entrypoint, production gate, staging evidence bundle |
+| Validation harness | Strong baseline | lint, typecheck, 324 Node tests, smoke, browser E2E entrypoint, production gate, staging evidence bundle, release artifact revision checks |
 | Code health | Active cleanup | Project settings and assignment route helpers extracted; larger route blocks remain |
 | Production readiness | Not complete | Identity/storage/host evidence decisions remain |
 
@@ -73,8 +73,9 @@ need.
 - Latest local capacity profile artifact:
   `release-artifacts/capacity-profile-20260513-local.json` passed on the
   current local `data/` root with 202 images and no threshold warnings.
-- Release candidate gate currently fails because required boundary decisions
-  remain `Undecided`.
+- Release candidate gate currently fails because older release artifacts do not
+  include source revision metadata and required boundary decisions remain
+  `Undecided`.
 - Last pushed commits:
   - `9cf5459` - remaining work board
   - `3be9ba0` - assignment route helper refactor

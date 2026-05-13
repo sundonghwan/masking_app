@@ -2,6 +2,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { resolveSourceRevision } from "./source-revision.mjs";
+
 const DEFAULT_ARTIFACTS = Object.freeze({
   staging_evidence: "release-artifacts/staging-evidence-20260513-after-identity-migration.json",
   deployment_check: "release-artifacts/deployment-check-20260513-production-local.json",
@@ -40,17 +42,26 @@ export async function checkReleaseCandidate(options = {}) {
   const cwd = path.resolve(options.cwd || process.cwd());
   const artifacts = options.artifacts || DEFAULT_ARTIFACTS;
   const decisionsFile = options.decisionsFile || "docs/PRODUCTION_BOUNDARY_DECISIONS.md";
+  const sourceRevision = options.sourceRevision || await resolveSourceRevision(cwd);
   const result = {
     ok: false,
     checked_at: new Date().toISOString(),
     cwd,
+    source_revision: sourceRevision,
     artifacts: {},
     decisions: {},
     errors: [],
   };
 
+  if (!sourceRevision) {
+    result.errors.push({
+      code: "source_revision_unavailable",
+      remediation: "Run the release candidate gate from a git checkout or pass a source revision through the harness.",
+    });
+  }
+
   for (const [name, relativePath] of Object.entries(artifacts)) {
-    result.artifacts[name] = await readArtifact({ cwd, name, relativePath, errors: result.errors });
+    result.artifacts[name] = await readArtifact({ cwd, name, relativePath, sourceRevision, errors: result.errors });
   }
 
   const decisions = await readBoundaryDecisions(path.join(cwd, decisionsFile), result.errors);
@@ -77,7 +88,7 @@ export async function checkReleaseCandidate(options = {}) {
   return result;
 }
 
-async function readArtifact({ cwd, name, relativePath, errors }) {
+async function readArtifact({ cwd, name, relativePath, sourceRevision, errors }) {
   const file = path.join(cwd, relativePath);
   try {
     const payload = JSON.parse(await readFile(file, "utf8"));
@@ -89,10 +100,29 @@ async function readArtifact({ cwd, name, relativePath, errors }) {
         remediation: remediationForArtifact(name, relativePath),
       });
     }
+    if (sourceRevision && !payload.source_revision) {
+      errors.push({
+        code: "artifact_revision_missing",
+        artifact: name,
+        path: relativePath,
+        expected_revision: sourceRevision,
+        remediation: revisionRemediation(name, relativePath),
+      });
+    } else if (sourceRevision && payload.source_revision !== sourceRevision) {
+      errors.push({
+        code: "artifact_revision_mismatch",
+        artifact: name,
+        path: relativePath,
+        expected_revision: sourceRevision,
+        actual_revision: payload.source_revision,
+        remediation: revisionRemediation(name, relativePath),
+      });
+    }
     return {
       ok: payload.ok === true,
       path: relativePath,
       checked_at: payload.checked_at || "",
+      source_revision: payload.source_revision || "",
     };
   } catch (error) {
     errors.push({
@@ -172,6 +202,10 @@ function remediationForArtifact(name, relativePath) {
     return `Start the target server and run scripts/harness/deployment-check.sh --json <base-url>, then archive the passing artifact at ${relativePath}.`;
   }
   return `Regenerate or replace ${relativePath} with a passing release evidence artifact.`;
+}
+
+function revisionRemediation(name, relativePath) {
+  return `Rerun ${name === "staging_evidence" ? "scripts/harness/staging-evidence.sh" : "scripts/harness/deployment-check.sh"} from the current checkout and archive the refreshed artifact at ${relativePath}.`;
 }
 
 function remediationForBoundary(boundary) {

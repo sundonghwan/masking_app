@@ -1,11 +1,15 @@
+import { resolveSourceRevision } from "./source-revision.mjs";
+
 const args = process.argv.slice(2);
 const jsonOutput = takeFlag("--json");
 const baseUrl = normalizeBaseUrl(args[0] || process.env.MASKING_APP_BASE_URL || defaultBaseUrl());
 const healthUrl = new URL("/api/health", baseUrl);
+const sourceRevision = await resolveSourceRevision(process.cwd());
 
 const result = {
   ok: false,
   checked_at: new Date().toISOString(),
+  source_revision: sourceRevision,
   base_url: baseUrl,
   health_url: healthUrl.toString(),
   status: 0,

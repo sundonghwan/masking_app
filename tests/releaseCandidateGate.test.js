@@ -10,15 +10,49 @@ test("checkReleaseCandidate passes with ok artifacts and explicit decisions", as
   const root = await createReleaseFixture({
     stagingOk: true,
     deploymentOk: true,
+    sourceRevision: "current-revision",
     decisions: ["local accepted", "filesystem accepted", "internal", "scheduled", "host-managed", "deferred"],
   });
 
-  const result = await checkReleaseCandidate({ cwd: root, artifacts: fixtureArtifacts() });
+  const result = await checkReleaseCandidate({
+    cwd: root,
+    artifacts: fixtureArtifacts(),
+    sourceRevision: "current-revision",
+  });
 
   assert.equal(result.ok, true);
   assert.deepEqual(result.errors, []);
   assert.equal(result.artifacts.staging_evidence.ok, true);
   assert.equal(result.artifacts.deployment_check.ok, true);
+});
+
+test("checkReleaseCandidate fails when artifacts lack the current source revision", async () => {
+  const root = await createReleaseFixture({
+    stagingOk: true,
+    deploymentOk: true,
+    sourceRevision: "old-revision",
+    decisions: ["local accepted", "filesystem accepted", "internal", "scheduled", "host-managed", "deferred"],
+    omitStagingRevision: true,
+  });
+
+  const result = await checkReleaseCandidate({
+    cwd: root,
+    artifacts: fixtureArtifacts(),
+    sourceRevision: "current-revision",
+  });
+
+  assert.equal(result.ok, false);
+  const missingError = result.errors.find(
+    (error) => error.code === "artifact_revision_missing" && error.artifact === "staging_evidence",
+  );
+  const mismatchError = result.errors.find(
+    (error) => error.code === "artifact_revision_mismatch" && error.artifact === "deployment_check",
+  );
+  assert.ok(missingError);
+  assert.match(missingError.remediation, /rerun/i);
+  assert.ok(mismatchError);
+  assert.equal(mismatchError.expected_revision, "current-revision");
+  assert.equal(mismatchError.actual_revision, "old-revision");
 });
 
 test("checkReleaseCandidate fails when a required artifact is missing", async () => {
@@ -71,12 +105,12 @@ async function createReleaseFixture(options = {}) {
 
   await writeFile(
     path.join(root, "release-artifacts", "staging-evidence.json"),
-    `${JSON.stringify({ ok: options.stagingOk })}\n`,
+    `${JSON.stringify(artifactPayload(options.stagingOk, options, "staging"))}\n`,
   );
   if (!options.omitDeployment) {
     await writeFile(
       path.join(root, "release-artifacts", "deployment-check.json"),
-      `${JSON.stringify({ ok: options.deploymentOk })}\n`,
+      `${JSON.stringify(artifactPayload(options.deploymentOk, options, "deployment"))}\n`,
     );
   }
   await writeFile(
@@ -85,6 +119,14 @@ async function createReleaseFixture(options = {}) {
   );
 
   return root;
+}
+
+function artifactPayload(ok, options, artifact) {
+  const payload = { ok };
+  if (options.sourceRevision && !(artifact === "staging" && options.omitStagingRevision)) {
+    payload.source_revision = options.sourceRevision;
+  }
+  return payload;
 }
 
 function createDecisionDoc(decisions) {

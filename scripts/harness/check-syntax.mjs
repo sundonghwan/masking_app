@@ -58,6 +58,7 @@ export const SYNTAX_CHECK_FILES = Object.freeze([
   "scripts/harness/production-gate.mjs",
   "scripts/harness/staging-evidence.mjs",
   "scripts/harness/release-candidate-gate.mjs",
+  "scripts/harness/source-revision.mjs",
   "scripts/harness/check-syntax.mjs",
 ]);
 

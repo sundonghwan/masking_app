@@ -9,9 +9,10 @@ import { profileCapacity, writeCapacityProfileOutput } from "../scripts/harness/
 test("capacity profile summarizes image mask and manifest bytes", async () => {
   const rootDir = await createCapacityFixture();
 
-  const result = await profileCapacity({ dataRoot: rootDir });
+  const result = await profileCapacity({ dataRoot: rootDir, sourceRevision: "revision-abc" });
 
   assert.equal(result.ok, true);
+  assert.equal(result.source_revision, "revision-abc");
   assert.equal(result.counts.manifests, 1);
   assert.equal(result.counts.images, 1);
   assert.equal(result.counts.masks, 1);
