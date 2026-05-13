@@ -1165,10 +1165,6 @@ async function copyMaskFromPreviousImage() {
     setMaskTransferMessage("이전 프레임 마스크가 없습니다.", true);
     return;
   }
-  if (Number(source.width) !== Number(image.width) || Number(source.height) !== Number(image.height)) {
-    setMaskTransferMessage("이전 프레임과 현재 이미지 해상도가 달라 적용할 수 없습니다.", true);
-    return;
-  }
   if (canStartRevision(image) && !window.confirm("제출/승인된 마스크를 수정 모드로 전환하고 이전 프레임 마스크를 적용할까요?")) {
     return;
   }
@@ -1187,7 +1183,9 @@ async function copyMaskFromPreviousImage() {
     await editor.replaceMaskFromDataUrl(maskDataUrl);
     handleEditorChange();
     setTool("mask_move");
-    setMaskTransferMessage(`이전 마스크 적용됨: ${source.original_file_name || source.fileName || source.id}. 마스크 이동 M으로 위치를 보정하세요.`);
+    const resized = Number(source.width) !== Number(image.width) || Number(source.height) !== Number(image.height);
+    const resizeNote = resized ? " 현재 이미지 해상도에 맞게 마스크 크기를 조정했습니다." : "";
+    setMaskTransferMessage(`이전 마스크 적용됨: ${source.original_file_name || source.fileName || source.id}.${resizeNote} 마스크 이동 M으로 위치를 보정하세요.`);
   } catch (error) {
     setMaskTransferMessage(error.message || "이전 마스크 적용 실패", true);
     setSaveState("failed", `이전 마스크 적용 실패: ${error.message || "unknown"}`);

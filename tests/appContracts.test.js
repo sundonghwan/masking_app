@@ -411,7 +411,10 @@ test("workbench exposes previous-frame mask copy and mask move adjustment", () =
   assert.match(app, /previousMaskSourceImage/);
   assert.match(app, /Shift \+ V/);
   assert.match(app, /setTool\("mask_move"\)/);
+  assert.match(app, /현재 이미지 해상도에 맞게 마스크 크기를 조정했습니다/);
+  assert.doesNotMatch(app, /해상도가 달라 적용할 수 없습니다/);
   assert.match(editor, /replaceMaskFromImageData/);
+  assert.match(editor, /imageSmoothingEnabled = false/);
   assert.match(editor, /beginMaskMove/);
   assert.match(editor, /activePointerMode = "mask_move"/);
 });

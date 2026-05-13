@@ -85,7 +85,7 @@ For a shorter production-progress view, see
 - [x] Server revision guard for risky project/version mutations
 - [x] Physical purge maintenance for soft-deleted version files
 - [x] Saved training set management with deterministic split, list, re-export, archive, and restore
-- [x] Previous-frame mask copy with draggable mask-position adjustment
+- [x] Previous-frame mask copy with cross-resolution resize and draggable mask-position adjustment
 - [x] Deployment profile for explicit local/staging runtime configuration
 - [x] Legacy project manifest repair preview/apply API
 - [x] Generic AI API serving contract for detection, segmentation, and classification stubs

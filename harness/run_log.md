@@ -1913,3 +1913,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/test-target.sh status=passed tests=329
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=image-not-found-repair note=repair-only-registers-valid-image-files-inside-project-images-dir-and-preserves-preview-apply-mode
+[START] task=cross-resolution-mask-copy subsystem=frontend,editor,mask-copy
+[PLAN] scope=allow-previous-mask-copy-across-image-resolutions risks=mask-resampling-edge-quality,server-mask-dimension-contract
+[IMPACT] status=validated chain=copyMaskFromPreviousImage (src/app.js:1161-1193) -> maskDataUrlForImage (src/app.js:3565-3574) -> MaskEditor.replaceMaskFromDataUrl (src/editor/maskEditor.js:388-398) -> handleEditorChange (src/app.js:1013-1027)
+[IMPACT_VALIDATE] chain=copyMaskFromPreviousImage validation=maskEditor-and-app-contract-tests passed
+[CODE] updated=src/app.js,src/editor/maskEditor.js note=removed-resolution-blocker-and-resize-copied-mask-to-current-image-canvas
+[TEST] red=passed name=loading-a-copied-mask-data-url-resizes-to-current-image-dimensions
+[CMD] node --test tests/maskEditor.test.js tests/appContracts.test.js status=passed tests=44
+[DOC] updated=docs/USER_MANUAL.md,docs/FEATURE_STATUS.md note=cross-resolution-mask-copy-behavior
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=330
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=cross-resolution-mask-copy note=server-save-dimension-validation-remains-unchanged

@@ -388,13 +388,11 @@ export class MaskEditor {
   async replaceMaskFromDataUrl(maskDataUrl, options = {}) {
     if (!this.image) throw new Error("Cannot replace mask before an image is loaded");
     const mask = await loadImage(maskDataUrl);
-    if (mask.naturalWidth !== this.maskCanvas.width || mask.naturalHeight !== this.maskCanvas.height) {
-      throw new Error("Mask dimensions must match current image");
-    }
     const canvas = document.createElement("canvas");
     canvas.width = this.maskCanvas.width;
     canvas.height = this.maskCanvas.height;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(mask, 0, 0, canvas.width, canvas.height);
     return this.replaceMaskFromImageData(ctx.getImageData(0, 0, canvas.width, canvas.height), options);
   }

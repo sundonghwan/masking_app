@@ -11,6 +11,25 @@ class TestImageData {
 
 globalThis.ImageData = TestImageData;
 
+class TestImage {
+  constructor() {
+    this.naturalWidth = TestImage.nextNaturalWidth || 1;
+    this.naturalHeight = TestImage.nextNaturalHeight || 1;
+    this.onload = null;
+    this.onerror = null;
+  }
+
+  set src(value) {
+    this._src = value;
+    queueMicrotask(() => {
+      if (typeof this.onload === "function") this.onload();
+    });
+  }
+}
+
+TestImage.nextNaturalWidth = 1;
+TestImage.nextNaturalHeight = 1;
+
 function installCanvasDocument() {
   const previousDocument = globalThis.document;
   globalThis.document = {
@@ -405,6 +424,31 @@ test("loading a copied mask validates dimensions and records undo history", asyn
       /Mask dimensions must match current image/,
     );
   } finally {
+    restoreDocument();
+  }
+});
+
+test("loading a copied mask data URL resizes to the current image dimensions", async () => {
+  const restoreDocument = installCanvasDocument();
+  const previousImage = globalThis.Image;
+  globalThis.Image = TestImage;
+  TestImage.nextNaturalWidth = 2;
+  TestImage.nextNaturalHeight = 2;
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const editor = new MaskEditor(new TestCanvas());
+    editor.image = { naturalWidth: 4, naturalHeight: 3 };
+    editor.maskCanvas.width = 4;
+    editor.maskCanvas.height = 3;
+
+    const replaced = await editor.replaceMaskFromDataUrl("data:image/png;base64,AAAA");
+
+    assert.equal(replaced, true);
+    assert.equal(editor.maskCtx.imageData.width, 4);
+    assert.equal(editor.maskCtx.imageData.height, 3);
+    assert.equal(editor.getState().canUndo, true);
+  } finally {
+    globalThis.Image = previousImage;
     restoreDocument();
   }
 });

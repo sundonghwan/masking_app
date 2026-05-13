@@ -347,9 +347,11 @@ Use this for sequential frames.
 
 1. Select an image after a previous image has a mask.
 2. Click `이전 마스크 적용`.
-3. Switch to `마스크 이동 M`.
-4. Drag the copied mask until it aligns with the current image.
-5. Refine with brush/eraser.
+3. If the previous and current image resolutions differ, the app resizes the
+   copied mask to the current image resolution.
+4. Switch to `마스크 이동 M`.
+5. Drag the copied mask until it aligns with the current image.
+6. Refine with brush/eraser.
 
 Shortcut hint shown in the app:
 
