@@ -20,6 +20,7 @@ operations are acceptable for a real deployment.
 | Browser E2E baseline | Implemented for admin, worker, reviewer, submit, approve, export |
 | Staging evidence artifact | `release-artifacts/staging-evidence-20260513-after-identity-migration.json` passed on a copied data root after identity password migration |
 | Production gate | Passed on copied staging data root after password migration and explicit local identity/filesystem acceptance |
+| Local production health | `release-artifacts/deployment-check-20260513-production-local.json` passed on `127.0.0.1:4183` in production mode |
 | Storage model | Filesystem JSON accepted for local/staging/single-process only |
 | External identity provider | Not implemented |
 | Host TLS/reverse proxy/scheduler | Not selected or installed |

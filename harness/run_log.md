@@ -1752,3 +1752,11 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=production-boundary-decision-doc note=decision-document-does-not-claim-acceptance
+[START] task=production-host-health-evidence subsystem=deployment,production-health,release-artifacts
+[PLAN] scope=start-production-mode-server-on-local-port-and-capture-deployment-check-json risks=port-conflict,local-host-not-final-host
+[BLOCKER] command=start-production-server status=failed code=EPERM reason=sandbox-local-port-listen
+[CMD] start-production-server port=4183 data_root=/tmp/masking-app-staging-data-20260513 status=passed note=approved-escalated-local-listen
+[CMD] scripts/harness/deployment-check.sh --json http://127.0.0.1:4183 status=passed artifact=release-artifacts/deployment-check-20260513-production-local.json
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=production-host-health-evidence note=local-production-health-evidence-does-not-replace-final-host-tls-scheduler-evidence

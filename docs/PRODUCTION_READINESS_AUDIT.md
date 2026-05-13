@@ -111,6 +111,17 @@ That artifact verifies storage, audit verification, audit retention dry-run,
 capacity profile, backup creation, restore rehearsal, and production gate on
 the copied data root. It does not replace the final target-host evidence run.
 
+A local production-mode server health check also passed against the migrated
+copied data root:
+
+```text
+release-artifacts/deployment-check-20260513-production-local.json
+```
+
+This verifies startup safety and `/api/health` on `127.0.0.1:4183` in
+production mode. It does not replace TLS, reverse-proxy, scheduler, or final
+target-host evidence.
+
 ## Production Blockers
 
 ### 1. Browser E2E Coverage
@@ -157,6 +168,8 @@ Remaining follow-up:
   Docker Compose is not the target runner
 - TLS/reverse proxy policy
 - deployment evidence from a real staging host
+  - current local production-mode health evidence:
+    `release-artifacts/deployment-check-20260513-production-local.json`
 
 ### 4. Security Hardening
 

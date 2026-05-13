@@ -40,7 +40,7 @@ Decision checklist: `docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
 | P0 | Identity boundary decision | Local accounts are acceptable for local/controlled internal use, not internet-facing production by default | Local account hardening and production acceptance gate exist; decision checklist exists | Team either adopts external IDP or explicitly accepts local identity for controlled internal deployment |
 | P0 | Production data-root gate | Prevents unsafe repo-local data roots, default seed passwords, and weak identity state | Passed against the copied staging data root after password migration | Gate passes against the final target data root after backup and password migration |
 | P1 | Storage/concurrency decision | Filesystem JSON is safe only within known single-process/local-staging limits | Decision docs accept filesystem for local/staging and require explicit release acceptance | Team accepts filesystem for first shared deployment or schedules SQLite/Postgres migration |
-| P1 | Host deployment evidence | Docker/runbook exists, but the actual host setup still needs proof | Deployment runbook and health check exist | Target host has recorded health/deployment evidence |
+| P1 | Host deployment evidence | Docker/runbook exists, but the actual host setup still needs proof | Local production-mode health evidence captured at `release-artifacts/deployment-check-20260513-production-local.json` | Final target host has recorded health/deployment evidence |
 | P1 | TLS/reverse proxy policy | Required for shared network or internet-facing use | Not host-selected yet | TLS/reverse proxy owner and config are recorded |
 | P1 | Backup/audit/log retention scheduler | Scripts exist, but recurring host operation needs installation | Backup, restore, audit verify, audit retention dry-run exist | Host scheduler and retention policy are installed or explicitly deferred with owner/date |
 | P2 | Capacity target evidence | We need to know first real dataset size and file-store limits | `capacity-profile.sh` exists | Representative data-root capacity profile is archived |
@@ -64,6 +64,10 @@ need.
 - Latest staging evidence artifact:
   `release-artifacts/staging-evidence-20260513-after-identity-migration.json`
   passed after applying identity password migration to a copied staging data
+  root.
+- Latest local production health artifact:
+  `release-artifacts/deployment-check-20260513-production-local.json` passed
+  against `127.0.0.1:4183` in production mode using the migrated copied data
   root.
 - Last pushed commits:
   - `9cf5459` - remaining work board

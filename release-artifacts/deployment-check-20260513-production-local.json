@@ -1,0 +1,32 @@
+{
+  "ok": true,
+  "checked_at": "2026-05-13T05:41:57.559Z",
+  "base_url": "http://127.0.0.1:4183",
+  "health_url": "http://127.0.0.1:4183/api/health",
+  "status": 200,
+  "deployment": {
+    "mode": "production",
+    "port": 4183,
+    "data_root_configured": true,
+    "public_root_configured": true,
+    "session_ttl_ms": 86400000
+  },
+  "ai_serving": {
+    "enabled": false,
+    "provider": "stub",
+    "tasks": [
+      "detection",
+      "segmentation",
+      "classification"
+    ],
+    "max_image_bytes": 5242880,
+    "maxImageBytes": 5242880,
+    "model_required": false,
+    "output_contracts": {
+      "detection": "predictions[].box + score + label",
+      "segmentation": "predictions[].class_id + predictions[].mask_data_url + score",
+      "classification": "predictions[].label + score"
+    }
+  },
+  "errors": []
+}
