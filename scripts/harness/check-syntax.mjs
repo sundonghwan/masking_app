@@ -43,6 +43,7 @@ export const SYNTAX_CHECK_FILES = Object.freeze([
   "src/server/sessionStore.js",
   "src/server/sessionToken.js",
   "src/server/storage.js",
+  "src/server/trainingSetRouteUtils.js",
   "src/server/userDirectory.js",
   "scripts/harness/browser-e2e.mjs",
   "scripts/harness/storage-verify.mjs",

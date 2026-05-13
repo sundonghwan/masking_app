@@ -1659,3 +1659,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=staging-evidence-audit-steps note=checked-audit-steps-required-retention-dry-run-only-and-deployment-check-still-optional
 [GIT] commit=03453c8 push=origin/main status=passed
+[START] task=training-set-route-utils-refactor subsystem=code-health,backend,training-set
+[PLAN] scope=extract-pure-training-set-route-utils risks=source-summary-filter-drift,normalization-drift,split-list-newline-drift
+[TEST] added=tests/trainingSetRouteUtils.test.js note=training-set-id-source-ref-summary-and-split-list-helper-contracts
+[CODE] added=src/server/trainingSetRouteUtils.js updated=src/server/api.js,scripts/harness/check-syntax.mjs note=pure-training-set-route-helpers-extracted-and-syntax-covered
+[CMD] node --test tests/trainingSetRouteUtils.test.js status=red expected=missing-module
+[CMD] node --test tests/trainingSetRouteUtils.test.js status=passed tests=4
+[CMD] node --test tests/serverApi.test.js status=passed tests=66
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=311
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=training-set-route-utils-refactor note=checked-helper-body-preservation-active-filtering-revision-normalization-trailing-newline-and-syntax-coverage
