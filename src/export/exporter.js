@@ -411,6 +411,7 @@ function toCanonicalImageRecord(image) {
     objectUrl: image.object_url || image.objectUrl,
     maskDataUrl: image.mask_data_url || image.maskDataUrl,
     reviewEvents: image.review_events || image.reviewEvents || [],
+    annotations: Array.isArray(image.annotations) ? image.annotations : [],
   });
 }
 

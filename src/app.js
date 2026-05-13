@@ -1259,13 +1259,17 @@ async function exportProject() {
 
   for (const [index, image] of validImages.entries()) {
     const imageBlob = await projectStore.loadImageBlob(image.id);
-    const maskBlob = await projectStore.loadMaskBlob(image.id);
     const exportPaths = createExportPaths(image, { index });
     if (imageBlob) {
       entries.push({ path: exportPaths.image_path, data: imageBlob });
     }
-    if (maskBlob) {
-      entries.push({ path: exportPaths.mask_path, data: maskBlob });
+  }
+
+  for (const annotation of annotations.annotations) {
+    const image = validImages.find((item) => item.id === annotation.image_id);
+    const maskBlob = await localExportMaskBlobForAnnotation(image, annotation);
+    if (image && maskBlob) {
+      entries.push({ path: annotation.mask_path, data: maskBlob });
     }
   }
 
@@ -1274,6 +1278,18 @@ async function exportProject() {
   await persistProject();
   render();
   setSaveState("saved", "ZIP 내보냄");
+}
+
+async function localExportMaskBlobForAnnotation(image, annotation = {}) {
+  if (!image) return null;
+  if (annotation.class_id) {
+    const classBlob = await projectStore.loadMaskBlob(annotationMaskBlobKey(image.id, annotation.class_id));
+    if (classBlob) return classBlob;
+  }
+  if (!annotation.class_id || annotation.mask_path === image.current_mask_path || annotation.mask_path === image.maskPath) {
+    return projectStore.loadMaskBlob(image.id);
+  }
+  return null;
 }
 
 async function exportSelectedTrainingSet() {

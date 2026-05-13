@@ -174,6 +174,9 @@ Current foundation implemented:
   class annotation with `annotation_id`, `class_id`, `class_name`, and the
   annotation-specific binary mask path while preserving legacy single-mask
   output for old records.
+- Browser local fallback ZIP export preserves `image.annotations[]` and loads
+  class-specific local mask blobs by `image_id::class_id`, so incomplete server
+  sync does not collapse a multi-class image back to the selected legacy mask.
 
 Still pending:
 

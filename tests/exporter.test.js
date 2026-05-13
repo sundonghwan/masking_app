@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   EXCLUSION_REASONS,
   MASK_CONTRACT,
+  buildAnnotations,
   createAnnotationsJson,
   createExportImageFileName,
   createExportMaskFileName,
@@ -261,6 +262,32 @@ test("creates class-aware annotations metadata from image annotation records", (
   assert.equal(annotations.annotations[0].mask_path, "masks/image-1_class_1_crack_mask.png");
   assert.equal(annotations.annotations[0].source_mask_path, "masks/image-1_class_1_crack_mask.png");
   assert.equal(annotations.annotations[1].mask_ratio, 0.1);
+});
+
+test("browser export annotations preserve class-aware image annotations", () => {
+  const annotations = buildAnnotations({
+    projectId: "project-1",
+    images: [{
+      id: "image-1",
+      project_id: "project-1",
+      original_file_name: "frame.png",
+      image_path: "images/frame.png",
+      width: 640,
+      height: 480,
+      status: "submitted",
+      annotations: [{
+        annotation_id: "ann_image-1_class_2",
+        class_id: 2,
+        class_name: "scratch",
+        mask_path: "masks/image-1_class_2_scratch_mask.png",
+        mask_ratio: 0.1,
+      }],
+    }],
+  });
+
+  assert.equal(annotations.annotations.length, 1);
+  assert.equal(annotations.annotations[0].class_id, 2);
+  assert.equal(annotations.annotations[0].mask_path, "masks/image-1_class_2_scratch_mask.png");
 });
 
 test("treats class annotation mask paths as exportable mask sources", () => {

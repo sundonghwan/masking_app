@@ -1093,3 +1093,18 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=fixed scope=class-aware-export-metadata note=annotation-only-mask-paths-now-count-as-exportable-mask-sources
 [CLOSE] status=ready-for-commit
+[GIT] commit=d2bb31b push=origin/main status=passed
+[START] task=class-aware-local-export-fallback subsystem=frontend,export,annotation-contract
+[PLAN] scope=browser-canonical-annotations,local-fallback-mask-entries risks=server-sync-incomplete,multi-class-mask-loss,legacy-fallback-compatibility
+[IMPACT] status=validated chain=toCanonicalImageRecord->buildAnnotations->exportProject
+[IMPACT] status=validated chain=exportProject->localExportMaskBlobForAnnotation->projectStore.loadMaskBlob->createZipBlob
+[FIX] scope=browser-export note=canonical-records-preserve-annotations-and-local-zip-loads-class-mask-blobs-by-image-class-key
+[DOC] updated=docs/ARCHITECTURE.md note=local-fallback-class-aware-export-recorded
+[CMD] node --test tests/exporter.test.js tests/appContracts.test.js status=passed tests=39
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=233
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=class-aware-local-export-fallback note=checked-local-image-dedup-class-mask-blob-lookup-and-legacy-mask-fallback
+[CLOSE] status=ready-for-commit
