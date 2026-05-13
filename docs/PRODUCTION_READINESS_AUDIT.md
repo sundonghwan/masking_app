@@ -13,6 +13,8 @@ verifiable deliverables and map each deliverable to current repository evidence.
 This document is intentionally stricter than `docs/FEATURE_STATUS.md`: a feature
 can be implemented while the product still lacks production operation gates.
 For a shorter progress board, see `docs/REMAINING_WORK_BOARD.md`.
+For the explicit release decision checklist, see
+`docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
 
 ## Audit Date
 
@@ -235,7 +237,8 @@ Remaining follow-up:
 1. Replace the current local identity boundary with an external provider before
    internet-facing deployment, or explicitly set
    `MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` for a controlled first
-   production boundary.
+   production boundary. Record the decision in
+   `docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
 2. Run password migration and `production-gate.sh` on the real target data root
    after backup. This has passed on a copied staging data root, but not on a
    final target deployment root.

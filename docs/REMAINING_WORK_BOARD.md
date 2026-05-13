@@ -30,14 +30,16 @@ or production audit. This board separates:
 | Code health | Active cleanup | Project settings and assignment route helpers extracted; larger route blocks remain |
 | Production readiness | Not complete | Identity/storage/host evidence decisions remain |
 
+Decision checklist: `docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
+
 ## Remaining Production Gates
 
 | Priority | Item | Why it matters | Current state | Done when |
 | --- | --- | --- | --- | --- |
 | P0 | Real staging evidence artifact | We need proof against representative data, not only synthetic tests | Captured against a copied staging data root after identity password migration | Evidence artifact is archived at `release-artifacts/staging-evidence-20260513-after-identity-migration.json`; repeat on the final target data root before release |
-| P0 | Identity boundary decision | Local accounts are acceptable for local/controlled internal use, not internet-facing production by default | Local account hardening and production acceptance gate exist | Team either adopts external IDP or explicitly accepts local identity for controlled internal deployment |
+| P0 | Identity boundary decision | Local accounts are acceptable for local/controlled internal use, not internet-facing production by default | Local account hardening and production acceptance gate exist; decision checklist exists | Team either adopts external IDP or explicitly accepts local identity for controlled internal deployment |
 | P0 | Production data-root gate | Prevents unsafe repo-local data roots, default seed passwords, and weak identity state | Passed against the copied staging data root after password migration | Gate passes against the final target data root after backup and password migration |
-| P1 | Storage/concurrency decision | Filesystem JSON is safe only within known single-process/local-staging limits | Decision doc accepts filesystem for local/staging | Team accepts filesystem for first shared deployment or schedules SQLite/Postgres migration |
+| P1 | Storage/concurrency decision | Filesystem JSON is safe only within known single-process/local-staging limits | Decision docs accept filesystem for local/staging and require explicit release acceptance | Team accepts filesystem for first shared deployment or schedules SQLite/Postgres migration |
 | P1 | Host deployment evidence | Docker/runbook exists, but the actual host setup still needs proof | Deployment runbook and health check exist | Target host has recorded health/deployment evidence |
 | P1 | TLS/reverse proxy policy | Required for shared network or internet-facing use | Not host-selected yet | TLS/reverse proxy owner and config are recorded |
 | P1 | Backup/audit/log retention scheduler | Scripts exist, but recurring host operation needs installation | Backup, restore, audit verify, audit retention dry-run exist | Host scheduler and retention policy are installed or explicitly deferred with owner/date |

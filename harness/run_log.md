@@ -1746,3 +1746,9 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] production-gate copied-staging-data-root status=passed
 [CMD] staging-evidence after-identity-migration status=passed artifact=release-artifacts/staging-evidence-20260513-after-identity-migration.json
 [IMPACT] status=validated chain=staging-evidence->backup/restore/production-gate validation=artifact-passed
+[START] task=production-boundary-decision-doc subsystem=release,identity,storage,host-ops
+[PLAN] scope=document-explicit-production-boundary-decisions risks=overclaiming-acceptance-as-readiness
+[DOC] created=docs/PRODUCTION_BOUNDARY_DECISIONS.md note=identity-storage-network-backup-retention-release-decision-checklist
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=production-boundary-decision-doc note=decision-document-does-not-claim-acceptance
