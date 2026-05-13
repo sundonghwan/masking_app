@@ -16,6 +16,19 @@ const RGB_MASK_DATA_URL = toPngDataUrl(createMinimalPngHeader({ width: 2, height
 const INVALID_PNG_DATA_URL = `data:image/png;base64,${Buffer.from("not a png").toString("base64")}`;
 const VALID_IMAGE_DATA_URL = toPngDataUrl(createMinimalPngHeader({ width: 2, height: 2, bitDepth: 8, colorType: 6 }));
 
+function createAuditCapture() {
+  const auditEvents = [];
+  return {
+    auditEvents,
+    auditStore: {
+      async appendEvent(event) {
+        auditEvents.push(JSON.parse(JSON.stringify(event)));
+        return event;
+      },
+    },
+  };
+}
+
 test("session login returns a bearer token that authorizes protected actions", async () => {
   const { route, storage } = createApiHarness();
   const login = await callJson(route, "POST", "/api/session/login", {
@@ -424,13 +437,7 @@ test("session login logs cleanup failure without blocking credential login", asy
 });
 
 test("session login and logout write sanitized audit events", async () => {
-  const auditEvents = [];
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route } = createApiHarness({ auditStore });
 
   const failed = await callJson(route, "POST", "/api/session/login", {
@@ -458,14 +465,8 @@ test("session login and logout write sanitized audit events", async () => {
 });
 
 test("user administration writes audit events for create update deactivate and reactivate", async () => {
-  const auditEvents = [];
   const directory = await createTempUserDirectory();
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route } = createApiHarness({ auditStore, userDirectory: directory });
   const adminHeaders = await loginHeaders(route, "admin");
 
@@ -562,13 +563,7 @@ test("admin creates projects and non-admin users cannot create them", async () =
 });
 
 test("project lifecycle writes audit events for create archive restore and purge", async () => {
-  const auditEvents = [];
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route } = createApiHarness({ auditStore });
   const adminHeaders = await loginHeaders(route, "admin");
 
@@ -939,13 +934,7 @@ test("review approve updates only submitted images", async () => {
 });
 
 test("review transitions write audit events with session reviewer identity", async () => {
-  const auditEvents = [];
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route, storage } = createApiHarness({ auditStore });
   const headers = await loginHeaders(route, "reviewer");
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -1052,13 +1041,7 @@ test("admin assignment updates worker and reviewer without changing status", asy
 });
 
 test("assignment update writes audit event with authenticated admin actor", async () => {
-  const auditEvents = [];
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route, storage } = createApiHarness({ auditStore });
   const headers = await loginHeaders(route, "admin");
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -1318,13 +1301,7 @@ test("worker can soft remove and restore a single image without physical purge",
 });
 
 test("image delete and restore write audit events", async () => {
-  const auditEvents = [];
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route, storage } = createApiHarness({ auditStore });
   const headers = await loginHeaders(route, "worker");
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -1524,13 +1501,7 @@ test("project export approved-only query excludes submitted images", async () =>
 });
 
 test("project export writes an audit event without payload bytes", async () => {
-  const auditEvents = [];
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route, storage } = createApiHarness({ auditStore });
   const headers = await loginHeaders(route, "admin");
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -1605,13 +1576,7 @@ test("training set export combines selected project sources with traceability me
 });
 
 test("training set exports write audit events without archive payloads", async () => {
-  const auditEvents = [];
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route, storage } = createApiHarness({ auditStore });
   const reviewerHeaders = await loginHeaders(route, "reviewer");
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -1737,13 +1702,7 @@ test("reviewers create and export saved training sets while admins archive and r
 });
 
 test("saved training set create archive and restore write audit events", async () => {
-  const auditEvents = [];
-  const auditStore = {
-    async appendEvent(event) {
-      auditEvents.push(JSON.parse(JSON.stringify(event)));
-      return event;
-    },
-  };
+  const { auditEvents, auditStore } = createAuditCapture();
   const { route, storage } = createApiHarness({ auditStore });
   const reviewerHeaders = await loginHeaders(route, "reviewer");
   const adminHeaders = await loginHeaders(route, "admin");

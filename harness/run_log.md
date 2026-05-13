@@ -1635,3 +1635,12 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=assignment-training-set-audit-events note=checked-session-admin-actor-count-only-training-set-metadata-no-image-mask-payloads-and-audit-write-non-blocking
 [GIT] commit=8289723 push=origin/main status=passed
+[START] task=server-api-audit-test-helper-refactor subsystem=code-health,tests,audit
+[PLAN] scope=deduplicate-server-api-audit-capture-setup risks=assertion-drift,captured-event-mutation
+[CODE] updated=tests/serverApi.test.js note=extracted-createAuditCapture-helper-and-replaced-repeated-auditStore-setup
+[CMD] node --test tests/serverApi.test.js status=passed tests=66
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=307
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=server-api-audit-test-helper-refactor note=checked-test-only-change-json-deep-copy-preserved-and-throwing-audit-store-left-local
