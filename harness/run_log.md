@@ -1695,3 +1695,4 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=backend-playbook-mask-validation-refresh note=checked-current-docs-only-history-left-unchanged-and-supported-png-scope-limited
 [GIT] commit=47ba59a push=origin/main status=passed
+[CMD] scripts/harness/browser-e2e.sh status=passed project=browser-e2e-1778649205820 note=admin-worker-reviewer-mask-submit-review-export-journey
