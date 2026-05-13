@@ -345,6 +345,84 @@ test("persistent session store can authorize later requests", async () => {
   assert.equal(afterLogout.statusCode, 403);
 });
 
+test("session login runs expired session cleanup before creating a new persistent session", async () => {
+  const calls = [];
+  const sessionStore = {
+    async cleanupExpiredSessions() {
+      calls.push("cleanup");
+      return { deleted: 2 };
+    },
+    async createSession(input = {}) {
+      calls.push("create");
+      return {
+        token: "sess_clean",
+        user_id: input.user_id,
+        userId: input.user_id,
+        role: input.role,
+        created_at: "2026-05-13T00:00:00.000Z",
+      };
+    },
+    async readSession() {
+      return null;
+    },
+    async deleteSession() {
+      return false;
+    },
+  };
+  const { route } = createApiHarness({ sessionStore });
+
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "admin",
+    password: "admin123",
+  }, {});
+
+  assert.equal(login.statusCode, 201);
+  assert.equal(login.body.session.token, "sess_clean");
+  assert.deepEqual(calls, ["cleanup", "create"]);
+});
+
+test("session login logs cleanup failure without blocking credential login", async () => {
+  const entries = [];
+  const sessionStore = {
+    async cleanupExpiredSessions() {
+      throw Object.assign(new Error("cleanup unavailable"), { code: "cleanup_failed" });
+    },
+    async createSession(input = {}) {
+      return {
+        token: "sess_after_cleanup_failure",
+        user_id: input.user_id,
+        userId: input.user_id,
+        role: input.role,
+        created_at: "2026-05-13T00:00:00.000Z",
+      };
+    },
+    async readSession() {
+      return null;
+    },
+    async deleteSession() {
+      return false;
+    },
+  };
+  const logger = {
+    warn(event, fields = {}) {
+      entries.push({ event, fields });
+    },
+  };
+  const { route } = createApiHarness({ sessionStore, logger });
+
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "admin",
+    password: "admin123",
+  }, {});
+
+  assert.equal(login.statusCode, 201);
+  assert.equal(login.body.session.token, "sess_after_cleanup_failure");
+  assert.deepEqual(entries.map((entry) => entry.event), ["session.cleanup.failed"]);
+  assert.equal(entries[0].fields.error.code, "cleanup_failed");
+  assert.equal(Object.hasOwn(entries[0].fields, "password"), false);
+  assert.equal(Object.hasOwn(entries[0].fields, "token"), false);
+});
+
 test("admin creates projects and non-admin users cannot create them", async () => {
   const { route, storage } = createApiHarness();
   const workerHeaders = await loginHeaders(route, "worker");

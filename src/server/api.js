@@ -78,7 +78,7 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
           message: "Invalid user ID or password",
         });
       }
-      const session = await createSession(account);
+      const session = await createSession(account, context);
       return sendJson(response, 201, { session });
     }
 
@@ -931,10 +931,11 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     return false;
   }
 
-  async function createSession(input = {}) {
+  async function createSession(input = {}, context = {}) {
     const userId = normalizeActorId(input.userId || input.user_id || DEFAULT_ACTORS.admin);
     const role = normalizeRole(input.role, ROLES.WORKER);
     const createdAt = new Date().toISOString();
+    await cleanupExpiredSessionsForLogin(context);
     const session = sessionStore?.createSession
       ? await sessionStore.createSession({ user_id: userId, role })
       : {
@@ -946,6 +947,18 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     };
     if (!sessionStore?.createSession) sessions.set(session.token, session);
     return publicSession(session);
+  }
+
+  async function cleanupExpiredSessionsForLogin(context = {}) {
+    if (!sessionStore?.cleanupExpiredSessions) return;
+    try {
+      await sessionStore.cleanupExpiredSessions();
+    } catch (error) {
+      logger?.warn("session.cleanup.failed", {
+        request_id: context.requestId,
+        error,
+      });
+    }
   }
 
   function publicSession(session = {}) {

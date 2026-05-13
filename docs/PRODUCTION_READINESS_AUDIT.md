@@ -90,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 288 Node tests, and the baseline browser E2E
+The latest full test run passed 290 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -172,6 +172,7 @@ Open production decisions:
 - password reset, lockout, and stronger organization-level password policy
 - operator-run migration for existing plaintext `identity/users.json`
 - token lifetime and rotation
+- session cleanup retention window beyond TTL-based expired file cleanup
 - host-specific TLS/reverse proxy deployment
 - CSRF policy if the app moves from bearer headers to browser cookies
 - audit retention for admin/review actions

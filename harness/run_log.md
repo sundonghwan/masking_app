@@ -1500,3 +1500,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=password-policy-helper-refactor note=checked-error-shape-policy-unchanged-seed-compatibility-and-syntax-harness-coverage
+[GIT] commit=1b125eb push=origin/main status=passed
+[START] task=session-login-cleanup subsystem=security,identity,session-store
+[PLAN] scope=cleanup-expired-persisted-sessions-on-successful-login risks=blocking-login-on-cleanup-failure,logging-sensitive-session-data
+[TEST] updated=tests/serverApi.test.js note=login-calls-cleanup-before-create-and-cleanup-failure-is-non-blocking
+[CODE] updated=src/server/api.js note=createSession-invokes-sessionStore-cleanupExpiredSessions-before-createSession-and-warns-on-failure
+[DOC] updated=docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=session-cleanup-baseline-and-remaining-retention-window-decision
+[CMD] node --test tests/serverApi.test.js status=red expected=cleanup-not-called-and-failure-not-logged
+[CMD] node --test tests/serverApi.test.js status=passed tests=56
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=290
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=session-login-cleanup note=checked-login-not-blocked-on-cleanup-failure-no-credential-or-token-log-and-persistent-session-path-only

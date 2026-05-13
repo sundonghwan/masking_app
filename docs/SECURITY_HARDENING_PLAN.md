@@ -80,7 +80,10 @@ For local or controlled staging:
   Implemented baseline: `src/server/sessionToken.js`.
 - Make session TTL configurable. Implemented baseline:
   `MASKING_APP_SESSION_TTL_MS`.
-- Add session rotation on login and explicit cleanup guidance.
+- Clean up expired persisted sessions during successful login. Implemented
+  baseline: the login path calls `sessionStore.cleanupExpiredSessions()` when
+  available and logs cleanup failure without blocking credential login.
+- Add explicit session rotation guidance.
 - Consider HttpOnly cookies only when CSRF strategy is also decided.
 
 ### 4. Network Boundary
