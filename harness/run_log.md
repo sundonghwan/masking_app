@@ -1175,3 +1175,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=backup-restore-runbook,storage-verifier note=checked-read-only-safe-paths-json-parse-reference-checks-restore-cutover-rollback
 [CLOSE] status=ready-for-commit
+[GIT] commit=ba5c6b4 push=origin/main status=passed
+[START] task=deployment-runbook subsystem=deployment,operations,harness
+[PLAN] scope=deployment-runbook,health-check-command,command-docs risks=overclaiming-production-hardening,health-check-as-full-smoke
+[DOC] created=docs/RUNBOOK_DEPLOYMENT.md note=documents-env-startup-health-logs-rollback-release-validation
+[CMD] scripts/harness/deployment-check.sh http://127.0.0.1:59941 status=passed mode=staging
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=243
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] scripts/harness/storage-verify.sh data status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=deployment-runbook,deployment-check note=checked-health-payload-validation-runtime-env-docs-rollback-constraints
+[CLOSE] status=ready-for-commit

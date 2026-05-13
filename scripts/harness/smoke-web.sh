@@ -41,6 +41,8 @@ require_file scripts/harness/browser-e2e.sh
 require_file scripts/harness/browser-e2e.mjs
 require_file scripts/harness/storage-verify.sh
 require_file scripts/harness/storage-verify.mjs
+require_file scripts/harness/deployment-check.sh
+require_file scripts/harness/deployment-check.mjs
 
 require_file docs/design/screens-v2/01-main-mask-editor.png
 require_file docs/design/screens-v2/02-dataset-upload.png
@@ -58,3 +60,4 @@ echo "smoke-web: planning/design/harness references are present."
 echo "smoke-web: backend/static MVP app files are present."
 echo "smoke-web: browser E2E harness entrypoint is present."
 echo "smoke-web: storage verification entrypoint is present."
+echo "smoke-web: deployment check entrypoint is present."

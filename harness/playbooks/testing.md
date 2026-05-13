@@ -25,6 +25,7 @@ Medium:
 - route-level smoke
 - save/export fixture checks
 - storage verification with `scripts/harness/storage-verify.sh`
+- deployment health check with `scripts/harness/deployment-check.sh`
 
 Expensive:
 
@@ -43,6 +44,7 @@ scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh
+scripts/harness/deployment-check.sh
 ```
 
 ## Change-to-Validation Mapping
@@ -60,6 +62,7 @@ scripts/harness/storage-verify.sh
 | auth/session | auth playbook checks and protected route smoke |
 | critical labeling journey | `scripts/harness/browser-e2e.sh` |
 | backup/restore or storage references | `scripts/harness/storage-verify.sh <data-root>` |
+| deployment config or startup docs | `scripts/harness/deployment-check.sh <base-url>` |
 
 ## Impact Chain Validation
 

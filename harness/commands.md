@@ -24,6 +24,7 @@ scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh
+scripts/harness/deployment-check.sh
 ```
 
 ## Install / Bootstrap
@@ -161,6 +162,24 @@ Current behavior:
 - exits non-zero when referenced files are missing or JSON/image/mask metadata
   is invalid
 
+## Deployment Check
+
+Preferred wrapper:
+
+```bash
+scripts/harness/deployment-check.sh [base-url]
+scripts/harness/deployment-check.sh --json [base-url]
+```
+
+Current behavior:
+
+- checks a running server; it does not start the app
+- defaults to `MASKING_APP_BASE_URL` or `http://$MASKING_APP_HOST:$PORT`
+- verifies `/api/health` returns the expected service marker, deployment
+  profile, and AI capability shape
+- exits non-zero when the server is unreachable or the health payload does not
+  match the app contract
+
 Manual browser smoke:
 
 - run `npm run dev`
@@ -184,6 +203,7 @@ scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh "${MASKING_APP_DATA_DIR:-data}"
+scripts/harness/deployment-check.sh http://127.0.0.1:4173
 ```
 
 ## Updating Commands

@@ -22,10 +22,11 @@ can be implemented while the product still lacks production operation gates.
 The app is a strong local-first MVP with many production-shaped workflows, but
 it is **not yet fully production-ready**.
 
-Production completion is still blocked by deployment, security hardening, and
-storage/concurrency decisions. Baseline browser E2E and backup/restore
-verification now exist, but role-specific browser coverage, visual regression,
-and scheduled/retained backup operations can still be expanded. These are not
+Production completion is still blocked by security hardening and
+storage/concurrency decisions. Baseline browser E2E, backup/restore
+verification, and deployment health/runbook coverage now exist, but
+role-specific browser coverage, visual regression, process supervision, and
+scheduled/retained backup operations can still be expanded. These are not
 cosmetic gaps; they affect whether a team can safely operate the tool with real
 labeling data over time.
 
@@ -68,7 +69,7 @@ For this repository, "production-level" means the following are true:
 | Production identity provider | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing |
 | Database-backed metadata storage | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing / intentionally deferred |
 | Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh` | Implemented baseline |
-| Production deployment packaging | `src/server/deploymentProfile.js` exists, but no deployment runbook or service definition | Partial |
+| Production deployment packaging | `docs/RUNBOOK_DEPLOYMENT.md`, `scripts/harness/deployment-check.sh`, `src/server/deploymentProfile.js` | Implemented baseline |
 | Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist, but no benchmark or capacity profile | Missing |
 | Security hardening beyond local bearer sessions | Local sessions and RBAC exist; no CSRF/CORS/session rotation policy documented | Partial |
@@ -90,8 +91,8 @@ git diff --check
 The latest full test run passed 243 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
-enough to claim production readiness while deployment, security, and
-storage/concurrency decisions remain unresolved.
+enough to claim production readiness while security and storage/concurrency
+decisions remain unresolved.
 
 ## Production Blockers
 
@@ -126,14 +127,15 @@ Remaining follow-up:
 ### 3. Deployment Runbook
 
 `src/server/deploymentProfile.js` centralizes host, port, public root, data root,
-log level, and AI flags. That is a good foundation, but production operation
-still needs repeatable launch instructions and health checks.
+log level, and AI flags. A baseline deployment runbook and health check now
+cover startup, `/api/health`, rollback, and release validation.
 
-Recommended next artifact:
+Remaining follow-up:
 
-- `docs/RUNBOOK_DEPLOYMENT.md`
-- documented environment variables
-- startup, health, rollback, and log inspection steps
+- process manager packaging such as launchd, systemd, Docker, or platform
+  service configuration
+- TLS/reverse proxy policy
+- deployment evidence from a real staging host
 
 ### 4. Security Hardening
 
