@@ -268,6 +268,19 @@ export function createApiRouter({
       manifest.upload_policy = normalizeUploadPolicy(body.upload_policy || body.uploadPolicy || {}, manifest.upload_policy);
       manifest.label_schema = normalizeLabelSchema(body.label_schema || body.labelSchema || manifest.label_schema);
       await storage.writeProjectManifest(project.id, manifest);
+      await recordAuditEvent({
+        action: "project.create",
+        actor_id: session.userId,
+        actor_role: session.role,
+        resource_type: "project",
+        resource_id: project.id,
+        project_id: project.id,
+        outcome: "success",
+        metadata: {
+          label_count: Array.isArray(manifest.label_schema) ? manifest.label_schema.length : 0,
+          max_file_bytes: Number(manifest.upload_policy?.maxFileBytes || manifest.upload_policy?.max_file_bytes || 0),
+        },
+      }, context);
       return sendJson(response, 201, { ...manifest, ...project, images: manifest.images || [] });
     }
 
@@ -333,6 +346,16 @@ export function createApiRouter({
             actor: session.userId,
             reason: body.delete_reason || body.deleteReason || body.reason,
           });
+      await recordAuditEvent({
+        action: "project.archive",
+        actor_id: session.userId,
+        actor_role: session.role,
+        resource_type: "project",
+        resource_id: projectId,
+        project_id: projectId,
+        outcome: "success",
+        reason: project.delete_reason || body.delete_reason || body.deleteReason || body.reason || "",
+      }, context);
       return sendJson(response, 200, { project });
     }
 
@@ -347,6 +370,15 @@ export function createApiRouter({
       const project = storage.restoreProject
         ? await storage.restoreProject(projectId)
         : await updateProjectArchiveState(projectId, manifest, { mode: "restore" });
+      await recordAuditEvent({
+        action: "project.restore",
+        actor_id: session.userId,
+        actor_role: session.role,
+        resource_type: "project",
+        resource_id: projectId,
+        project_id: projectId,
+        outcome: "success",
+      }, context);
       return sendJson(response, 200, { project });
     }
 
@@ -382,6 +414,19 @@ export function createApiRouter({
         });
       }
       const purge = await storage.purgeProject(projectId);
+      await recordAuditEvent({
+        action: "project.purge",
+        actor_id: session.userId,
+        actor_role: session.role,
+        resource_type: "project",
+        resource_id: projectId,
+        project_id: projectId,
+        outcome: "success",
+        metadata: {
+          purged: purge?.purged === true,
+          deleted_files: Number(purge?.deleted_files || purge?.deletedFiles || 0),
+        },
+      }, context);
       return sendJson(response, 200, { purge });
     }
 
@@ -743,6 +788,17 @@ export function createApiRouter({
         image_id: imageId,
         deleted_by: image.deleted_by,
       });
+      await recordAuditEvent({
+        action: "image.delete",
+        actor_id: session.userId,
+        actor_role: session.role,
+        resource_type: "image",
+        resource_id: imageId,
+        project_id: projectId,
+        image_id: imageId,
+        outcome: "success",
+        reason: image.delete_reason || body.delete_reason || body.deleteReason || body.reason || "",
+      }, context);
       return sendJson(response, 200, { image });
     }
 
@@ -761,6 +817,16 @@ export function createApiRouter({
         image_id: imageId,
         restored_by: session.userId,
       });
+      await recordAuditEvent({
+        action: "image.restore",
+        actor_id: session.userId,
+        actor_role: session.role,
+        resource_type: "image",
+        resource_id: imageId,
+        project_id: projectId,
+        image_id: imageId,
+        outcome: "success",
+      }, context);
       return sendJson(response, 200, { image });
     }
 

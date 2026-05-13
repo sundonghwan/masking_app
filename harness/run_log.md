@@ -1552,3 +1552,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=session-user-audit-events note=checked-no-password-token-metadata-audit-failure-non-blocking-and-project-review-export-not-overclaimed
+[START] task=project-image-audit-events subsystem=security,audit,project-lifecycle
+[PLAN] scope=project-create-archive-restore-purge-and-image-delete-restore-audit-events risks=bytes-or-token-leak,blocking-domain-action-on-audit-write,overclaiming-review-export-audit
+[TEST] updated=tests/serverApi.test.js note=project-lifecycle-and-image-delete-restore-audit-events
+[CODE] updated=src/server/api.js note=success-path-audit-events-for-project-and-image-lifecycle-routes
+[DOC] updated=docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=project-image-lifecycle-audit-wired-review-export-retention-verifier-pending
+[CMD] node --test tests/serverApi.test.js status=red expected=project-and-image-audit-events-not-written
+[CMD] node --test tests/serverApi.test.js status=passed tests=61
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=298
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=project-image-audit-events note=checked-success-path-only-audit-no-password-token-data-url-metadata-and-review-export-not-overclaimed

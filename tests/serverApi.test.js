@@ -561,6 +561,56 @@ test("admin creates projects and non-admin users cannot create them", async () =
   assert.equal(manifest.label_schema[1].color, "#F59E0B");
 });
 
+test("project lifecycle writes audit events for create archive restore and purge", async () => {
+  const auditEvents = [];
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route } = createApiHarness({ auditStore });
+  const adminHeaders = await loginHeaders(route, "admin");
+
+  const created = await callJson(route, "POST", "/api/projects", {
+    id: "audit-project",
+    name: "Audit Project",
+    label_schema: [{ class_id: 1, name: "defect", color: "#EF4444" }],
+  }, adminHeaders);
+  const archived = await callJson(route, "DELETE", "/api/projects/audit-project", {
+    if_match_revision: created.body.revision,
+    reason: "duplicate",
+  }, adminHeaders);
+  const restored = await callJson(route, "POST", "/api/projects/audit-project/restore", {
+    if_match_revision: archived.body.project.revision,
+  }, adminHeaders);
+  const archivedAgain = await callJson(route, "DELETE", "/api/projects/audit-project", {
+    if_match_revision: restored.body.project.revision,
+    reason: "cleanup",
+  }, adminHeaders);
+  const purged = await callJson(route, "POST", "/api/projects/audit-project/purge", {}, adminHeaders);
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(archived.statusCode, 200);
+  assert.equal(restored.statusCode, 200);
+  assert.equal(archivedAgain.statusCode, 200);
+  assert.equal(purged.statusCode, 200);
+  assert.deepEqual(
+    auditEvents
+      .filter((event) => event.resource_type === "project" && event.resource_id === "audit-project")
+      .map((event) => `${event.action}:${event.outcome}:${event.actor_id}`),
+    [
+      "project.create:success:admin",
+      "project.archive:success:admin",
+      "project.restore:success:admin",
+      "project.archive:success:admin",
+      "project.purge:success:admin",
+    ],
+  );
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "password")), false);
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "token")), false);
+});
+
 test("project creation requires explicit project id", async () => {
   const { route } = createApiHarness();
   const adminHeaders = await loginHeaders(route, "admin");
@@ -1202,6 +1252,38 @@ test("worker can soft remove and restore a single image without physical purge",
   assert.equal(restored.body.image.delete_reason, "");
   assert.equal(storage.files.get("project-1/images/image-1.png"), "image-bytes");
   assert.equal(storage.files.get("project-1/masks/image-1_mask.png"), "mask-bytes");
+});
+
+test("image delete and restore write audit events", async () => {
+  const auditEvents = [];
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route, storage } = createApiHarness({ auditStore });
+  const headers = await loginHeaders(route, "worker");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", baseImage());
+
+  const deleted = await callJson(route, "DELETE", "/api/images/image-1", {
+    project_id: "project-1",
+    reason: "wrong frame",
+  }, headers);
+  const restored = await callJson(route, "POST", "/api/images/image-1/restore", {
+    project_id: "project-1",
+  }, headers);
+
+  assert.equal(deleted.statusCode, 200);
+  assert.equal(restored.statusCode, 200);
+  assert.deepEqual(
+    auditEvents
+      .filter((event) => event.resource_type === "image" && event.resource_id === "image-1")
+      .map((event) => `${event.action}:${event.project_id}:${event.actor_id}`),
+    ["image.delete:project-1:worker", "image.restore:project-1:worker"],
+  );
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "data_url")), false);
 });
 
 test("project export writes files only for the same images included in annotations", async () => {
