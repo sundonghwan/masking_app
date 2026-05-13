@@ -1696,3 +1696,8 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=backend-playbook-mask-validation-refresh note=checked-current-docs-only-history-left-unchanged-and-supported-png-scope-limited
 [GIT] commit=47ba59a push=origin/main status=passed
 [CMD] scripts/harness/browser-e2e.sh status=passed project=browser-e2e-1778649205820 note=admin-worker-reviewer-mask-submit-review-export-journey
+[START] task=production-audit-evidence-refresh subsystem=docs,production-readiness
+[PLAN] scope=refresh-latest-validation-and-security-evidence risks=overclaiming-production-ready,stale-test-count
+[DOC] updated=docs/PRODUCTION_READINESS_AUDIT.md note=latest-full-test-count-313-and-browser-e2e-post-hardening-evidence-recorded
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=production-audit-evidence-refresh note=checked-doc-still-says-not-production-ready-and-goal-not-marked-complete
