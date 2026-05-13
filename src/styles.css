@@ -1195,6 +1195,13 @@ h2 {
   accent-color: var(--primary);
 }
 
+.compact-textarea {
+  min-height: 76px;
+  padding-top: 8px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
 .color-swatch {
   width: 28px;
   height: 18px;

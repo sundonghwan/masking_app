@@ -89,19 +89,19 @@
 - [x] Default multi-class label schema utilities
 - [x] Workbench class/label selector UI
 - [x] Class-labeled annotation record utility foundation
+- [x] User-defined project label schema create/settings UI/API
 
 ## In Progress
 
 - Multi-class mask annotation foundation implementation:
   - design source: `docs/superpowers/specs/2026-05-13-multi-class-mask-annotation-design.md`
   - implementation plan: `docs/superpowers/plans/2026-05-13-multi-class-mask-annotation-plan.md`
-  - completed slice: visible workbench label selector, local label-schema state, annotation record utilities
+  - completed slice: visible workbench label selector, user-defined project label schema, local label-schema state, annotation record utilities
   - next slice: class-aware mask save/load and export metadata
 
 ## Remaining
 
 - Multi-class mask annotation foundation:
-  - project label schema settings UI/API
   - mask save/load upsert into image `annotations[]` with `class_id + mask_path`
   - per-class mask switching in editor state
   - class-aware previous-frame mask copy

@@ -1013,3 +1013,23 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=label-selector-foundation note=checked-visible-ui-contract-state-persistence-legacy-mask-display-and-remaining-storage-gap
 [CLOSE] status=ready-for-commit
 [GIT] commit=4fcf888 push=origin/main status=passed
+[START] task=user-defined-label-schema subsystem=project-settings,annotation-contract
+[PLAN] scope=project-create-label-schema,project-settings-label-schema,api-manifest-persistence risks=silent-default-labels,label-state-mismatch,settings-overwrite
+[IMPACT] status=validated chain=createProjectFromForm->apiClient.createProject->routeApi.projects.POST
+[IMPACT] status=validated chain=saveProjectSettings->apiClient.updateProjectSettings->routeProject.settings
+[IMPACT] status=validated chain=setActiveProjectFromManifest->normalizeLabelSchema->renderLabelSelector
+[FIX] scope=project-create note=label-schema-textarea-added-and-empty-label-schema-blocks-create
+[FIX] scope=project-settings note=label-schema-editing-added-and-invalid-color-rejected-before-save
+[FIX] scope=api note=create-and-settings-routes-persist-label_schema-in-manifest
+[DOC] updated=docs/FEATURE_STATUS.md,docs/ARCHITECTURE.md note=user-defined-label-schema-marked-complete
+[IMPACT_VALIDATE] task=user-defined-label-schema chain=create-settings-label-schema validation=apiClient-serverApi-appContracts-passed
+[IMPACT_VALIDATE] task=user-defined-label-schema chain=manifest-label-schema-to-workbench-selector validation=full-test-target-lint-typecheck-smoke-passed
+[CMD] node --test tests/apiClient.test.js tests/serverApi.test.js tests/appContracts.test.js status=passed tests=105
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=225
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health,index,app-js
+[REVIEW] finding=none-blocking scope=user-defined-label-schema note=checked-no-silent-empty-label-save-api-manifest-persistence-and-remaining-class-mask-storage-gap
+[CLOSE] status=ready-for-commit

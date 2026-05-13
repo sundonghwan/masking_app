@@ -37,6 +37,7 @@ export function createMaskingApiClient(options = {}) {
           name: input.name,
           description: input.description,
           upload_policy: input.uploadPolicy || input.upload_policy,
+          label_schema: input.labelSchema || input.label_schema,
         },
       });
     },
@@ -87,6 +88,7 @@ export function createMaskingApiClient(options = {}) {
           description: input.description,
           upload_policy: input.uploadPolicy || input.upload_policy,
           magic_tool_preset: input.magicToolPreset || input.magic_tool_preset,
+          label_schema: input.labelSchema || input.label_schema,
           if_match_revision: input.ifMatchRevision ?? input.if_match_revision,
         },
       });

@@ -357,15 +357,22 @@ test("admin creates projects and non-admin users cannot create them", async () =
     id: "project-created",
     name: "Created Project",
     upload_policy: { maxFileBytes: 4 },
+    label_schema: [
+      { class_id: 1, name: "crack", color: "#EF4444" },
+      { class_id: 2, name: "corrosion", color: "#F59E0B" },
+    ],
   }, adminHeaders);
   assert.equal(created.statusCode, 201);
   assert.equal(created.body.project_id, "project-created");
   assert.equal(created.body.name, "Created Project");
   assert.equal(created.body.upload_policy.maxFileBytes, 4);
+  assert.equal(created.body.label_schema[1].name, "corrosion");
 
   const manifest = await storage.readProjectManifest("project-created");
   assert.equal(manifest.name, "Created Project");
   assert.equal(manifest.upload_policy.maxFileBytes, 4);
+  assert.equal(manifest.label_schema[0].class_id, 1);
+  assert.equal(manifest.label_schema[1].color, "#F59E0B");
 });
 
 test("project creation requires explicit project id", async () => {
@@ -439,6 +446,10 @@ test("admin updates project settings and revision guard rejects stale writes", a
       maxPixels: 50000,
       smoothIterations: 1,
     },
+    label_schema: [
+      { class_id: 1, name: "crack", color: "#EF4444" },
+      { class_id: 2, name: "corrosion", color: "#F59E0B" },
+    ],
   }, adminHeaders);
 
   assert.equal(updated.statusCode, 200);
@@ -447,6 +458,7 @@ test("admin updates project settings and revision guard rejects stale writes", a
   assert.equal(updated.body.settings.description, "night batch");
   assert.deepEqual(updated.body.settings.upload_policy.allowedExtensions, [".png"]);
   assert.equal(updated.body.settings.magic_tool_preset.colorTolerance, 24);
+  assert.equal(updated.body.settings.label_schema[1].name, "corrosion");
   assert.equal(updated.body.settings.revision, 3);
 
   const manifest = await storage.readProjectManifest("project-1");
@@ -454,6 +466,7 @@ test("admin updates project settings and revision guard rejects stale writes", a
   assert.equal(manifest.description, "night batch");
   assert.equal(manifest.upload_policy.maxFileBytes, 1024);
   assert.equal(manifest.magic_tool_preset.edgeThreshold, 72);
+  assert.equal(manifest.label_schema[0].name, "crack");
   assert.equal(manifest.revision, 3);
 });
 

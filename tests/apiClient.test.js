@@ -38,14 +38,22 @@ test("creates a project with upload policy settings", async () => {
     projectId: "project-1",
     name: "Rail Masks",
     uploadPolicy: { maxFileBytes: 5 * 1024 * 1024 },
+    labelSchema: [
+      { class_id: 1, name: "crack", color: "#EF4444" },
+      { class_id: 2, name: "corrosion", color: "#F59E0B" },
+    ],
   });
 
   assert.deepEqual(JSON.parse(calls[0].options.body).upload_policy, {
     maxFileBytes: 5 * 1024 * 1024,
   });
+  assert.deepEqual(JSON.parse(calls[0].options.body).label_schema, [
+    { class_id: 1, name: "crack", color: "#EF4444" },
+    { class_id: 2, name: "corrosion", color: "#F59E0B" },
+  ]);
 });
 
-test("updates project settings with upload policy, magic preset, and revision guard", async () => {
+test("updates project settings with upload policy, label schema, magic preset, and revision guard", async () => {
   const calls = [];
   const client = createMaskingApiClient({
     session: { token: "sess_admin" },
@@ -67,6 +75,10 @@ test("updates project settings with upload policy, magic preset, and revision gu
       maxPixels: 50000,
       smoothIterations: 1,
     },
+    labelSchema: [
+      { class_id: 1, name: "crack", color: "#EF4444" },
+      { class_id: 2, name: "corrosion", color: "#F59E0B" },
+    ],
     ifMatchRevision: 2,
   });
 
@@ -86,6 +98,10 @@ test("updates project settings with upload policy, magic preset, and revision gu
       maxPixels: 50000,
       smoothIterations: 1,
     },
+    label_schema: [
+      { class_id: 1, name: "crack", color: "#EF4444" },
+      { class_id: 2, name: "corrosion", color: "#F59E0B" },
+    ],
     if_match_revision: 2,
   });
 });

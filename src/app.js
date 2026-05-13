@@ -74,6 +74,7 @@ const state = {
   projectCreateId: "",
   projectCreateName: "",
   projectUploadLimitMb: 15,
+  projectCreateLabelSchema: "",
   projectCreateMessage: "",
   projectDescription: "",
   taskId: DEFAULT_TASK_ID,
@@ -134,6 +135,7 @@ const els = {
   projectCreateId: document.querySelector("#projectCreateId"),
   projectCreateName: document.querySelector("#projectCreateName"),
   projectUploadLimitMb: document.querySelector("#projectUploadLimitMb"),
+  projectCreateLabelSchema: document.querySelector("#projectCreateLabelSchema"),
   createProjectButton: document.querySelector("#createProjectButton"),
   projectCreateMessage: document.querySelector("#projectCreateMessage"),
   projectSearchInput: document.querySelector("#projectSearchInput"),
@@ -238,6 +240,7 @@ const els = {
   settingsProjectDescription: document.querySelector("#settingsProjectDescription"),
   settingsUploadLimitMb: document.querySelector("#settingsUploadLimitMb"),
   settingsAllowedFormats: document.querySelector("#settingsAllowedFormats"),
+  settingsLabelSchema: document.querySelector("#settingsLabelSchema"),
   settingsMagicTolerance: document.querySelector("#settingsMagicTolerance"),
   settingsMagicToleranceValue: document.querySelector("#settingsMagicToleranceValue"),
   settingsMagicEdge: document.querySelector("#settingsMagicEdge"),
@@ -444,6 +447,10 @@ function bindEvents() {
     state.projectUploadLimitMb = Number(els.projectUploadLimitMb.value || 15);
     renderProjectCreateForm();
   });
+  els.projectCreateLabelSchema.addEventListener("input", () => {
+    state.projectCreateLabelSchema = els.projectCreateLabelSchema.value;
+    renderProjectCreateForm();
+  });
   els.projectSearchInput.addEventListener("input", () => {
     state.projectSearch = els.projectSearchInput.value;
     renderProjectSummaries();
@@ -528,6 +535,9 @@ function bindEvents() {
     renderProjectSettingsPanel();
   });
   els.settingsAllowedFormats.addEventListener("input", () => {
+    renderProjectSettingsPanel();
+  });
+  els.settingsLabelSchema.addEventListener("input", () => {
     renderProjectSettingsPanel();
   });
   els.settingsMagicTolerance.addEventListener("input", () => {
@@ -910,6 +920,15 @@ async function saveProjectSettings() {
   if (!canAdminMutateProject()) return;
   const maxFileBytes = Math.max(1, Number(els.settingsUploadLimitMb.value || 15)) * 1024 * 1024;
   const allowedMimeTypes = parseCsv(els.settingsAllowedFormats.value);
+  let labelSchema;
+  try {
+    labelSchema = parseLabelSchemaText(els.settingsLabelSchema.value);
+  } catch (error) {
+    state.projectSettingsMessage = error.message;
+    renderProjectSettingsPanel();
+    setSaveState("failed", `라벨 저장 실패: ${error.message}`);
+    return;
+  }
   setSaveState("saving", "프로젝트 설정 저장 중");
   try {
     const response = await apiClient.updateProjectSettings(state.projectId, {
@@ -923,10 +942,13 @@ async function saveProjectSettings() {
         colorTolerance: Number(els.settingsMagicTolerance.value || state.settingsMagicTolerance),
         edgeThreshold: Number(els.settingsMagicEdge.value || state.settingsMagicEdge),
       },
+      labelSchema,
     });
     state.projectName = response.settings?.name || state.projectName;
     state.projectDescription = response.settings?.description || state.projectDescription || "";
     state.uploadPolicy = normalizeUploadPolicy(response.settings?.upload_policy || {}, state.uploadPolicy);
+    state.labelSchema = normalizeLabelSchema(response.settings?.label_schema || labelSchema);
+    ensureSelectedClassId();
     const preset = response.settings?.magic_tool_preset || {};
     state.settingsMagicTolerance = Number(preset.color_tolerance || preset.colorTolerance || state.settingsMagicTolerance);
     state.settingsMagicEdge = Number(preset.edge_threshold || preset.edgeThreshold || state.settingsMagicEdge);
@@ -2064,6 +2086,9 @@ function renderProjectCreateForm() {
   if (document.activeElement !== els.projectUploadLimitMb) {
     els.projectUploadLimitMb.value = String(state.projectUploadLimitMb || 15);
   }
+  if (document.activeElement !== els.projectCreateLabelSchema) {
+    els.projectCreateLabelSchema.value = state.projectCreateLabelSchema;
+  }
   els.createProjectButton.disabled = state.sessionRole !== ROLES.ADMIN || !canEnterProjects();
   els.projectCreateMessage.textContent = state.projectCreateMessage
     || (state.sessionRole === ROLES.ADMIN
@@ -2236,6 +2261,14 @@ async function createProjectFromForm() {
     renderProjectCreateForm();
     return;
   }
+  let labelSchema;
+  try {
+    labelSchema = parseLabelSchemaText(state.projectCreateLabelSchema);
+  } catch (error) {
+    state.projectCreateMessage = error.message;
+    renderProjectCreateForm();
+    return;
+  }
 
   setSaveState("saving", "프로젝트 생성 중");
   state.projectCreateMessage = "프로젝트 생성 중";
@@ -2247,6 +2280,7 @@ async function createProjectFromForm() {
       uploadPolicy: {
         maxFileBytes: Math.max(1, Number(state.projectUploadLimitMb || 15)) * 1024 * 1024,
       },
+      labelSchema,
     });
     setActiveProjectFromManifest(manifest, {
       clearImages: true,
@@ -2256,6 +2290,7 @@ async function createProjectFromForm() {
     state.projectCreateId = "";
     state.projectCreateName = "";
     state.projectUploadLimitMb = 15;
+    state.projectCreateLabelSchema = "";
     state.projectCreateMessage = "프로젝트 생성 완료";
     await persistProject();
     void refreshProjectSummaries();
@@ -2833,6 +2868,9 @@ function renderProjectSettingsPanel() {
   if (document.activeElement !== els.settingsAllowedFormats) {
     els.settingsAllowedFormats.value = allowedFormatText(state.uploadPolicy);
   }
+  if (document.activeElement !== els.settingsLabelSchema) {
+    els.settingsLabelSchema.value = formatLabelSchemaText(state.labelSchema);
+  }
   if (document.activeElement !== els.settingsMagicTolerance) {
     els.settingsMagicTolerance.value = String(state.settingsMagicTolerance);
   }
@@ -3395,6 +3433,50 @@ function allowedFormatText(policy = {}) {
   return (policy.allowedMimeTypes || policy.allowed_mime_types || UPLOAD_POLICY.allowedMimeTypes || []).join(",");
 }
 
+function parseLabelSchemaText(value) {
+  const rows = String(value || "")
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (rows.length === 0) {
+    throw new Error("라벨을 1개 이상 입력하세요.");
+  }
+
+  const labels = rows.map((row, index) => {
+    const parts = row.split(",").map((part) => part.trim());
+    if (parts.length < 2) {
+      throw new Error(`${index + 1}번째 라벨 형식이 잘못됐습니다.`);
+    }
+    const classId = Number(parts[0]);
+    if (!Number.isInteger(classId) || classId < 1) {
+      throw new Error(`${index + 1}번째 class_id는 1 이상의 정수여야 합니다.`);
+    }
+    if (!parts[1]) {
+      throw new Error(`${index + 1}번째 라벨 이름을 입력하세요.`);
+    }
+    if (parts[2] && !/^#[0-9a-fA-F]{6}$/u.test(parts[2])) {
+      throw new Error(`${index + 1}번째 라벨 색상은 #RRGGBB 형식이어야 합니다.`);
+    }
+    return {
+      class_id: classId,
+      name: parts[1],
+      color: parts[2] || "#7C8792",
+    };
+  });
+
+  const normalized = normalizeLabelSchema(labels);
+  if (normalized.length !== labels.length) {
+    throw new Error("중복되거나 잘못된 라벨이 있습니다.");
+  }
+  return normalized;
+}
+
+function formatLabelSchemaText(labels) {
+  return normalizeLabelSchema(labels)
+    .map((label) => `${label.class_id},${label.name},${label.color}`)
+    .join("\n");
+}
+
 function sanitizeUiId(value) {
   return String(value || "")
     .trim()
@@ -3598,6 +3680,7 @@ async function clearProject() {
   state.labelMessage = "";
   state.projectCreateId = "";
   state.projectCreateName = "";
+  state.projectCreateLabelSchema = "";
   state.projectSearch = "";
   state.projectCreateMessage = "";
   await projectStore.clearProject();

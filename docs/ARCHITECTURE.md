@@ -161,10 +161,11 @@ Current foundation implemented:
   records.
 - The workbench inspector exposes a visible class/label selector and persists
   the selected `class_id` in local project recovery.
+- Project creation and project settings can persist user-defined
+  `label_schema`; defaults are fallback values for legacy/empty manifests only.
 
 Still pending:
 
-- project settings UI/API for editing `label_schema`
 - class-aware mask save/load that upserts `image.annotations[]`
 - class-aware previous-frame copy and export/training-set metadata
 

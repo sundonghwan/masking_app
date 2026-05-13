@@ -61,6 +61,10 @@
             <span>업로드 제한 MB</span>
             <input class="text-input" id="projectUploadLimitMb" type="number" min="1" max="512" value="15">
           </label>
+          <label class="stacked-field">
+            <span>라벨</span>
+            <textarea class="text-input compact-textarea" id="projectCreateLabelSchema" rows="3" placeholder="1,crack,#EF4444&#10;2,corrosion,#F59E0B"></textarea>
+          </label>
           <button class="button primary" id="createProjectButton" type="submit">프로젝트 생성</button>
           <p class="sync-message" id="projectCreateMessage">관리자는 새 프로젝트를 만들고 작업도구로 진입할 수 있습니다.</p>
         </form>
@@ -419,6 +423,10 @@
           <label class="stacked-field">
             <span>허용 포맷</span>
             <input class="text-input" id="settingsAllowedFormats" type="text" value="image/png,image/jpeg,image/bmp,image/webp">
+          </label>
+          <label class="stacked-field">
+            <span>라벨</span>
+            <textarea class="text-input compact-textarea" id="settingsLabelSchema" rows="4" placeholder="1,crack,#EF4444&#10;2,corrosion,#F59E0B"></textarea>
           </label>
           <label class="field-row">
             <span>매직 색상 허용</span>

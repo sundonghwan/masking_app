@@ -17,6 +17,7 @@ import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimens
 import { validateMaskContract } from "./maskValidation.js";
 import { applyReviewTransition } from "../review/policy.js";
 import { repairProjectManifestRecord } from "./storage.js";
+import { normalizeLabelSchema } from "../annotations/labels.js";
 import { UPLOAD_REASONS, normalizeUploadPolicy, validateImageDataUrlUpload, validateUploadCandidate } from "../upload/policy.js";
 import {
   DEFAULT_ACTORS,
@@ -202,6 +203,7 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       });
       const manifest = await storage.ensureProject(project.id, { name: project.name });
       manifest.upload_policy = normalizeUploadPolicy(body.upload_policy || body.uploadPolicy || {}, manifest.upload_policy);
+      manifest.label_schema = normalizeLabelSchema(body.label_schema || body.labelSchema || manifest.label_schema);
       await storage.writeProjectManifest(project.id, manifest);
       return sendJson(response, 201, { ...manifest, ...project, images: manifest.images || [] });
     }
@@ -347,6 +349,9 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
         ...(Object.hasOwn(body, "magic_tool_preset") || Object.hasOwn(body, "magicToolPreset")
           ? { magic_tool_preset: normalizeMagicToolPreset(body.magic_tool_preset || body.magicToolPreset || {}, manifest.magic_tool_preset) }
           : {}),
+        ...(Object.hasOwn(body, "label_schema") || Object.hasOwn(body, "labelSchema")
+          ? { label_schema: normalizeLabelSchema(body.label_schema || body.labelSchema || manifest.label_schema) }
+          : {}),
         revision: nextRevision(manifest.revision),
         updated_at: now,
       };
@@ -358,6 +363,7 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
           description: updated.description || "",
           upload_policy: updated.upload_policy || normalizeUploadPolicy({}),
           magic_tool_preset: updated.magic_tool_preset || normalizeMagicToolPreset({}),
+          label_schema: updated.label_schema || normalizeLabelSchema([]),
           revision: updated.revision,
           deleted_at: updated.deleted_at || "",
           updated_at: updated.updated_at,

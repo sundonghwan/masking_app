@@ -74,6 +74,7 @@ test("screen flow separates login projects and workbench", () => {
   assert.match(html, /id="projectCreateForm"/);
   assert.match(html, /id="projectCreateId"/);
   assert.match(html, /id="projectCreateName"/);
+  assert.match(html, /id="projectCreateLabelSchema"/);
   assert.match(html, /id="createProjectButton"/);
   assert.match(html, /id="projectSummaryList"/);
   assert.match(html, /id="editorCanvas"/);
@@ -220,6 +221,7 @@ test("workbench exposes version settings account and training operations", () =>
   assert.match(html, /id="includeDeletedTrainingSets"/);
   assert.match(html, /id="settingsProjectName"/);
   assert.match(html, /id="settingsProjectDescription"/);
+  assert.match(html, /id="settingsLabelSchema"/);
   assert.match(html, /id="saveProjectSettingsButton"/);
   assert.match(html, /id="saveUserButton"/);
   assert.match(app, /taskId: DEFAULT_TASK_ID/);
@@ -251,6 +253,9 @@ test("workbench exposes class label selection for mask tools", () => {
   assert.match(app, /function selectedLabelAnnotation\(/);
   assert.match(app, /normalizeLabelSchema\(manifest\.label_schema/);
   assert.match(app, /labelSchema: state\.labelSchema/);
+  assert.match(app, /function parseLabelSchemaText\(/);
+  assert.match(app, /function formatLabelSchemaText\(/);
+  assert.match(app, /parseLabelSchemaText\(els\.settingsLabelSchema\.value\)/);
 });
 
 test("project management exposes edit archive restore and purge controls", () => {
