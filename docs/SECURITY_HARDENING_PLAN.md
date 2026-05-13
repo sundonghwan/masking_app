@@ -106,8 +106,9 @@ For local or controlled staging:
   project export, immediate training-set export, and saved training-set export
   routes also write audit events. `scripts/harness/audit-verify.sh` verifies
   audit JSONL parseability, required fields, timestamps, outcomes, action
-  counts, and unredacted forbidden metadata. Retention pruning remains a later
-  explicit operator-visible slice.
+  counts, and unredacted forbidden metadata. `scripts/harness/audit-retention.sh`
+  provides explicit dry-run-first retention pruning for whole monthly audit
+  files, and only deletes evidence when the operator passes `--apply`.
 - Do not log passwords, tokens, image bytes, mask bytes, or data URLs.
 - Add a reviewer/admin activity export for incident review if needed.
 

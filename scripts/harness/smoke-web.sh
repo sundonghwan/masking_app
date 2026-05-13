@@ -51,6 +51,8 @@ require_file scripts/harness/storage-verify.sh
 require_file scripts/harness/storage-verify.mjs
 require_file scripts/harness/audit-verify.sh
 require_file scripts/harness/audit-verify.mjs
+require_file scripts/harness/audit-retention.sh
+require_file scripts/harness/audit-retention.mjs
 require_file scripts/harness/deployment-check.sh
 require_file scripts/harness/deployment-check.mjs
 require_file scripts/harness/security-check.sh
@@ -87,6 +89,7 @@ echo "smoke-web: browser E2E harness entrypoint is present."
 echo "smoke-web: syntax check harness entrypoint is present."
 echo "smoke-web: storage verification entrypoint is present."
 echo "smoke-web: audit verification entrypoint is present."
+echo "smoke-web: audit retention entrypoint is present."
 echo "smoke-web: deployment check entrypoint is present."
 echo "smoke-web: security check entrypoint is present."
 echo "smoke-web: capacity profile entrypoint is present."

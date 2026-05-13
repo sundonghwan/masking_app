@@ -25,6 +25,7 @@ scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh
 scripts/harness/audit-verify.sh
+scripts/harness/audit-retention.sh
 scripts/harness/deployment-check.sh
 scripts/harness/security-check.sh
 scripts/harness/identity-migrate-passwords.sh
@@ -192,6 +193,27 @@ Current behavior:
 - treats missing `audit/` as a warning so fresh local data roots still pass
 - exits non-zero when audit files are malformed or contain unredacted forbidden
   metadata such as tokens, passwords, data URLs, request bodies, or payloads
+
+## Audit Retention
+
+Preferred wrapper:
+
+```bash
+scripts/harness/audit-retention.sh [data-root]
+scripts/harness/audit-retention.sh --json [data-root]
+scripts/harness/audit-retention.sh --apply [data-root]
+scripts/harness/audit-retention.sh --retention-days 180 [data-root]
+```
+
+Current behavior:
+
+- defaults to dry-run; it does not delete anything unless `--apply` is present
+- defaults to `MASKING_APP_AUDIT_RETENTION_DAYS`, then `180` days
+- deletes only whole monthly files named `audit/events-YYYY-MM.jsonl` whose
+  entire month ended before the cutoff
+- does not rewrite JSONL files or prune individual lines, so mixed cutoff-month
+  evidence is preserved until the whole month becomes eligible
+- treats missing `audit/` as a warning so fresh local data roots still pass
 
 ## Deployment Check
 

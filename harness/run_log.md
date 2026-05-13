@@ -1605,3 +1605,18 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=audit-verify-harness note=checked-read-only-verifier-schema-timestamp-outcome-forbidden-metadata-and-fresh-data-root-warning
+[GIT] commit=a17266d push=origin/main status=passed
+[START] task=audit-retention-harness subsystem=security,audit,operations
+[PLAN] scope=dry-run-first-whole-month-audit-retention risks=accidental-evidence-deletion,mixed-month-rewrite,silent-request-time-pruning
+[TEST] added=tests/auditRetention.test.js note=dry-run-no-delete-and-apply-deletes-only-fully-expired-month-files
+[CODE] added=scripts/harness/audit-retention.mjs,scripts/harness/audit-retention.sh updated=scripts/harness/check-syntax.mjs,scripts/harness/smoke-web.sh
+[DOC] updated=harness/commands.md,docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=audit-retention-dry-run-apply-added-host-scheduling-evidence-pending
+[CMD] node --test tests/auditRetention.test.js status=red expected=missing-module
+[CMD] node --test tests/auditRetention.test.js status=passed tests=2
+[CMD] scripts/harness/audit-retention.sh --json data status=passed warnings=audit_dir_missing candidates=0
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=305
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=audit-retention-harness note=checked-dry-run-default-apply-only-delete-whole-month-pruning-and-no-request-time-retention
