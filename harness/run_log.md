@@ -1803,3 +1803,19 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=release-gate-remediation note=gate-stays-strict-and-remediation-does-not-approve-undecided-boundaries
+[GIT] commit=c56760a push=origin/main status=passed
+[START] task=capacity-profile-artifact subsystem=storage,capacity,release-evidence
+[PLAN] scope=add-capacity-profile-output-option-and-archive-local-data-root-profile risks=static-profile-not-load-test,local-evidence-not-final-host-evidence
+[TEST] red=passed note=capacity-profile-output-export-missing-before-implementation
+[CODE] updated=scripts/harness/capacity-profile.mjs note=added-output-option-and-writeCapacityProfileOutput
+[TEST] updated=tests/capacityProfile.test.js note=pretty-json-evidence-output-covered
+[CMD] node --test tests/capacityProfile.test.js status=passed tests=3
+[CMD] scripts/harness/capacity-profile.sh --json --output release-artifacts/capacity-profile-20260513-local.json data status=passed images=202 manifests=9 warnings=0
+[DOC] updated=harness/commands.md,docs/REMAINING_WORK_BOARD.md note=capacity-profile-output-and-local-evidence-recorded
+[IMPACT] status=validated chain=profileCapacity->writeCapacityProfileOutput->release-artifact validation=capacityProfile-test,capacity-profile-command
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=323
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=capacity-profile-artifact note=evidence-labeled-local-and-not-final-production-host-evidence

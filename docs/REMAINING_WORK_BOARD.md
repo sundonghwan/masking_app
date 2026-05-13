@@ -44,7 +44,7 @@ Release candidate gate: `scripts/harness/release-candidate-gate.sh`.
 | P1 | Host deployment evidence | Docker/runbook exists, but the actual host setup still needs proof | Local production-mode health evidence captured at `release-artifacts/deployment-check-20260513-production-local.json` | Final target host has recorded health/deployment evidence |
 | P1 | TLS/reverse proxy policy | Required for shared network or internet-facing use | `docs/RUNBOOK_NETWORK_EDGE.md` provides Caddy/Nginx templates; not host-installed | TLS/reverse proxy owner and config are recorded |
 | P1 | Backup/audit/log retention scheduler | Scripts exist, but recurring host operation needs installation | Backup, restore, audit verify, audit retention dry-run exist; `docs/RUNBOOK_OPERATIONS_SCHEDULING.md` provides cron/launchd/systemd templates | Host scheduler and retention policy are installed or explicitly deferred with owner/date |
-| P2 | Capacity target evidence | We need to know first real dataset size and file-store limits | `capacity-profile.sh` exists | Representative data-root capacity profile is archived |
+| P2 | Capacity target evidence | We need to know first real dataset size and file-store limits | Local data-root profile archived at `release-artifacts/capacity-profile-20260513-local.json` | Repeat capacity profile on the final target data root before release |
 | P2 | Browser trace/screenshots | Useful when E2E flakes or UI regressions are suspected | Browser E2E exists | Trace/screenshot artifacts are added if flakiness appears |
 
 ## Optional Product Hardening
@@ -70,6 +70,9 @@ need.
   `release-artifacts/deployment-check-20260513-production-local.json` passed
   against `127.0.0.1:4183` in production mode using the migrated copied data
   root.
+- Latest local capacity profile artifact:
+  `release-artifacts/capacity-profile-20260513-local.json` passed on the
+  current local `data/` root with 202 images and no threshold warnings.
 - Release candidate gate currently fails because required boundary decisions
   remain `Undecided`.
 - Last pushed commits:

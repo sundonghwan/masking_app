@@ -1,4 +1,4 @@
-import { readdir, stat } from "node:fs/promises";
+import { mkdir, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -12,9 +12,13 @@ if (isCliEntry()) {
   const args = process.argv.slice(2);
   const jsonOutput = takeFlag(args, "--json");
   const strict = takeFlag(args, "--strict");
+  const outputPath = takeOption(args, "--output");
   const dataRoot = path.resolve(args[0] || process.env.MASKING_APP_DATA_DIR || process.env.MASKING_APP_DATA_ROOT || "data");
   const result = await profileCapacity({ dataRoot, strict });
 
+  if (outputPath) {
+    await writeCapacityProfileOutput(result, path.resolve(outputPath));
+  }
   printResult(result, { jsonOutput });
   process.exit(result.ok ? 0 : 1);
 }
@@ -68,6 +72,11 @@ export async function profileCapacity(options = {}) {
   }
   result.ok = result.errors.length === 0;
   return result;
+}
+
+export async function writeCapacityProfileOutput(result, outputPath) {
+  await mkdir(path.dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, "utf8");
 }
 
 async function walkDataRoot(root, result) {
@@ -162,6 +171,14 @@ function takeFlag(args, flag) {
   if (index < 0) return false;
   args.splice(index, 1);
   return true;
+}
+
+function takeOption(args, flag) {
+  const index = args.indexOf(flag);
+  if (index < 0) return "";
+  const value = args[index + 1] || "";
+  args.splice(index, 2);
+  return value;
 }
 
 function isCliEntry() {

@@ -1,0 +1,30 @@
+{
+  "ok": true,
+  "strict": false,
+  "checked_at": "2026-05-13T06:00:39.833Z",
+  "data_root": "/Users/polaris/Documents/sundonghwan/masking_app/data",
+  "limits": {
+    "manifestBytesWarn": 5242880,
+    "totalBytesWarn": 10737418240,
+    "imageCountWarn": 10000
+  },
+  "counts": {
+    "manifests": 9,
+    "images": 202,
+    "masks": 0,
+    "other_files": 13
+  },
+  "bytes": {
+    "manifests": 169664,
+    "images": 54601332,
+    "masks": 0,
+    "other_files": 2797,
+    "total": 54773793
+  },
+  "largest_manifest": {
+    "path": "rail-mask-20260513/manifest.json",
+    "size_bytes": 84412
+  },
+  "warnings": [],
+  "errors": []
+}

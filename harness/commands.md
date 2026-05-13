@@ -280,6 +280,7 @@ Preferred wrapper:
 scripts/harness/capacity-profile.sh [data-root]
 scripts/harness/capacity-profile.sh --strict [data-root]
 scripts/harness/capacity-profile.sh --json [data-root]
+scripts/harness/capacity-profile.sh --json --output release-artifacts/capacity-profile-YYYYMMDD.json [data-root]
 ```
 
 Current behavior:
@@ -289,6 +290,8 @@ Current behavior:
 - reports the largest manifest file
 - relaxed mode warns when default local/staging thresholds are exceeded
 - strict mode exits non-zero when warning thresholds are exceeded
+- `--output` writes the same JSON profile to an artifact path for release
+  evidence
 
 ## Data Root Backup
 

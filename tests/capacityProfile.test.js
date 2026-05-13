@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { profileCapacity } from "../scripts/harness/capacity-profile.mjs";
+import { profileCapacity, writeCapacityProfileOutput } from "../scripts/harness/capacity-profile.mjs";
 
 test("capacity profile summarizes image mask and manifest bytes", async () => {
   const rootDir = await createCapacityFixture();
@@ -36,6 +36,19 @@ test("capacity profile strict mode fails on configured warning thresholds", asyn
   assert.equal(result.errors.some((error) => error.code === "manifest_large"), true);
   assert.equal(result.errors.some((error) => error.code === "data_root_large"), true);
   assert.equal(result.errors.some((error) => error.code === "image_count_large"), true);
+});
+
+test("capacity profile output writes pretty JSON evidence", async () => {
+  const rootDir = await createCapacityFixture();
+  const outputPath = path.join(rootDir, "artifacts", "capacity-profile.json");
+  const result = await profileCapacity({ dataRoot: rootDir });
+
+  await writeCapacityProfileOutput(result, outputPath);
+
+  const payload = JSON.parse(await readFile(outputPath, "utf8"));
+  assert.equal(payload.ok, true);
+  assert.equal(payload.data_root, rootDir);
+  assert.equal(payload.counts.images, 1);
 });
 
 async function createCapacityFixture() {
