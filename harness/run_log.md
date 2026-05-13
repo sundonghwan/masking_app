@@ -1443,3 +1443,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=multipart-parser-refactor note=checked-upload-field-parsing-file-part-content-type-default-and-mvp-non-streaming-boundary
+[GIT] commit=40ca285 push=origin/main status=passed
+[START] task=staging-evidence-bundle subsystem=harness,operations,production-readiness
+[PLAN] scope=storage-capacity-backup-restore-production-gate-evidence,optional-deployment-health,docs risks=overclaiming-production-readiness,hiding-subcheck-failures
+[TEST] added=tests/stagingEvidence.test.js note=core-step-orchestration-subcheck-failure-propagation-and-restore-skip-on-missing-backup-archive
+[CODE] added=scripts/harness/staging-evidence.mjs,scripts/harness/staging-evidence.sh updated=scripts/harness/check-syntax.mjs,scripts/harness/smoke-web.sh note=staging-evidence-json-bundle-command
+[DOC] updated=harness/commands.md,docs/RUNBOOK_DEPLOYMENT.md,docs/PRODUCTION_READINESS_AUDIT.md note=staging-evidence-usage-and-test-count-285
+[CMD] node --test tests/stagingEvidence.test.js status=passed tests=3
+[CMD] scripts/harness/staging-evidence.sh --json <temp-data-root> <temp-backup-dir> status=passed note=production-env-fixture-with-hashed-identity
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=285
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=staging-evidence-bundle note=checked-required-step-failures-not-hidden-restore-uses-current-backup-archive-and-no-production-readiness-overclaim

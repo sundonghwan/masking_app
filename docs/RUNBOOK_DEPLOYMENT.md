@@ -233,6 +233,21 @@ scripts/harness/deployment-check.sh http://127.0.0.1:4173
 `browser-e2e.sh` starts its own temporary server/data root. `deployment-check.sh`
 checks the server you point it at.
 
+For a production-like staging data root, collect the data-root evidence bundle:
+
+```bash
+MASKING_APP_MODE=production \
+MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+scripts/harness/staging-evidence.sh --json \
+  --base-url http://127.0.0.1:4173 \
+  "${MASKING_APP_DATA_DIR:-data}" \
+  "${MASKING_APP_BACKUP_DIR:-backups}"
+```
+
+This bundle does not start the app. It records storage verification, capacity
+profile, backup creation, restore rehearsal against the created archive,
+production gate, and optional deployment health evidence in one JSON object.
+
 For Docker packaging changes, also run:
 
 ```bash

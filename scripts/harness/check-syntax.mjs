@@ -51,6 +51,7 @@ export const SYNTAX_CHECK_FILES = Object.freeze([
   "scripts/harness/backup-data-root.mjs",
   "scripts/harness/restore-verify.mjs",
   "scripts/harness/production-gate.mjs",
+  "scripts/harness/staging-evidence.mjs",
   "scripts/harness/check-syntax.mjs",
 ]);
 

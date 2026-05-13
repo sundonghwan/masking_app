@@ -31,6 +31,7 @@ scripts/harness/capacity-profile.sh
 scripts/harness/backup-data-root.sh
 scripts/harness/restore-verify.sh
 scripts/harness/production-gate.sh
+scripts/harness/staging-evidence.sh
 ```
 
 ## Install / Bootstrap
@@ -321,6 +322,31 @@ Current behavior:
 - runs strict identity security checks against the selected data root
 - exits non-zero when default seed passwords, plaintext passwords, missing
   identity files, or unsafe production settings remain
+
+## Staging Evidence Bundle
+
+Preferred wrapper:
+
+```bash
+MASKING_APP_MODE=production \
+MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+scripts/harness/staging-evidence.sh --json [data-root] [backup-dir]
+```
+
+Optional running-server health evidence:
+
+```bash
+scripts/harness/staging-evidence.sh --json --base-url http://127.0.0.1:4173 [data-root] [backup-dir]
+```
+
+Current behavior:
+
+- runs `storage-verify`, `capacity-profile`, `backup-data-root`,
+  `restore-verify`, and `production-gate` in JSON mode
+- uses the backup archive created by the same run for restore rehearsal
+- records every sub-check result and exits non-zero when any required step fails
+- runs `deployment-check` only when `--base-url` is supplied
+- does not start the app server and does not replace the individual commands
 
 Manual browser smoke:
 
