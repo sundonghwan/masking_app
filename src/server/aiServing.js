@@ -16,7 +16,7 @@ export function createAiCapabilities(profile = {}) {
     model_required: false,
     output_contracts: {
       detection: "predictions[].box + score + label",
-      segmentation: "predictions[].mask + score + label",
+      segmentation: "predictions[].class_id + predictions[].mask_data_url + score",
       classification: "predictions[].label + score",
     },
   };
@@ -77,12 +77,20 @@ export function createAiServingResponse(input = {}, profile = {}) {
       provider: config.provider,
       model: null,
       predictions: [],
+      accepted_options: {
+        allowed_class_ids: normalizeAllowedClassIds(input.options?.allowed_class_ids || input.options?.allowedClassIds || []),
+      },
       diagnostics: {
         mode: "stub",
         message: "Generic AI serving contract accepted the request; no model adapter is configured.",
       },
     },
   };
+}
+
+function normalizeAllowedClassIds(input = []) {
+  if (!Array.isArray(input)) return [];
+  return [...new Set(input.map(Number).filter((value) => Number.isInteger(value) && value > 0))];
 }
 
 function normalizeAiServingConfig(input = {}) {

@@ -762,6 +762,8 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
           maskWidth: validation.mask.width,
           maskHeight: validation.mask.height,
           maskRatio: updated.mask_ratio,
+          source: body.annotation_source || body.annotationSource || body.source || "manual",
+          score: body.score,
           status: updated.status,
           updatedAt: updated.updated_at,
         });

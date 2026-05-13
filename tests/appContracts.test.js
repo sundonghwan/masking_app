@@ -358,6 +358,23 @@ test("magic click tool is local deterministic mask assist", () => {
   assert.doesNotMatch(editor, /fetch\(|\/api\/.*magic|segmentation/i);
 });
 
+test("workbench exposes AI prediction import as draft annotation flow", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+  const api = fs.readFileSync(new URL("../src/api/client.js", import.meta.url), "utf8");
+  const aiPredictions = fs.readFileSync(new URL("../src/annotations/aiPredictions.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="aiDraftButton"/);
+  assert.match(html, /id="aiDraftMessage"/);
+  assert.match(app, /function requestAiDraftMask\(/);
+  assert.match(app, /function importAiPredictionMask\(/);
+  assert.match(app, /selectAiPredictionForClass\(predictions, classId, activeLabelSchema\(\)\)/);
+  assert.match(app, /source: "ai"/);
+  assert.match(app, /score: prediction\.score/);
+  assert.match(api, /allowed_class_ids/);
+  assert.match(aiPredictions, /mask_data_url_required/);
+});
+
 test("spacebar temporarily pans without switching the selected tool", () => {
   const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
   const editor = fs.readFileSync(new URL("../src/editor/maskEditor.js", import.meta.url), "utf8");

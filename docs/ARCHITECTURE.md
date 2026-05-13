@@ -177,10 +177,16 @@ Current foundation implemented:
 - Browser local fallback ZIP export preserves `image.annotations[]` and loads
   class-specific local mask blobs by `image_id::class_id`, so incomplete server
   sync does not collapse a multi-class image back to the selected legacy mask.
+- AI segmentation import is contract-ready: the API advertises
+  `predictions[].class_id + predictions[].mask_data_url`, the workbench sends
+  allowed class IDs, validates returned predictions against the project label
+  schema, and imports valid masks as editable draft annotations with
+  `source=ai` and `score`.
 
 Still pending:
 
-- AI prediction import with `class_id + mask_data_url`
+- Real AI model adapter integration remains optional; the current server still
+  uses the provider-agnostic stub until a model is configured.
 
 Target model:
 

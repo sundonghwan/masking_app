@@ -1108,3 +1108,22 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=class-aware-local-export-fallback note=checked-local-image-dedup-class-mask-blob-lookup-and-legacy-mask-fallback
 [CLOSE] status=ready-for-commit
+[GIT] commit=330464e push=origin/main status=passed
+[START] task=ai-prediction-import-contract subsystem=frontend,api,ai-serving,annotation-contract
+[PLAN] scope=ai-draft-button,prediction-validation,allowed-class-ids,source-score-annotation-metadata risks=invalid-prediction-overwrite,disabled-class-import,ai-bypasses-review
+[IMPACT] status=validated chain=requestAiDraftMask->apiClient.requestAiInference->createAiServingResponse
+[IMPACT] status=validated chain=importAiPredictionMask->editor.replaceMaskFromDataUrl->saveEditorMaskForSelectedClass
+[IMPACT] status=validated chain=saveEditorMaskForSelectedClass->upsertAnnotationRecord->syncMaskToBackend
+[IMPACT_DROP] chain=model-adapter-execution reason=stub-remains-provider-agnostic-until-real-dataset-need
+[FIX] scope=ai-contract note=segmentation-contract-now-advertises-class-id-and-mask-data-url
+[FIX] scope=workbench note=ai-draft-action-validates-selected-class-prediction-before-importing-mask-as-source-ai
+[FIX] scope=annotation-metadata note=annotation-records-and-mask-save-api-preserve-source-and-score
+[DOC] updated=docs/FEATURE_STATUS.md,docs/ARCHITECTURE.md note=ai-prediction-import-contract-marked-complete
+[CMD] node --test tests/aiPredictions.test.js tests/annotationRecords.test.js tests/apiClient.test.js tests/serverApi.test.js tests/appContracts.test.js status=passed tests=117
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=238
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=ai-prediction-import-contract note=checked-no-auto-approval-class-id-validation-and-stub-provider-boundary
+[CLOSE] status=ready-for-commit

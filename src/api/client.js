@@ -140,7 +140,10 @@ export function createMaskingApiClient(options = {}) {
             width: input.image?.width,
             height: input.image?.height,
           },
-          options: input.options || {},
+          options: {
+            ...(input.options || {}),
+            allowed_class_ids: input.allowedClassIds || input.allowed_class_ids || input.options?.allowed_class_ids || input.options?.allowedClassIds,
+          },
         },
       });
     },
@@ -325,6 +328,8 @@ export function createMaskingApiClient(options = {}) {
           mask_ratio: input.maskRatio ?? input.mask_ratio,
           class_id: input.classId ?? input.class_id,
           class_name: input.className || input.class_name,
+          annotation_source: input.annotationSource || input.annotation_source || input.source,
+          score: input.score,
           revision_event: input.revisionEvent || input.revision_event,
         },
       });

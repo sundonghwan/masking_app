@@ -31,7 +31,23 @@ test("creates class-labeled binary mask annotation records", () => {
   assert.equal(annotation.mask_width, 640);
   assert.equal(annotation.mask_height, 480);
   assert.equal(annotation.mask_ratio, 0.25);
+  assert.equal(annotation.source, "manual");
+  assert.equal(annotation.score, null);
   assert.equal(annotation.updated_at, NOW);
+});
+
+test("preserves AI prediction source and score on annotation records", () => {
+  const annotation = createAnnotationRecord({
+    imageId: "image_0001",
+    classId: 2,
+    className: "defect",
+    maskPath: "masks/image_0001_class_2_defect_mask.png",
+    source: "ai",
+    score: 0.91,
+  });
+
+  assert.equal(annotation.source, "ai");
+  assert.equal(annotation.score, 0.91);
 });
 
 test("creates deterministic class-aware mask paths and local blob keys", () => {

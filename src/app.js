@@ -1,4 +1,5 @@
 import { createMaskingApiClient, normalizeApiError } from "./api/client.js";
+import { selectAiPredictionForClass } from "./annotations/aiPredictions.js";
 import { DEFAULT_LABEL_SCHEMA, labelByClassId, normalizeLabelSchema, validateClassId } from "./annotations/labels.js";
 import {
   annotationMaskBlobKey,
@@ -52,6 +53,7 @@ const state = {
   labelSchema: normalizeLabelSchema(DEFAULT_LABEL_SCHEMA),
   selectedClassId: DEFAULT_LABEL_SCHEMA[0].class_id,
   labelMessage: "",
+  aiDraftMessage: "",
   savedAt: null,
   autosaveTimer: null,
   backendProjectReady: false,
@@ -184,6 +186,8 @@ const els = {
   labelSelector: document.querySelector("#labelSelector"),
   imageAnnotationList: document.querySelector("#imageAnnotationList"),
   labelMessage: document.querySelector("#labelMessage"),
+  aiDraftButton: document.querySelector("#aiDraftButton"),
+  aiDraftMessage: document.querySelector("#aiDraftMessage"),
   copyPreviousMaskButton: document.querySelector("#copyPreviousMaskButton"),
   maskTransferMessage: document.querySelector("#maskTransferMessage"),
   clearProjectButton: document.querySelector("#clearProjectButton"),
@@ -423,6 +427,7 @@ function bindEvents() {
   els.reviseButton.addEventListener("click", () => void startSelectedRevision());
   els.submitButton.addEventListener("click", () => void submitCurrentImage());
   els.exportButton.addEventListener("click", () => void exportProject());
+  els.aiDraftButton.addEventListener("click", () => void requestAiDraftMask());
   els.copyPreviousMaskButton.addEventListener("click", () => void copyMaskFromPreviousImage());
   els.clearProjectButton.addEventListener("click", clearProject);
   els.retrySyncButton.addEventListener("click", () => void retrySelectedSync());
@@ -1185,6 +1190,107 @@ async function copyMaskFromPreviousImage() {
   }
 }
 
+async function requestAiDraftMask() {
+  const image = getSelectedImage();
+  const label = selectedLabel();
+  if (!image || !label) {
+    setAiDraftMessage("이미지와 라벨을 먼저 선택하세요.", true);
+    return;
+  }
+  if (![ROLES.ADMIN, ROLES.WORKER].includes(state.sessionRole)) {
+    setAiDraftMessage("작업자 또는 관리자만 AI 초안을 가져올 수 있습니다.", true);
+    return;
+  }
+  if (canStartRevision(image) && !window.confirm("제출/승인된 마스크를 수정 모드로 전환하고 AI 초안을 적용할까요?")) {
+    return;
+  }
+
+  setSaveState("saving", "AI 초안 요청 중");
+  setAiDraftMessage("AI 초안 요청 중");
+  try {
+    const imageDataUrl = await imageDataUrlForAi(image);
+    if (!imageDataUrl) {
+      setAiDraftMessage("AI 요청에 사용할 원본 이미지를 찾을 수 없습니다.", true);
+      setSaveState("failed", "AI 원본 이미지 없음");
+      return;
+    }
+    const labels = activeLabelSchema();
+    const response = await apiClient.requestAiInference({
+      task: "segmentation",
+      image: {
+        dataUrl: imageDataUrl,
+        width: image.width,
+        height: image.height,
+      },
+      options: {
+        allowed_class_ids: labels.filter((item) => item.enabled !== false).map((item) => item.class_id),
+      },
+    });
+    const result = await importAiPredictionMask(image, response.predictions || [], label.class_id);
+    if (!result.imported) {
+      setAiDraftMessage(result.message, true);
+      setSaveState("saved", "AI 예측 없음");
+      return;
+    }
+    setAiDraftMessage(result.message);
+    setSaveState("saved", "AI 초안 가져옴");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setAiDraftMessage(normalized.message, true);
+    setSaveState("failed", `AI 초안 실패: ${normalized.message}`);
+  }
+}
+
+async function importAiPredictionMask(image, predictions, classId) {
+  const selected = selectAiPredictionForClass(predictions, classId, activeLabelSchema());
+  if (!selected.valid) {
+    return { imported: false, message: aiPredictionReasonLabel(selected.reason) };
+  }
+  const prediction = selected.prediction;
+  if (Number(state.selectedClassId) !== Number(prediction.class_id)) {
+    state.selectedClassId = prediction.class_id;
+    applySelectedLabelColor();
+  }
+  if (canStartRevision(image)) {
+    startRevisionMode(image, { reason: "ai_prediction_import" });
+  } else if (!["in_progress", "rework"].includes(image.status)) {
+    image.status = "in_progress";
+  }
+  await editor.replaceMaskFromDataUrl(prediction.mask_data_url);
+  image.pending_annotation_source = "ai";
+  image.pending_annotation_score = prediction.score;
+  const { dataUrl } = await saveEditorMaskForSelectedClass(image, {
+    status: image.status || "in_progress",
+    source: "ai",
+    score: prediction.score,
+  });
+  await persistProject();
+  await syncMaskToBackend(image, dataUrl, image.status);
+  render();
+  return {
+    imported: true,
+    message: `AI 초안 적용: ${prediction.class_name} / class_id=${prediction.class_id}`,
+  };
+}
+
+async function imageDataUrlForAi(image) {
+  let blob = await projectStore.loadImageBlob(image.id);
+  if (!blob && state.projectId && image.image_path) {
+    await restoreServerImageBlob(image);
+    blob = await projectStore.loadImageBlob(image.id);
+  }
+  return blob ? blobToDataUrl(blob) : "";
+}
+
+function aiPredictionReasonLabel(reason) {
+  return {
+    prediction_not_found: "선택 라벨에 대한 AI 예측이 없습니다.",
+    unknown_class_id: "AI 예측 라벨이 현재 프로젝트 라벨에 없습니다.",
+    disabled_class_id: "AI 예측 라벨이 비활성 상태입니다.",
+    mask_data_url_required: "AI 예측에 마스크 이미지가 없습니다.",
+  }[reason] || "AI 예측을 가져올 수 없습니다.";
+}
+
 function startRevisionMode(image, options = {}) {
   if (!image || !canStartRevision(image)) return null;
 
@@ -1448,6 +1554,8 @@ async function syncMaskToBackend(image, dataUrl, status) {
       maskRatio: image.maskRatio ?? image.mask_ratio,
       classId: state.selectedClassId,
       className: selectedLabel()?.name || "",
+      annotationSource: image.pending_annotation_source || "manual",
+      score: image.pending_annotation_score,
       revisionEvent,
     });
     const updated = result.image || {};
@@ -1468,6 +1576,8 @@ async function syncMaskToBackend(image, dataUrl, status) {
       image.pending_revision_event = "";
       image.review_server_synced = true;
     }
+    image.pending_annotation_source = "";
+    image.pending_annotation_score = null;
     await persistProject();
     return true;
   } catch (error) {
@@ -1834,6 +1944,7 @@ function render() {
   renderReviewPanel();
   renderReviewIdentity();
   renderLabelSelector();
+  renderAiDraftPanel();
   renderMaskTransferPanel();
   renderExportPolicy();
   renderTrainingSourcePicker();
@@ -2739,6 +2850,8 @@ async function saveEditorMaskForSelectedClass(image, options = {}) {
     maskWidth: image.width,
     maskHeight: image.height,
     maskRatio,
+    source: options.source || "manual",
+    score: options.score,
     status: options.status || image.status || "in_progress",
     updatedAt,
   });
@@ -2806,6 +2919,16 @@ function renderMaskTransferPanel() {
     : "이전 프레임 마스크가 있으면 Shift + V로 가져올 수 있습니다.");
   els.maskTransferMessage.textContent = message;
   els.maskTransferMessage.classList.toggle("warning", state.maskTransferWarning);
+}
+
+function renderAiDraftPanel() {
+  const canEdit = [ROLES.ADMIN, ROLES.WORKER].includes(state.sessionRole);
+  const image = getSelectedImage();
+  const label = selectedLabel();
+  els.aiDraftButton.disabled = !canEdit || !image || !label;
+  els.aiDraftMessage.textContent = state.aiDraftMessage || (label
+    ? `대상 라벨: ${label.name} / class_id=${label.class_id}`
+    : "라벨을 선택하세요.");
 }
 
 function renderExportPolicy() {
@@ -3182,6 +3305,12 @@ function setMaskTransferMessage(message, warning = false) {
   state.maskTransferWarning = warning;
   els.maskTransferMessage.textContent = message;
   els.maskTransferMessage.classList.toggle("warning", warning);
+}
+
+function setAiDraftMessage(message, warning = false) {
+  state.aiDraftMessage = message;
+  els.aiDraftMessage.textContent = message;
+  els.aiDraftMessage.classList.toggle("warning", warning);
 }
 
 function setAssignmentMessage(message, warning = false) {

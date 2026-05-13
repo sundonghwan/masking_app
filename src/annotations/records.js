@@ -19,6 +19,8 @@ export function createAnnotationRecord(input = {}, options = {}) {
     mask_width: toNonNegativeInt(input.maskWidth ?? input.mask_width),
     mask_height: toNonNegativeInt(input.maskHeight ?? input.mask_height),
     mask_ratio: clampRatio(input.maskRatio ?? input.mask_ratio),
+    source: normalizeText(input.source || "manual"),
+    score: normalizeScore(input.score),
     status: normalizeText(input.status || "draft"),
     created_at: input.createdAt || input.created_at || now,
     updated_at: now,
@@ -126,6 +128,15 @@ function toNonNegativeInt(value) {
 function clampRatio(value) {
   const number = Number(value);
   if (!Number.isFinite(number) || number < 0) return 0;
+  if (number > 1) return 1;
+  return number;
+}
+
+function normalizeScore(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return null;
+  if (number < 0) return 0;
   if (number > 1) return 1;
   return number;
 }

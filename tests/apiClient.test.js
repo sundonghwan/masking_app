@@ -184,7 +184,7 @@ test("calls generic AI capabilities and inference endpoints", async () => {
   await client.requestAiInference({
     task: "segmentation",
     image: { dataUrl: "data:image/png;base64,aaaa", width: 2, height: 2 },
-    options: { threshold: 0.5 },
+    options: { threshold: 0.5, allowed_class_ids: [1, 2] },
   });
 
   assert.equal(calls[0].url, "/api/ai/capabilities");
@@ -198,7 +198,7 @@ test("calls generic AI capabilities and inference endpoints", async () => {
       width: 2,
       height: 2,
     },
-    options: { threshold: 0.5 },
+    options: { threshold: 0.5, allowed_class_ids: [1, 2] },
   });
 });
 
@@ -583,6 +583,8 @@ test("saves a mask with project id inside the JSON body", async () => {
     maskRatio: 0.42,
     classId: 2,
     className: "scratch",
+    annotationSource: "ai",
+    score: 0.91,
   });
 
   assert.equal(result.validation.status, "valid");
@@ -594,6 +596,8 @@ test("saves a mask with project id inside the JSON body", async () => {
     mask_ratio: 0.42,
     class_id: 2,
     class_name: "scratch",
+    annotation_source: "ai",
+    score: 0.91,
   });
 });
 

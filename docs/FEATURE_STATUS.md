@@ -93,19 +93,19 @@
 - [x] Selected label color drives the mask overlay and brush color swatch
 - [x] Class-aware mask save/load upserts `image.annotations[]` and stores per-class mask blobs/paths
 - [x] Class-aware export and training-set metadata emit per-class annotation records and mask paths
+- [x] AI prediction import contract for `class_id + mask_data_url` draft annotations
 
 ## In Progress
 
 - Multi-class mask annotation foundation implementation:
   - design source: `docs/superpowers/specs/2026-05-13-multi-class-mask-annotation-design.md`
   - implementation plan: `docs/superpowers/plans/2026-05-13-multi-class-mask-annotation-plan.md`
-  - completed slice: visible workbench label selector, user-defined project label schema, local label-schema state, annotation record utilities, selected-label mask overlay color, class-aware mask save/load, class-aware export/training-set metadata
-  - next slice: AI prediction import contract
+  - completed slice: visible workbench label selector, user-defined project label schema, local label-schema state, annotation record utilities, selected-label mask overlay color, class-aware mask save/load, class-aware export/training-set metadata, AI prediction import contract
+  - next slice: indexed-mask derived export or real AI model adapter only after dataset need is confirmed
 
 ## Remaining
 
-- Multi-class mask annotation foundation:
-  - AI prediction import contract with `class_id + mask_data_url`
+- Multi-class mask annotation foundation: MVP slice complete.
 - AI-backed segmentation adapter remains optional hardening after the generic AI serving contract and local edge-aware magic tool reach real dataset limits.
 - Production identity provider remains out of MVP scope.
 - Database-backed storage remains out of MVP scope until filesystem operation becomes a bottleneck.

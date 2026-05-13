@@ -185,6 +185,8 @@ test("generic AI serving contract is role protected and model agnostic", async (
   assert.equal(capabilities.statusCode, 200);
   assert.deepEqual(capabilities.body.capabilities.tasks, ["detection", "segmentation", "classification"]);
   assert.equal(capabilities.body.capabilities.provider, "stub");
+  assert.match(capabilities.body.capabilities.output_contracts.segmentation, /class_id/);
+  assert.match(capabilities.body.capabilities.output_contracts.segmentation, /mask_data_url/);
 
   const response = await callJson(route, "POST", "/api/ai/infer", {
     task: "segmentation",
@@ -200,6 +202,7 @@ test("generic AI serving contract is role protected and model agnostic", async (
   assert.equal(response.body.provider, "stub");
   assert.deepEqual(response.body.predictions, []);
   assert.equal(response.body.model, null);
+  assert.deepEqual(response.body.accepted_options.allowed_class_ids, []);
 });
 
 test("admin lists assignment users and role filters", async () => {
@@ -842,6 +845,8 @@ test("class-aware mask save upserts annotation metadata and writes class mask pa
     mask_ratio: 0.5,
     class_id: 2,
     class_name: "scratch",
+    annotation_source: "ai",
+    score: 0.91,
   }, headers);
 
   assert.equal(response.statusCode, 200);
@@ -849,6 +854,8 @@ test("class-aware mask save upserts annotation metadata and writes class mask pa
   assert.equal(response.body.image.annotations.length, 1);
   assert.equal(response.body.image.annotations[0].class_id, 2);
   assert.equal(response.body.image.annotations[0].class_name, "scratch");
+  assert.equal(response.body.image.annotations[0].source, "ai");
+  assert.equal(response.body.image.annotations[0].score, 0.91);
   assert.equal(response.body.image.annotations[0].mask_path, "masks/image-1_class_2_scratch_mask.png");
 
   const manifest = await storage.readProjectManifest("project-1");
