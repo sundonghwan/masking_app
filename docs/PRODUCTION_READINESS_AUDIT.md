@@ -168,6 +168,7 @@ Remaining follow-up:
 - host-native launchd, systemd, or managed platform service installation if
   Docker Compose is not the target runner
 - TLS/reverse proxy policy
+  - templates are documented in `docs/RUNBOOK_NETWORK_EDGE.md`
 - deployment evidence from a real staging host
   - current local production-mode health evidence:
     `release-artifacts/deployment-check-20260513-production-local.json`
@@ -266,7 +267,8 @@ Remaining follow-up:
    storage.
 5. Add host-specific scheduler/TLS/reverse-proxy setup once the deployment
    target is chosen. Scheduler templates exist in
-   `docs/RUNBOOK_OPERATIONS_SCHEDULING.md`, but are not installed.
+   `docs/RUNBOOK_OPERATIONS_SCHEDULING.md`, and TLS/reverse-proxy templates
+   exist in `docs/RUNBOOK_NETWORK_EDGE.md`, but neither is installed.
 6. Add browser trace/screenshot artifacts if browser E2E becomes flaky.
 7. Add real AI model adapter only after sample datasets prove the local magic
    tool is insufficient.

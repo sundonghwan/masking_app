@@ -24,7 +24,7 @@ operations are acceptable for a real deployment.
 | Storage model | Filesystem JSON accepted for local/staging/single-process only |
 | External identity provider | Not implemented |
 | Host scheduler templates | `docs/RUNBOOK_OPERATIONS_SCHEDULING.md` provides cron, launchd, and systemd examples; not installed |
-| Host TLS/reverse proxy | Not selected or installed |
+| Host TLS/reverse proxy | `docs/RUNBOOK_NETWORK_EDGE.md` provides Caddy and Nginx examples; not installed |
 
 ## Decision Summary
 
@@ -131,6 +131,7 @@ Before controlled production, record:
 - deployment target: Docker Compose, launchd, systemd, or managed platform
 - public URL and `MASKING_APP_PUBLIC_URL`
 - TLS/reverse proxy owner
+  - use `docs/RUNBOOK_NETWORK_EDGE.md` for Caddy/Nginx examples and verification
 - backup schedule and restore drill owner
 - audit retention schedule
 - runtime log path and rotation policy

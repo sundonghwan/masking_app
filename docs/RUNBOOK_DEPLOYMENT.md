@@ -290,7 +290,8 @@ identity acceptance/checks fail.
   passwords, and account creation/rotation enforces a minimal local password
   policy, but it is not an external identity provider.
 - TLS termination is still external to the Node server and must be configured in
-  the deployment host or reverse proxy.
+  the deployment host or reverse proxy. See `docs/RUNBOOK_NETWORK_EDGE.md` for
+  Caddy and Nginx templates.
 - `MASKING_APP_LOG_FILE` writes JSONL runtime logs, but log rotation and
   retention are host-managed.
 - Docker Compose is the current packaged process runner. Host-native launchd,
@@ -298,3 +299,4 @@ identity acceptance/checks fail.
 - No database or object storage backend exists yet.
 - Backup scheduling is host-managed; the repository provides the backup command
   and retention option but does not install a scheduler.
+  See `docs/RUNBOOK_OPERATIONS_SCHEDULING.md` for scheduler templates.

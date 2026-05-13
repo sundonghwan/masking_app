@@ -1767,3 +1767,10 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=host-ops-schedule-template note=checked-templates-do-not-claim-installed-scheduler
+[START] task=network-edge-runbook subsystem=deployment,tls,reverse-proxy,cors
+[PLAN] scope=add-caddy-nginx-network-edge-runbook risks=copying-placeholder-hosts,overclaiming-installed-tls
+[DOC] created=docs/RUNBOOK_NETWORK_EDGE.md note=caddy-nginx-tls-reverse-proxy-cors-upload-size-templates
+[DOC] updated=docs/PRODUCTION_BOUNDARY_DECISIONS.md,docs/REMAINING_WORK_BOARD.md,docs/PRODUCTION_READINESS_AUDIT.md,docs/RUNBOOK_DEPLOYMENT.md note=network-edge-templates-exist-but-not-installed
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=network-edge-runbook note=checked-runbook-does-not-claim-installed-tls-or-internet-readiness
