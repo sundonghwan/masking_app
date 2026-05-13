@@ -938,6 +938,40 @@ test("review approve updates only submitted images", async () => {
   assert.equal(manifest.images[0].review_events[0].action, "approve");
 });
 
+test("review transitions write audit events with session reviewer identity", async () => {
+  const auditEvents = [];
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route, storage } = createApiHarness({ auditStore });
+  const headers = await loginHeaders(route, "reviewer");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    status: "submitted",
+    current_mask_path: "masks/image-1_mask.png",
+  });
+
+  const approved = await callJson(route, "PUT", "/api/images/image-1/review", {
+    project_id: "project-1",
+    action: "approve",
+    reviewer_id: "spoofed-reviewer",
+  }, headers);
+
+  assert.equal(approved.statusCode, 200);
+  assert.deepEqual(
+    auditEvents
+      .filter((event) => event.resource_type === "image" && event.resource_id === "image-1")
+      .map((event) => `${event.action}:${event.actor_id}:${event.project_id}`),
+    ["review.approve:reviewer:project-1"],
+  );
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "data_url")), false);
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "token")), false);
+});
+
 test("review reject requires reason and leaves manifest unchanged", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "reviewer");
@@ -1460,6 +1494,43 @@ test("project export approved-only query excludes submitted images", async () =>
   assert.doesNotMatch(response.text, /submitted-image/);
 });
 
+test("project export writes an audit event without payload bytes", async () => {
+  const auditEvents = [];
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route, storage } = createApiHarness({ auditStore });
+  const headers = await loginHeaders(route, "admin");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    id: "approved-1",
+    original_file_name: "approved.png",
+    image_path: "images/approved_source.png",
+    current_mask_path: "masks/approved_source_mask.png",
+    status: "approved",
+    review_events: [{ action: "approve" }],
+  });
+  storage.files.set("project-1/images/approved_source.png", "approved-image");
+  storage.files.set("project-1/masks/approved_source_mask.png", "approved-mask");
+
+  const response = await callRoute(route, "GET", "/api/projects/project-1/export?approved_only=1", null, headers);
+
+  assert.equal(response.statusCode, 200);
+  const exportEvents = auditEvents.filter((event) => event.action === "project.export");
+  assert.equal(exportEvents.length, 1);
+  assert.equal(exportEvents[0].actor_id, "admin");
+  assert.equal(exportEvents[0].resource_type, "project");
+  assert.equal(exportEvents[0].resource_id, "project-1");
+  assert.equal(exportEvents[0].metadata.approved_only, true);
+  assert.equal(exportEvents[0].metadata.exported_images, 1);
+  assert.equal(Object.hasOwn(exportEvents[0].metadata, "zip"), false);
+  assert.equal(Object.hasOwn(exportEvents[0].metadata, "data_url"), false);
+});
+
 test("authorized users can download project files for server-first restore", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "worker");
@@ -1502,6 +1573,53 @@ test("training set export combines selected project sources with traceability me
   assert.match(response.text, /masks\/project-1_legacy_project_legacy_0001_approved-1_approved_mask\.png/);
   assert.match(response.text, /approved-image/);
   assert.match(response.text, /approved-mask/);
+});
+
+test("training set exports write audit events without archive payloads", async () => {
+  const auditEvents = [];
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route, storage } = createApiHarness({ auditStore });
+  const reviewerHeaders = await loginHeaders(route, "reviewer");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    id: "approved-1",
+    original_file_name: "approved.png",
+    image_path: "images/approved_source.png",
+    current_mask_path: "masks/approved_source_mask.png",
+    status: "approved",
+    mask_values_valid: true,
+  });
+  storage.files.set("project-1/images/approved_source.png", "approved-image");
+  storage.files.set("project-1/masks/approved_source_mask.png", "approved-mask");
+
+  const immediate = await callRoute(route, "POST", "/api/training-sets/export", {
+    sources: [{ project_id: "project-1" }],
+    approved_only: true,
+  }, reviewerHeaders);
+  const created = await callJson(route, "POST", "/api/training-sets", {
+    training_set_id: "rail_v1",
+    sources: [{ project_id: "project-1" }],
+    approved_only: true,
+  }, reviewerHeaders);
+  const saved = await callRoute(route, "GET", "/api/training-sets/rail_v1/export", null, reviewerHeaders);
+
+  assert.equal(immediate.statusCode, 200);
+  assert.equal(created.statusCode, 201);
+  assert.equal(saved.statusCode, 200);
+  assert.deepEqual(
+    auditEvents
+      .filter((event) => event.resource_type === "training_set")
+      .map((event) => `${event.action}:${event.resource_id}:${event.actor_id}`),
+    ["training_set.export:ad_hoc:reviewer", "training_set.saved_export:rail_v1:reviewer"],
+  );
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "zip")), false);
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "approved-image")), false);
 });
 
 test("training set export requires a selected source", async () => {

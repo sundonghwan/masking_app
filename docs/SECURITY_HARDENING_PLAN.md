@@ -102,8 +102,9 @@ For local or controlled staging:
   Foundation status: `src/server/auditStore.js` can append and list sanitized
   monthly JSONL audit events under `<data_root>/audit/`. Session login/logout
   and local user administration routes now write audit events. Project create,
-  archive, restore, purge, and image delete/restore routes also write audit
-  events. Review, export, retention, and verification remain next slices.
+  archive, restore, purge, image delete/restore, successful review transitions,
+  project export, immediate training-set export, and saved training-set export
+  routes also write audit events. Retention and verification remain next slices.
 - Do not log passwords, tokens, image bytes, mask bytes, or data URLs.
 - Add a reviewer/admin activity export for incident review if needed.
 

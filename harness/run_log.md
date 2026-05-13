@@ -1565,3 +1565,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=project-image-audit-events note=checked-success-path-only-audit-no-password-token-data-url-metadata-and-review-export-not-overclaimed
+[GIT] commit=a61f049 push=origin/main status=passed
+[START] task=review-export-audit-events subsystem=security,audit,review-export
+[PLAN] scope=successful-review-transition-project-export-training-set-export-audit-events risks=payload-leak,blocking-export-on-audit-write,failed-review-audit-policy
+[TEST] updated=tests/serverApi.test.js note=review-project-export-and-training-set-export-audit-events
+[CODE] updated=src/server/api.js note=review-and-export-success-path-audit-events-with-route-session-actor
+[DOC] updated=docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=audit-route-coverage-now-narrows-to-retention-and-verification
+[CMD] node --test tests/serverApi.test.js status=red expected=review-and-export-audit-events-not-written
+[CMD] node --test tests/serverApi.test.js status=passed tests=64
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=301
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=review-export-audit-events note=checked-actor-propagation-payload-free-export-metadata-and-failed-review-policy-left-open

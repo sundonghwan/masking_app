@@ -208,7 +208,7 @@ export function createApiRouter({
       const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       const body = await readJsonBody(request);
-      return exportTrainingSet(response, body, context);
+      return exportTrainingSet(response, body, context, { session });
     }
 
     if (url.pathname === "/api/training-sets" && request.method === "GET") {
@@ -578,6 +578,7 @@ export function createApiRouter({
       if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       return exportProject(response, projectId, context, {
         approvedOnly: url.searchParams.get("approved_only") === "1",
+        session,
       });
     }
 
@@ -968,6 +969,22 @@ export function createApiRouter({
         action: result.validation.action,
         status: result.image.status,
       });
+      await recordAuditEvent({
+        action: `review.${result.validation.action}`,
+        actor_id: session.userId,
+        actor_role: session.role,
+        resource_type: "image",
+        resource_id: imageId,
+        project_id: projectId,
+        image_id: imageId,
+        outcome: "success",
+        reason: result.image.review_events?.at(-1)?.reason || "",
+        metadata: {
+          from_status: image.status || "",
+          to_status: result.image.status || "",
+          reason_code: result.image.review_events?.at(-1)?.reason_code || "",
+        },
+      }, context);
       return sendJson(response, 200, { image: result.image, validation: result.validation });
     }
 
@@ -1496,7 +1513,7 @@ export function createApiRouter({
       if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       const manifest = await readTrainingSetOr404(trainingSetId);
       if (manifest.deleted_at) throw createHttpError(404, "Training set not found");
-      return exportSavedTrainingSet(response, manifest, context);
+      return exportSavedTrainingSet(response, manifest, context, { session });
     }
 
     if (parts.length === 1 && request.method === "DELETE") {
@@ -1683,13 +1700,29 @@ export function createApiRouter({
       excluded_images: summary.excluded_images,
       bytes: buffer.length,
     });
+    await recordAuditEvent({
+      action: "project.export",
+      actor_id: options.session?.userId || "",
+      actor_role: options.session?.role || "",
+      resource_type: "project",
+      resource_id: projectId,
+      project_id: projectId,
+      outcome: "success",
+      metadata: {
+        approved_only: options.approvedOnly === true,
+        total_images: summary.total_images,
+        exported_images: summary.exported_images,
+        excluded_images: summary.excluded_images,
+        bytes: buffer.length,
+      },
+    }, context);
     return sendBuffer(response, 200, buffer, {
       "content-type": "application/zip",
       "content-disposition": `attachment; filename="export_${projectId}.zip"`,
     });
   }
 
-  async function exportTrainingSet(response, body = {}, context = {}) {
+  async function exportTrainingSet(response, body = {}, context = {}, options = {}) {
     if (!Array.isArray(body.sources) || body.sources.length === 0) {
       return sendJson(response, 400, {
         error: "training_sources_required",
@@ -1716,13 +1749,27 @@ export function createApiRouter({
       sources: trainingSet.source_versions.sources.length,
       items: trainingSet.training_set.items.length,
     });
+    await recordAuditEvent({
+      action: "training_set.export",
+      actor_id: options.session?.userId || "",
+      actor_role: options.session?.role || "",
+      resource_type: "training_set",
+      resource_id: "ad_hoc",
+      outcome: "success",
+      metadata: {
+        approved_only: body.approved_only === true || body.approvedOnly === true,
+        sources: trainingSet.source_versions.sources.length,
+        items: trainingSet.training_set.items.length,
+        bytes: buffer.length,
+      },
+    }, context);
     return sendBuffer(response, 200, buffer, {
       "content-type": "application/zip",
       "content-disposition": "attachment; filename=\"training-set-export.zip\"",
     });
   }
 
-  async function exportSavedTrainingSet(response, manifest = {}, context = {}) {
+  async function exportSavedTrainingSet(response, manifest = {}, context = {}, options = {}) {
     const files = [
       { path: "training_set.json", data: serializeJson(manifest.training_set || {}) },
       { path: "source_versions.json", data: serializeJson(manifest.source_versions || {}) },
@@ -1757,6 +1804,20 @@ export function createApiRouter({
       training_set_id: manifest.training_set_id,
       items: manifest.training_set?.items?.length || 0,
     });
+    await recordAuditEvent({
+      action: "training_set.saved_export",
+      actor_id: options.session?.userId || "",
+      actor_role: options.session?.role || "",
+      resource_type: "training_set",
+      resource_id: manifest.training_set_id || "",
+      outcome: "success",
+      metadata: {
+        approved_only: manifest.approved_only === true,
+        sources: manifest.source_versions?.sources?.length || 0,
+        items: manifest.training_set?.items?.length || 0,
+        bytes: buffer.length,
+      },
+    }, context);
     return sendBuffer(response, 200, buffer, {
       "content-type": "application/zip",
       "content-disposition": `attachment; filename="training-set-${manifest.training_set_id || "export"}.zip"`,
