@@ -22,6 +22,7 @@ require_file docs/design/README.md
 require_file harness/repo_index.md
 require_file harness/commands.md
 require_file harness/checklists/review.md
+require_file harness/checklists/code_health.md
 require_file index.html
 require_file package.json
 require_file Dockerfile

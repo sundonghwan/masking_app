@@ -1379,3 +1379,9 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=html-escape-refactor note=checked-semantics-preserved-and-new-ui-helper-in-syntax-coverage
+[GIT] commit=782fab7 push=origin/main status=passed
+[START] task=code-health-cadence subsystem=harness,review,refactor
+[DOC] added=harness/checklists/code_health.md updated=AGENTS.md,harness/checklists/review.md note=periodic-behavior-preserving-refactor-cadence
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=code-health-cadence note=checked-small-tested-cleanup-guidance-and-broad-rewrite-guardrail

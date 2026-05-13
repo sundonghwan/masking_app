@@ -29,10 +29,12 @@ contract, and validation loop instead of rediscovering them from scratch.
 8. Run the smallest relevant validation after meaningful edits.
 9. Before closeout, run `harness/checklists/review.md`.
 10. Perform an implementation code review before declaring the task complete.
-11. Update the feature status list with completed and remaining work.
-12. Commit and push completed feature batches after validation passes, unless the
+11. For routine cleanup or refactoring, use `harness/checklists/code_health.md`
+    and keep behavior-preserving cleanup in its own validated batch.
+12. Update the feature status list with completed and remaining work.
+13. Commit and push completed feature batches after validation passes, unless the
     user explicitly asks to hold local changes.
-13. Promote only repeated or reusable patterns into playbooks or `lessons.md`.
+14. Promote only repeated or reusable patterns into playbooks or `lessons.md`.
 
 ## Risky Areas
 

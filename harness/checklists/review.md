@@ -36,6 +36,15 @@ Agents and maintainers reviewing a local change before closeout.
 - Did tests cover at least one relevant failure path for risky changes?
 - Are any findings either fixed before closeout or recorded as remaining risk?
 
+## Code Health
+
+- If this is a refactor batch, did it follow
+  `harness/checklists/code_health.md`?
+- Did the refactor preserve behavior and avoid mixing feature changes into the
+  cleanup commit?
+- Was at least one focused test added or retained around the moved helper,
+  command, or boundary?
+
 ## Web App Specific
 
 - Do route or navigation changes preserve expected user journeys?
