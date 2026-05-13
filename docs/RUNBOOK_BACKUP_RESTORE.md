@@ -74,6 +74,12 @@ Verify the archive can be listed when needed:
 tar -tzf "/tmp/masking-app-backups/masking-app-data-YYYYMMDDTHHMMSSZ.tgz" | head
 ```
 
+Verify that the archive can be restored and passes storage checks:
+
+```bash
+scripts/harness/restore-verify.sh "/tmp/masking-app-backups/masking-app-data-YYYYMMDDTHHMMSSZ.tgz"
+```
+
 Keep the archive outside the active data root. Do not store backups under
 `$DATA_ROOT/exports` because project purge or cleanup work may later remove
 files under the data root.
@@ -123,6 +129,13 @@ Run verification against the restored data root:
 
 ```bash
 scripts/harness/storage-verify.sh "$RESTORE_PARENT/data"
+```
+
+For an archive-level rehearsal without manually choosing a restore directory,
+run:
+
+```bash
+scripts/harness/restore-verify.sh "$BACKUP_FILE"
 ```
 
 If the original archive used a non-`data` directory name, point the verifier at

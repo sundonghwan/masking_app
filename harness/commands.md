@@ -29,6 +29,7 @@ scripts/harness/security-check.sh
 scripts/harness/identity-migrate-passwords.sh
 scripts/harness/capacity-profile.sh
 scripts/harness/backup-data-root.sh
+scripts/harness/restore-verify.sh
 ```
 
 ## Install / Bootstrap
@@ -266,6 +267,29 @@ Current behavior:
   `MASKING_APP_BACKUP_RETENTION_COUNT`
 - uses the system `tar` command and should be scheduled by cron, launchd, or
   another host-level scheduler
+
+## Restore Verification
+
+Preferred wrapper:
+
+```bash
+scripts/harness/restore-verify.sh /path/to/masking-app-data-YYYYMMDDTHHMMSSZ.tgz
+scripts/harness/restore-verify.sh --json /path/to/masking-app-data-YYYYMMDDTHHMMSSZ.tgz
+```
+
+Package alias:
+
+```bash
+npm run restore:verify -- /path/to/masking-app-data-YYYYMMDDTHHMMSSZ.tgz
+```
+
+Current behavior:
+
+- extracts the backup archive into a temporary restore directory
+- discovers the restored data root
+- runs `scripts/harness/storage-verify.mjs --json` against the restored root
+- exits non-zero when the archive is missing, extraction fails, or storage
+  verification fails
 
 Manual browser smoke:
 

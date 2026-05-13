@@ -1341,3 +1341,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/browser-e2e.sh status=passed note=csp-did-not-break-browser-workflow
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=http-security-boundary note=checked-default-same-origin-cors-allowlist-csp-browser-e2e-and-tls-csrf-boundary
+[GIT] commit=176c7ec push=origin/main status=passed
+[START] task=restore-rehearsal-harness subsystem=storage,backup,operations
+[PLAN] scope=restore-verify-cli,tests,docs,smoke risks=live-data-overwrite,proxy-staging-evidence,storage-verify-error-propagation
+[TEST] added=tests/restoreVerify.test.js note=backup-archive-extracts-to-temp-and-storage-verify-runs
+[CODE] added=scripts/harness/restore-verify.sh,scripts/harness/restore-verify.mjs note=extracts-backup-to-temp-and-runs-storage-verify
+[DOC] updated=docs/RUNBOOK_BACKUP_RESTORE.md,harness/commands.md,docs/PRODUCTION_READINESS_AUDIT.md note=archive-level-restore-rehearsal-command-and-current-next-order
+[CMD] node --test tests/restoreVerify.test.js status=passed tests=2
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=263
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=restore-rehearsal-harness note=checked-temp-restore-boundary-storage-verify-propagation-and-staging-evidence-language

@@ -69,7 +69,7 @@ For this repository, "production-level" means the following are true:
 | Git-backed task history | `harness/tasks/`, `harness/run_log.md` | Implemented |
 | Production identity provider | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing |
 | Database-backed metadata storage | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing / intentionally deferred |
-| Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh`, `scripts/harness/backup-data-root.sh` | Implemented baseline |
+| Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh`, `scripts/harness/backup-data-root.sh`, `scripts/harness/restore-verify.sh` | Implemented baseline |
 | Production deployment packaging | `Dockerfile`, `docker-compose.yml`, `docs/RUNBOOK_DEPLOYMENT.md`, `scripts/harness/deployment-check.sh`, `src/server/deploymentProfile.js` | Implemented baseline |
 | Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with admin, worker, and reviewer roles via `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist; `scripts/harness/capacity-profile.sh` reports data-root capacity and strict threshold warnings | Partial capacity gate |
@@ -90,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 261 Node tests, and the baseline browser E2E
+The latest full test run passed 263 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -118,6 +118,7 @@ verification command, and executable backup command now cover:
 - what files must be backed up
 - how to restore a project
 - how to verify restored image/mask/export consistency
+- archive-level restore rehearsal through `restore-verify.sh`
 - how archive/purge operations interact with backups
 - backup archive creation outside the active data root
 - count-based local/staging backup retention
@@ -197,12 +198,17 @@ Remaining follow-up:
 
 ## Recommended Next Development Order
 
-1. Add browser E2E smoke for the critical labeling journey.
-2. Add backup/restore runbook and a storage verification script.
-3. Add deployment runbook for local/staging production-like operation.
-4. Add security hardening plan for identity/session/CORS/CSRF.
-5. Use the storage/concurrency decision as the DB migration gate.
-6. Add capacity profile evidence from a representative staging data root.
+1. Replace or explicitly production-accept the current local identity boundary.
+2. Run password migration and strict security checks on the real target data
+   root after backup.
+3. Capture deployment, backup, restore rehearsal, and capacity evidence from a
+   representative staging data root.
+4. Decide whether filesystem JSON remains acceptable for the first shared
+   production deployment or whether metadata must move to transactional
+   storage.
+5. Add host-specific scheduler/TLS/reverse-proxy setup once the deployment
+   target is chosen.
+6. Add browser trace/screenshot artifacts if browser E2E becomes flaky.
 7. Add real AI model adapter only after sample datasets prove the local magic
    tool is insufficient.
 
