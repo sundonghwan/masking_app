@@ -1620,3 +1620,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=audit-retention-harness note=checked-dry-run-default-apply-only-delete-whole-month-pruning-and-no-request-time-retention
+[GIT] commit=ecbaedf push=origin/main status=passed
+[START] task=assignment-training-set-audit-events subsystem=security,audit,assignment-training-set
+[PLAN] scope=assignment-update-and-saved-training-set-create-archive-restore-audit-events risks=actor-drift,payload-leak,blocking-domain-mutation-on-audit-write
+[TEST] updated=tests/serverApi.test.js note=assignment-update-and-training-set-lifecycle-audit-events
+[CODE] updated=src/server/api.js note=success-path-audit-events-for-assignment-and-saved-training-set-lifecycle
+[DOC] updated=docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=route-level-audit-coverage-expanded-to-assignment-and-training-set-lifecycle
+[CMD] node --test tests/serverApi.test.js status=red expected=assignment-and-training-set-lifecycle-audit-events-not-written
+[CMD] node --test tests/serverApi.test.js status=passed tests=66
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=307
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=assignment-training-set-audit-events note=checked-session-admin-actor-count-only-training-set-metadata-no-image-mask-payloads-and-audit-write-non-blocking

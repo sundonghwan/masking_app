@@ -102,9 +102,10 @@ For local or controlled staging:
   Foundation status: `src/server/auditStore.js` can append and list sanitized
   monthly JSONL audit events under `<data_root>/audit/`. Session login/logout
   and local user administration routes now write audit events. Project create,
-  archive, restore, purge, image delete/restore, successful review transitions,
-  project export, immediate training-set export, and saved training-set export
-  routes also write audit events. `scripts/harness/audit-verify.sh` verifies
+  archive, restore, purge, image delete/restore, assignment update, successful
+  review transitions, project export, immediate training-set export, saved
+  training-set create/archive/restore, and saved training-set export routes
+  also write audit events. `scripts/harness/audit-verify.sh` verifies
   audit JSONL parseability, required fields, timestamps, outcomes, action
   counts, and unredacted forbidden metadata. `scripts/harness/audit-retention.sh`
   provides explicit dry-run-first retention pruning for whole monthly audit

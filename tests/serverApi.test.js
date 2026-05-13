@@ -1051,6 +1051,35 @@ test("admin assignment updates worker and reviewer without changing status", asy
   assert.equal(manifest.images[0].reviewer_id, "reviewer");
 });
 
+test("assignment update writes audit event with authenticated admin actor", async () => {
+  const auditEvents = [];
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route, storage } = createApiHarness({ auditStore });
+  const headers = await loginHeaders(route, "admin");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", { ...baseImage(), status: "submitted" });
+
+  const response = await callJson(route, "PUT", "/api/images/image-1/assignment", {
+    project_id: "project-1",
+    worker_id: "worker",
+    reviewer_id: "reviewer",
+  }, headers);
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(
+    auditEvents
+      .filter((event) => event.resource_type === "image" && event.resource_id === "image-1")
+      .map((event) => `${event.action}:${event.actor_id}:${event.project_id}:${event.metadata.worker_id}:${event.metadata.reviewer_id}`),
+    ["assignment.update:admin:project-1:worker:reviewer"],
+  );
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "token")), false);
+});
+
 test("valid mask save updates current mask and submitted status without claiming pixel validation", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "worker");
@@ -1614,7 +1643,7 @@ test("training set exports write audit events without archive payloads", async (
   assert.equal(saved.statusCode, 200);
   assert.deepEqual(
     auditEvents
-      .filter((event) => event.resource_type === "training_set")
+      .filter((event) => event.resource_type === "training_set" && event.action.endsWith("export"))
       .map((event) => `${event.action}:${event.resource_id}:${event.actor_id}`),
     ["training_set.export:ad_hoc:reviewer", "training_set.saved_export:rail_v1:reviewer"],
   );
@@ -1705,6 +1734,60 @@ test("reviewers create and export saved training sets while admins archive and r
   await assert.rejects(hiddenDetail, /Training set not found/);
   assert.equal(restored.statusCode, 200);
   assert.equal(restored.body.training_set_manifest.deleted_at, "");
+});
+
+test("saved training set create archive and restore write audit events", async () => {
+  const auditEvents = [];
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route, storage } = createApiHarness({ auditStore });
+  const reviewerHeaders = await loginHeaders(route, "reviewer");
+  const adminHeaders = await loginHeaders(route, "admin");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    id: "approved-1",
+    original_file_name: "approved.png",
+    image_path: "images/approved_source.png",
+    current_mask_path: "masks/approved_source_mask.png",
+    status: "approved",
+    mask_values_valid: true,
+  });
+  storage.files.set("project-1/images/approved_source.png", "approved-image");
+  storage.files.set("project-1/masks/approved_source_mask.png", "approved-mask");
+
+  const created = await callJson(route, "POST", "/api/training-sets", {
+    training_set_id: "audit_rail_v1",
+    sources: [{ project_id: "project-1" }],
+    approved_only: true,
+  }, reviewerHeaders);
+  const archived = await callJson(route, "DELETE", "/api/training-sets/audit_rail_v1", {
+    if_match_revision: created.body.training_set_manifest.revision,
+    delete_reason: "wrong merge set",
+  }, adminHeaders);
+  const restored = await callJson(route, "POST", "/api/training-sets/audit_rail_v1/restore", {
+    if_match_revision: archived.body.training_set_manifest.revision,
+  }, adminHeaders);
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(archived.statusCode, 200);
+  assert.equal(restored.statusCode, 200);
+  assert.deepEqual(
+    auditEvents
+      .filter((event) => event.resource_type === "training_set" && event.resource_id === "audit_rail_v1")
+      .map((event) => `${event.action}:${event.actor_id}:${event.outcome}`),
+    [
+      "training_set.create:reviewer:success",
+      "training_set.archive:admin:success",
+      "training_set.restore:admin:success",
+    ],
+  );
+  assert.equal(JSON.stringify(auditEvents).includes("approved-image"), false);
+  assert.equal(JSON.stringify(auditEvents).includes("approved-mask"), false);
 });
 
 test("lists project summaries ordered by update time", async () => {

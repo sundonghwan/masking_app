@@ -90,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 305 Node tests, and the baseline browser E2E
+The latest full test run passed 307 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -179,10 +179,11 @@ Open production decisions:
   `docs/superpowers/specs/2026-05-13-operational-audit-retention-design.md`
   and the standalone filesystem audit-store foundation exists in
   `src/server/auditStore.js`; session/user/project/image lifecycle,
-  successful review transition, and export routes are wired. Audit verification
-  exists through `scripts/harness/audit-verify.sh`, and explicit dry-run-first
-  whole-month pruning exists through `scripts/harness/audit-retention.sh`.
-  Host scheduling and staged evidence for running retention remain pending
+  assignment update, successful review transition, saved training-set lifecycle,
+  and export routes are wired. Audit verification exists through
+  `scripts/harness/audit-verify.sh`, and explicit dry-run-first whole-month
+  pruning exists through `scripts/harness/audit-retention.sh`. Host scheduling
+  and staged evidence for running retention remain pending
 - host-managed runtime log rotation and retention target
 
 ### 5. Storage And Concurrency Boundary

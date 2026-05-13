@@ -234,7 +234,7 @@ export function createApiRouter({
       const session = await readSession(request);
       if (!requireRole(response, session, [ROLES.REVIEWER, ROLES.ADMIN])) return;
       const body = await readJsonBody(request);
-      return createSavedTrainingSet(response, body, session);
+      return createSavedTrainingSet(response, body, session, context);
     }
 
     if (parts[0] === "api" && parts[1] === "training-sets" && parts[2]) {
@@ -1018,6 +1018,18 @@ export function createApiRouter({
         worker_id: updated.worker_id,
         reviewer_id: updated.reviewer_id,
       });
+      await recordAuditEvent({
+        action: "assignment.update",
+        ...auditActor(session),
+        ...auditResource("image", imageId),
+        project_id: projectId,
+        image_id: imageId,
+        outcome: "success",
+        metadata: {
+          worker_id: updated.worker_id,
+          reviewer_id: updated.reviewer_id,
+        },
+      }, context);
       return sendJson(response, 200, { image: updated });
     }
 
@@ -1532,6 +1544,13 @@ export function createApiRouter({
             actor: session.userId,
             reason: body.delete_reason || body.deleteReason || body.reason,
           });
+      await recordAuditEvent({
+        action: "training_set.archive",
+        ...auditActor(session),
+        ...auditResource("training_set", trainingSetId),
+        outcome: "success",
+        reason: trainingSet.delete_reason || body.delete_reason || body.deleteReason || body.reason || "",
+      }, context);
       return sendJson(response, 200, { training_set_manifest: trainingSet });
     }
 
@@ -1544,13 +1563,19 @@ export function createApiRouter({
       const trainingSet = storage.restoreTrainingSet
         ? await storage.restoreTrainingSet(trainingSetId)
         : await updateTrainingSetArchiveState(trainingSetId, manifest, { mode: "restore" });
+      await recordAuditEvent({
+        action: "training_set.restore",
+        ...auditActor(session),
+        ...auditResource("training_set", trainingSetId),
+        outcome: "success",
+      }, context);
       return sendJson(response, 200, { training_set_manifest: trainingSet });
     }
 
     return notFound(response);
   }
 
-  async function createSavedTrainingSet(response, body = {}, session = {}) {
+  async function createSavedTrainingSet(response, body = {}, session = {}, context = {}) {
     if (!storage.writeTrainingSetManifest) {
       return sendJson(response, 501, {
         error: "training_set_storage_unavailable",
@@ -1603,6 +1628,17 @@ export function createApiRouter({
       deleted_by: "",
       delete_reason: "",
     });
+    await recordAuditEvent({
+      action: "training_set.create",
+      ...auditActor(session),
+      ...auditResource("training_set", trainingSetId),
+      outcome: "success",
+      metadata: {
+        approved_only: manifest.approved_only === true,
+        sources: manifest.source_versions?.sources?.length || 0,
+        items: manifest.training_set?.items?.length || 0,
+      },
+    }, context);
     return sendJson(response, 201, { training_set_manifest: manifest });
   }
 
