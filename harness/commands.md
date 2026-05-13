@@ -23,6 +23,7 @@ scripts/harness/typecheck-all.sh
 scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
+scripts/harness/storage-verify.sh
 ```
 
 ## Install / Bootstrap
@@ -142,6 +143,24 @@ Current behavior:
 - paints the canvas, submits the mask, approves it, and triggers approved-only
   export
 
+## Storage Verification
+
+Preferred wrapper:
+
+```bash
+scripts/harness/storage-verify.sh [data-root]
+scripts/harness/storage-verify.sh --json [data-root]
+```
+
+Current behavior:
+
+- reads only; does not repair or delete files
+- defaults to `MASKING_APP_DATA_DIR`, then `MASKING_APP_DATA_ROOT`, then `data`
+- validates JSON manifests, identity files, project image references, mask PNG
+  headers, hierarchy task/version manifests, and training-set metadata
+- exits non-zero when referenced files are missing or JSON/image/mask metadata
+  is invalid
+
 Manual browser smoke:
 
 - run `npm run dev`
@@ -164,6 +183,7 @@ scripts/harness/typecheck-all.sh
 scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
+scripts/harness/storage-verify.sh "${MASKING_APP_DATA_DIR:-data}"
 ```
 
 ## Updating Commands

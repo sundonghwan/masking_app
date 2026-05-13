@@ -1163,3 +1163,15 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=browser-e2e-smoke,rgba-mask-normalization note=checked-temp-data-root,download-capture,validation-before-storage,grayscale-output-contract
 [CLOSE] status=ready-for-commit
+[GIT] commit=9570b9b push=origin/main status=passed
+[START] task=backup-restore-runbook subsystem=storage,operations,harness
+[PLAN] scope=backup-restore-runbook,read-only-storage-verifier,command-docs risks=live-data-overwrite,manifest-file-drift,identity-training-set-omission
+[DOC] created=docs/RUNBOOK_BACKUP_RESTORE.md note=documents-data-root-backup-restore-cutover-rollback-verification
+[CMD] scripts/harness/storage-verify.sh data status=passed flat_projects=3 hierarchy_projects=1 task_versions=1 images=193 masks=0
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=243
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=backup-restore-runbook,storage-verifier note=checked-read-only-safe-paths-json-parse-reference-checks-restore-cutover-rollback
+[CLOSE] status=ready-for-commit

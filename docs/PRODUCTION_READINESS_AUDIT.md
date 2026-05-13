@@ -22,12 +22,12 @@ can be implemented while the product still lacks production operation gates.
 The app is a strong local-first MVP with many production-shaped workflows, but
 it is **not yet fully production-ready**.
 
-Production completion is still blocked by deployment, operational
-backup/restore, security hardening, and storage/concurrency decisions. The
-baseline browser end-to-end journey now exists, but role-specific and visual
-regression coverage can still be expanded. These are not cosmetic gaps; they
-affect whether a team can safely operate the tool with real labeling data over
-time.
+Production completion is still blocked by deployment, security hardening, and
+storage/concurrency decisions. Baseline browser E2E and backup/restore
+verification now exist, but role-specific browser coverage, visual regression,
+and scheduled/retained backup operations can still be expanded. These are not
+cosmetic gaps; they affect whether a team can safely operate the tool with real
+labeling data over time.
 
 ## Success Criteria
 
@@ -67,7 +67,7 @@ For this repository, "production-level" means the following are true:
 | Git-backed task history | `harness/tasks/`, `harness/run_log.md` | Implemented |
 | Production identity provider | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing |
 | Database-backed metadata storage | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing / intentionally deferred |
-| Backup and restore procedure for filesystem data root | No dedicated runbook found | Missing |
+| Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh` | Implemented baseline |
 | Production deployment packaging | `src/server/deploymentProfile.js` exists, but no deployment runbook or service definition | Partial |
 | Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist, but no benchmark or capacity profile | Missing |
@@ -90,8 +90,8 @@ git diff --check
 The latest full test run passed 243 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
-enough to claim production readiness while backup/restore, deployment,
-security, and storage/concurrency decisions remain unresolved.
+enough to claim production readiness while deployment, security, and
+storage/concurrency decisions remain unresolved.
 
 ## Production Blockers
 
@@ -108,8 +108,8 @@ Remaining follow-up:
 
 ### 2. Backup And Restore Runbook
 
-The app uses filesystem storage by default. Production operation needs a clear
-procedure for:
+The app uses filesystem storage by default. A baseline runbook and read-only
+verification command now cover:
 
 - what path is the data root
 - what files must be backed up
@@ -117,10 +117,11 @@ procedure for:
 - how to verify restored image/mask/export consistency
 - how archive/purge operations interact with backups
 
-Recommended next artifact:
+Remaining follow-up:
 
-- `docs/RUNBOOK_BACKUP_RESTORE.md`
-- storage verification command or script
+- scheduled backup automation
+- retention policy
+- restore rehearsal evidence for a real staging data root
 
 ### 3. Deployment Runbook
 

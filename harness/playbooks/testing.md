@@ -24,6 +24,7 @@ Medium:
 - DB migration dry-run
 - route-level smoke
 - save/export fixture checks
+- storage verification with `scripts/harness/storage-verify.sh`
 
 Expensive:
 
@@ -41,6 +42,7 @@ scripts/harness/typecheck-all.sh
 scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
+scripts/harness/storage-verify.sh
 ```
 
 ## Change-to-Validation Mapping
@@ -57,6 +59,7 @@ scripts/harness/browser-e2e.sh
 | database migration | migration apply/reset check |
 | auth/session | auth playbook checks and protected route smoke |
 | critical labeling journey | `scripts/harness/browser-e2e.sh` |
+| backup/restore or storage references | `scripts/harness/storage-verify.sh <data-root>` |
 
 ## Impact Chain Validation
 
