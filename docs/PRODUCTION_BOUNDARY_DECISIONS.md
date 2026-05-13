@@ -16,7 +16,7 @@ operations are acceptable for a real deployment.
 
 | Evidence | Status |
 | --- | --- |
-| Full Node test suite | 319 tests passing |
+| Full Node test suite | 328 tests passing |
 | Browser E2E baseline | Implemented for admin, worker, reviewer, submit, approve, export |
 | Staging evidence artifact | `release-artifacts/staging-evidence-20260513-after-identity-migration.json` passed on a copied data root after identity password migration |
 | Production gate | Passed on copied staging data root after password migration and explicit local identity/filesystem acceptance |

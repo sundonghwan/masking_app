@@ -1870,3 +1870,20 @@ chains in `harness/tasks/`; keep this file short.
 [DOC] updated=docs/REMAINING_WORK_BOARD.md note=linked-boundary-decision-proposal
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=production-boundary-decision-proposal note=proposal-does-not-change-approved-decisions-or-claim-production-readiness
+[GIT] commit=4575428 push=origin/main status=passed
+[START] task=boundary-decision-apply-tool subsystem=release,operations,decision
+[PLAN] scope=preview-by-default-controlled-internal-mvp-decision-apply-tool risks=accidental-approval,table-rewrite-damage
+[TEST] red=passed note=boundary-decision-apply-module-missing-before-implementation
+[CODE] added=scripts/harness/apply-boundary-decisions.mjs,scripts/harness/apply-boundary-decisions.sh note=preview-by-default-controlled-internal-mvp-decision-apply-tool
+[TEST] added=tests/boundaryDecisions.test.js note=preview-apply-owner-required-covered
+[DOC] updated=harness/commands.md,docs/PRODUCTION_BOUNDARY_DECISION_PROPOSAL.md,docs/PRODUCTION_BOUNDARY_DECISIONS.md,docs/REMAINING_WORK_BOARD.md note=apply-helper-and-test-counts
+[CMD] node --test tests/boundaryDecisions.test.js tests/checkSyntax.test.js status=passed tests=5
+[CMD] apply-boundary-decisions preview-real-doc status=passed applied=false
+[CMD] apply-boundary-decisions apply-temp-file status=passed applied=true
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=328
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=boundary_decisions_undecided
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=boundary-decision-apply-tool note=preview-default-real-decision-file-unchanged-apply-requires-owner-and-date

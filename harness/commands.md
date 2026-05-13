@@ -35,6 +35,7 @@ scripts/harness/restore-verify.sh
 scripts/harness/production-gate.sh
 scripts/harness/staging-evidence.sh
 scripts/harness/release-candidate-gate.sh
+scripts/harness/apply-boundary-decisions.sh
 ```
 
 ## Install / Bootstrap
@@ -455,6 +456,38 @@ Current behavior:
   gate source code
 - is intentionally stricter than test/smoke checks because passing tests are
   not sufficient proof of production readiness
+
+## Boundary Decision Apply Tool
+
+Preferred wrapper:
+
+```bash
+scripts/harness/apply-boundary-decisions.sh \
+  --preset controlled-internal-mvp \
+  --owner <decision-owner> \
+  --date YYYY-MM-DD
+```
+
+Apply after explicit owner approval:
+
+```bash
+scripts/harness/apply-boundary-decisions.sh \
+  --preset controlled-internal-mvp \
+  --owner <decision-owner> \
+  --date YYYY-MM-DD \
+  --apply
+```
+
+Current behavior:
+
+- previews controlled-internal MVP boundary decisions by default
+- does not modify `docs/PRODUCTION_BOUNDARY_DECISIONS.md` unless `--apply` is
+  supplied
+- refuses `--apply` without owner and date metadata
+- updates only the five production boundary `Decision` cells; it does not
+  decide AI adapter status
+- use only after the project owner approves the proposal in
+  `docs/PRODUCTION_BOUNDARY_DECISION_PROPOSAL.md`
 
 Manual browser smoke:
 

@@ -15,7 +15,7 @@ still needs to be copied into `docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
 
 | Evidence | Status |
 | --- | --- |
-| Full test suite | 325 Node tests passing |
+| Full test suite | 328 Node tests passing |
 | Staging evidence | `release-artifacts/staging-evidence-20260513-after-identity-migration.json` passed on copied staging data root |
 | Local production health | `release-artifacts/deployment-check-20260513-production-local.json` passed on `127.0.0.1:4183` |
 | Release candidate gate | Fails only on five undecided boundaries |
@@ -58,6 +58,16 @@ scripts/harness/typecheck-all.sh
 scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 git diff --check
+```
+
+Owner-approved apply helper:
+
+```bash
+scripts/harness/apply-boundary-decisions.sh \
+  --preset controlled-internal-mvp \
+  --owner <decision-owner> \
+  --date YYYY-MM-DD \
+  --apply
 ```
 
 Expected result:

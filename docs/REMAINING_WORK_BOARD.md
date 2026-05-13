@@ -26,12 +26,13 @@ or production audit. This board separates:
 | Multi-class masks | Done for MVP | Label schema, selected label color, per-class masks, class-aware export/training metadata implemented |
 | Training-set output | Done | Selected sources, saved training sets, deterministic split, re-export/archive/restore implemented |
 | AI serving | Contract done | Generic detection/segmentation/classification API contract exists; real model adapter is deferred |
-| Validation harness | Strong baseline | lint, typecheck, 325 Node tests, smoke, browser E2E entrypoint, production gate, staging evidence bundle, release artifact revision checks |
+| Validation harness | Strong baseline | lint, typecheck, 328 Node tests, smoke, browser E2E entrypoint, production gate, staging evidence bundle, release artifact revision checks, boundary decision apply preview |
 | Code health | Active cleanup | Project settings and assignment route helpers extracted; larger route blocks remain |
 | Production readiness | Not complete | Identity/storage/host evidence decisions remain |
 
 Decision checklist: `docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
 Decision proposal: `docs/PRODUCTION_BOUNDARY_DECISION_PROPOSAL.md`.
+Decision apply helper: `scripts/harness/apply-boundary-decisions.sh`.
 Release candidate gate: `scripts/harness/release-candidate-gate.sh`.
 
 ## Remaining Production Gates
