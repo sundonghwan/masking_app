@@ -1,5 +1,8 @@
 # Feature Status
 
+For a shorter production-progress view, see
+`docs/REMAINING_WORK_BOARD.md`.
+
 ## Completed
 
 - [x] Local-first mask editor

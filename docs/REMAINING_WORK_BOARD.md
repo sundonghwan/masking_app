@@ -1,0 +1,87 @@
+# Remaining Work Board
+
+## Audience
+
+Maintainers, reviewers, and coding agents tracking whether Masking App can be
+claimed as a production-level masking labeling tool.
+
+## Objective
+
+Show the current progress without forcing readers to scan the full feature list
+or production audit. This board separates:
+
+- product features that users can already operate
+- production gates that still need real environment evidence or decisions
+- optional hardening that should not block the current MVP unless real usage
+  proves it is needed
+
+## Current Position
+
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Core masking workflow | Done | Brush, erase, magic, pan, submit, review, export covered by unit/API/browser tests |
+| Role workflow | Done | Login, admin, worker, reviewer, assignment, review, logout implemented |
+| Project operations | Done | Create, edit, archive, restore, purge, image remove/restore implemented |
+| File hierarchy | Done | Project/task/version storage and version clone/delete/restore implemented |
+| Multi-class masks | Done for MVP | Label schema, selected label color, per-class masks, class-aware export/training metadata implemented |
+| Training-set output | Done | Selected sources, saved training sets, deterministic split, re-export/archive/restore implemented |
+| AI serving | Contract done | Generic detection/segmentation/classification API contract exists; real model adapter is deferred |
+| Validation harness | Strong baseline | lint, typecheck, 319 Node tests, smoke, browser E2E entrypoint, production gate, staging evidence bundle |
+| Code health | Active cleanup | Project settings and assignment route helpers extracted; larger route blocks remain |
+| Production readiness | Not complete | Identity/storage/host evidence decisions remain |
+
+## Remaining Production Gates
+
+| Priority | Item | Why it matters | Current state | Done when |
+| --- | --- | --- | --- | --- |
+| P0 | Real staging evidence artifact | We need proof against representative data, not only synthetic tests | `staging-evidence.sh --json --output` is implemented | A JSON artifact from a real staging data root is archived with release notes |
+| P0 | Identity boundary decision | Local accounts are acceptable for local/controlled internal use, not internet-facing production by default | Local account hardening and production acceptance gate exist | Team either adopts external IDP or explicitly accepts local identity for controlled internal deployment |
+| P0 | Production data-root gate | Prevents unsafe repo-local data roots, default seed passwords, and weak identity state | `production-gate.sh` exists | Gate passes against the target data root after backup and password migration |
+| P1 | Storage/concurrency decision | Filesystem JSON is safe only within known single-process/local-staging limits | Decision doc accepts filesystem for local/staging | Team accepts filesystem for first shared deployment or schedules SQLite/Postgres migration |
+| P1 | Host deployment evidence | Docker/runbook exists, but the actual host setup still needs proof | Deployment runbook and health check exist | Target host has recorded health/deployment evidence |
+| P1 | TLS/reverse proxy policy | Required for shared network or internet-facing use | Not host-selected yet | TLS/reverse proxy owner and config are recorded |
+| P1 | Backup/audit/log retention scheduler | Scripts exist, but recurring host operation needs installation | Backup, restore, audit verify, audit retention dry-run exist | Host scheduler and retention policy are installed or explicitly deferred with owner/date |
+| P2 | Capacity target evidence | We need to know first real dataset size and file-store limits | `capacity-profile.sh` exists | Representative data-root capacity profile is archived |
+| P2 | Browser trace/screenshots | Useful when E2E flakes or UI regressions are suspected | Browser E2E exists | Trace/screenshot artifacts are added if flakiness appears |
+
+## Optional Product Hardening
+
+These are useful but should not block the current MVP unless real data shows a
+need.
+
+| Item | Trigger |
+| --- | --- |
+| Real AI segmentation adapter | Local edge-aware magic tool is too slow or inaccurate on actual datasets |
+| Database-backed metadata | Concurrent edits, large manifests, reporting, or transactional backup requirements exceed filesystem JSON |
+| Stronger organization password policy | Controlled internal deployment requires stricter local account rules |
+| Visual regression suite | UI changes become frequent enough that manual/browser smoke misses layout issues |
+
+## Latest Verified State
+
+- Last full test count: 319 Node tests passing.
+- Last pushed commits:
+  - `3be9ba0` - assignment route helper refactor
+  - `296867b` - project settings route helper refactor
+  - `beb12c1` - staging evidence output artifact
+- Current production verdict: not yet production-ready.
+- Current practical verdict: strong local/staging MVP; production claim requires
+  the gates above.
+
+## Next Recommended Action
+
+Run and archive real staging evidence:
+
+```bash
+MASKING_APP_MODE=production \
+MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
+scripts/harness/staging-evidence.sh --json \
+  --output release-artifacts/staging-evidence-YYYYMMDD.json \
+  --base-url http://127.0.0.1:4173 \
+  "${MASKING_APP_DATA_DIR:-data}" \
+  "${MASKING_APP_BACKUP_DIR:-backups}"
+```
+
+This should be run against a representative staging data root, not the empty
+developer fixture data. If it fails, the failed JSON artifact is still valuable
+because it tells us exactly which production gate is blocking release.

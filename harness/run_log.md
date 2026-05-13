@@ -1736,3 +1736,4 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=assignment-route-refactor note=checked-error-payload-status-preservation-and-route-io-boundary
 [GIT] commit=3be9ba0 push=origin/main status=passed
+[DOC] created=docs/REMAINING_WORK_BOARD.md note=short-progress-board-for-completed-features-vs-production-gates

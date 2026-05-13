@@ -12,6 +12,7 @@ Turn the broad objective, "production-level masking labeling tool", into
 verifiable deliverables and map each deliverable to current repository evidence.
 This document is intentionally stricter than `docs/FEATURE_STATUS.md`: a feature
 can be implemented while the product still lacks production operation gates.
+For a shorter progress board, see `docs/REMAINING_WORK_BOARD.md`.
 
 ## Audit Date
 
