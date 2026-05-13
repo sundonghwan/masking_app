@@ -1522,3 +1522,28 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=operational-audit-retention-design note=checked-against-logging-policy-production-audit-security-plan-and-no-runtime-code-change
+[GIT] commit=0cd33a9 push=origin/main status=passed
+[START] task=audit-store-foundation subsystem=security,audit,operations
+[PLAN] scope=append-only-filesystem-audit-store-foundation-tests-and-syntax-coverage risks=metadata-secret-leak,overclaiming-route-level-audit-retention
+[TEST] updated=tests/auditStore.test.js note=append-list-required-field-validation-and-recursive-redaction
+[CODE] updated=src/server/auditStore.js,scripts/harness/check-syntax.mjs note=monthly-jsonl-audit-store-and-syntax-coverage
+[DOC] updated=docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=audit-store-foundation-status-route-integration-still-pending
+[CMD] node --test tests/auditStore.test.js status=red expected=missing-module
+[CMD] node --test tests/auditStore.test.js status=passed tests=3
+[CMD] node --test tests/checkSyntax.test.js status=passed tests=2
+[CMD] node --test tests/auditStore.test.js tests/checkSyntax.test.js status=passed tests=5
+[CMD] scripts/harness/lint-all.sh status=passed note=rerun-after-redaction-fix
+[CMD] scripts/harness/typecheck-all.sh status=passed note=rerun-after-redaction-fix
+[CMD] scripts/harness/test-target.sh status=passed tests=293 note=rerun-after-redaction-fix
+[CMD] scripts/harness/smoke-web.sh status=passed note=rerun-after-redaction-fix
+[CMD] git diff --check status=passed note=rerun-after-redaction-fix
+[REVIEW] finding=none-blocking scope=audit-store-foundation note=checked-jsonl-append-list-validation-sanitization-syntax-harness-doc-boundary-and-route-integration-not-overclaimed
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=293
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=fixed scope=audit-store-foundation note=uppercase-Authorization-metadata-was-not-redacted
+[CMD] node --test tests/auditStore.test.js status=red expected=uppercase-Authorization-not-redacted
+[CODE] updated=src/server/auditStore.js note=metadata-forbidden-key-check-is-case-insensitive
+[CMD] node --test tests/auditStore.test.js tests/checkSyntax.test.js status=passed tests=5

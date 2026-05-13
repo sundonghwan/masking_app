@@ -27,6 +27,7 @@ export const SYNTAX_CHECK_FILES = Object.freeze([
   "src/upload/policy.js",
   "src/server/aiServing.js",
   "src/server/api.js",
+  "src/server/auditStore.js",
   "src/server/auth.js",
   "src/server/deploymentProfile.js",
   "src/server/httpSecurity.js",

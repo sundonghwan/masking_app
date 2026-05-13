@@ -15,6 +15,7 @@ test("syntax check file list covers existing active modules", async () => {
   assert.ok(SYNTAX_CHECK_FILES.includes("server.js"));
   assert.ok(SYNTAX_CHECK_FILES.includes("src/app.js"));
   assert.ok(SYNTAX_CHECK_FILES.includes("src/server/api.js"));
+  assert.ok(SYNTAX_CHECK_FILES.includes("src/server/auditStore.js"));
   assert.ok(SYNTAX_CHECK_FILES.includes("src/server/passwordPolicy.js"));
   assert.ok(SYNTAX_CHECK_FILES.includes("scripts/harness/check-syntax.mjs"));
 
