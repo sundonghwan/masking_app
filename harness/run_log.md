@@ -1737,3 +1737,12 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=assignment-route-refactor note=checked-error-payload-status-preservation-and-route-io-boundary
 [GIT] commit=3be9ba0 push=origin/main status=passed
 [DOC] created=docs/REMAINING_WORK_BOARD.md note=short-progress-board-for-completed-features-vs-production-gates
+[START] task=staging-evidence-real-data-run subsystem=release,staging-evidence,production-gate
+[PLAN] scope=copy-current-data-to-temp-staging-root-and-capture-evidence risks=expected-production-gate-failure,local-paths-in-artifact
+[CMD] cp -R data /tmp/masking-app-staging-data-20260513 status=passed
+[CMD] staging-evidence initial status=failed blocker=production_gate:default_seed_passwords,plaintext_passwords artifact=/tmp/masking-app-staging-evidence-20260513.json
+[CMD] scripts/harness/identity-migrate-passwords.sh --apply --json /tmp/masking-app-staging-data-20260513 status=passed migrated_users=3
+[CMD] scripts/harness/security-check.sh --strict /tmp/masking-app-staging-data-20260513 status=passed
+[CMD] production-gate copied-staging-data-root status=passed
+[CMD] staging-evidence after-identity-migration status=passed artifact=release-artifacts/staging-evidence-20260513-after-identity-migration.json
+[IMPACT] status=validated chain=staging-evidence->backup/restore/production-gate validation=artifact-passed

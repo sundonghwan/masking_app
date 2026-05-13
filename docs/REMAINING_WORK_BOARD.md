@@ -34,9 +34,9 @@ or production audit. This board separates:
 
 | Priority | Item | Why it matters | Current state | Done when |
 | --- | --- | --- | --- | --- |
-| P0 | Real staging evidence artifact | We need proof against representative data, not only synthetic tests | `staging-evidence.sh --json --output` is implemented | A JSON artifact from a real staging data root is archived with release notes |
+| P0 | Real staging evidence artifact | We need proof against representative data, not only synthetic tests | Captured against a copied staging data root after identity password migration | Evidence artifact is archived at `release-artifacts/staging-evidence-20260513-after-identity-migration.json`; repeat on the final target data root before release |
 | P0 | Identity boundary decision | Local accounts are acceptable for local/controlled internal use, not internet-facing production by default | Local account hardening and production acceptance gate exist | Team either adopts external IDP or explicitly accepts local identity for controlled internal deployment |
-| P0 | Production data-root gate | Prevents unsafe repo-local data roots, default seed passwords, and weak identity state | `production-gate.sh` exists | Gate passes against the target data root after backup and password migration |
+| P0 | Production data-root gate | Prevents unsafe repo-local data roots, default seed passwords, and weak identity state | Passed against the copied staging data root after password migration | Gate passes against the final target data root after backup and password migration |
 | P1 | Storage/concurrency decision | Filesystem JSON is safe only within known single-process/local-staging limits | Decision doc accepts filesystem for local/staging | Team accepts filesystem for first shared deployment or schedules SQLite/Postgres migration |
 | P1 | Host deployment evidence | Docker/runbook exists, but the actual host setup still needs proof | Deployment runbook and health check exist | Target host has recorded health/deployment evidence |
 | P1 | TLS/reverse proxy policy | Required for shared network or internet-facing use | Not host-selected yet | TLS/reverse proxy owner and config are recorded |
@@ -59,17 +59,21 @@ need.
 ## Latest Verified State
 
 - Last full test count: 319 Node tests passing.
+- Latest staging evidence artifact:
+  `release-artifacts/staging-evidence-20260513-after-identity-migration.json`
+  passed after applying identity password migration to a copied staging data
+  root.
 - Last pushed commits:
+  - `9cf5459` - remaining work board
   - `3be9ba0` - assignment route helper refactor
   - `296867b` - project settings route helper refactor
-  - `beb12c1` - staging evidence output artifact
 - Current production verdict: not yet production-ready.
 - Current practical verdict: strong local/staging MVP; production claim requires
   the gates above.
 
 ## Next Recommended Action
 
-Run and archive real staging evidence:
+Repeat staging evidence on the final target data root before release:
 
 ```bash
 MASKING_APP_MODE=production \

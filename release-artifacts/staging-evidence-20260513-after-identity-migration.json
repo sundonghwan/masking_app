@@ -1,0 +1,214 @@
+{
+  "ok": true,
+  "checked_at": "2026-05-13T05:36:36.736Z",
+  "data_root": "/tmp/masking-app-staging-data-20260513",
+  "backup_dir": "/tmp/masking-app-staging-backups-20260513",
+  "required_steps": [
+    "storage_verify",
+    "audit_verify",
+    "audit_retention",
+    "capacity_profile",
+    "backup_data_root",
+    "restore_verify",
+    "production_gate"
+  ],
+  "optional_steps": [],
+  "steps": {
+    "storage_verify": {
+      "ok": true,
+      "required": true,
+      "exit_code": 0,
+      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/storage-verify.mjs --json /tmp/masking-app-staging-data-20260513"
+    },
+    "audit_verify": {
+      "ok": true,
+      "required": true,
+      "exit_code": 0,
+      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/audit-verify.mjs --json /tmp/masking-app-staging-data-20260513"
+    },
+    "audit_retention": {
+      "ok": true,
+      "required": true,
+      "exit_code": 0,
+      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/audit-retention.mjs --json /tmp/masking-app-staging-data-20260513"
+    },
+    "capacity_profile": {
+      "ok": true,
+      "required": true,
+      "exit_code": 0,
+      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/capacity-profile.mjs --json /tmp/masking-app-staging-data-20260513"
+    },
+    "backup_data_root": {
+      "ok": true,
+      "required": true,
+      "exit_code": 0,
+      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/backup-data-root.mjs --json /tmp/masking-app-staging-data-20260513 /tmp/masking-app-staging-backups-20260513"
+    },
+    "restore_verify": {
+      "ok": true,
+      "required": true,
+      "exit_code": 0,
+      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/restore-verify.mjs --json /tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T053637Z.tgz"
+    },
+    "production_gate": {
+      "ok": true,
+      "required": true,
+      "exit_code": 0,
+      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/production-gate.mjs --json /tmp/masking-app-staging-data-20260513"
+    }
+  },
+  "evidence": {
+    "storage_verify": {
+      "ok": true,
+      "checked_at": "2026-05-13T05:36:36.794Z",
+      "data_root": "/tmp/masking-app-staging-data-20260513",
+      "counts": {
+        "flat_projects": 3,
+        "hierarchy_projects": 1,
+        "task_versions": 1,
+        "training_sets": 0,
+        "identity_files": 13,
+        "images": 193,
+        "masks": 0,
+        "json_files": 19
+      },
+      "warnings": [],
+      "errors": []
+    },
+    "audit_verify": {
+      "ok": true,
+      "checked_at": "2026-05-13T05:36:36.924Z",
+      "data_root": "/tmp/masking-app-staging-data-20260513",
+      "audit_dir": "/tmp/masking-app-staging-data-20260513/audit",
+      "counts": {
+        "files": 0,
+        "events": 0
+      },
+      "actions": {},
+      "warnings": [
+        {
+          "code": "audit_dir_missing",
+          "path": "audit"
+        }
+      ],
+      "errors": []
+    },
+    "audit_retention": {
+      "ok": true,
+      "checked_at": "2026-05-13T05:36:36.979Z",
+      "data_root": "/tmp/masking-app-staging-data-20260513",
+      "audit_dir": "/tmp/masking-app-staging-data-20260513/audit",
+      "retention_days": 180,
+      "cutoff_at": "2025-11-14T05:36:36.978Z",
+      "apply": false,
+      "candidates": [],
+      "deleted": [],
+      "warnings": [
+        {
+          "code": "audit_dir_missing",
+          "path": "audit"
+        }
+      ],
+      "errors": []
+    },
+    "capacity_profile": {
+      "ok": true,
+      "strict": false,
+      "checked_at": "2026-05-13T05:36:37.033Z",
+      "data_root": "/tmp/masking-app-staging-data-20260513",
+      "limits": {
+        "manifestBytesWarn": 5242880,
+        "totalBytesWarn": 10737418240,
+        "imageCountWarn": 10000
+      },
+      "counts": {
+        "manifests": 6,
+        "images": 202,
+        "masks": 0,
+        "other_files": 14
+      },
+      "bytes": {
+        "manifests": 168898,
+        "images": 54601332,
+        "masks": 0,
+        "other_files": 3619,
+        "total": 54773849
+      },
+      "largest_manifest": {
+        "path": "rail-mask-20260513/manifest.json",
+        "size_bytes": 84412
+      },
+      "warnings": [],
+      "errors": []
+    },
+    "backup_data_root": {
+      "ok": true,
+      "checked_at": "2026-05-13T05:36:37.101Z",
+      "data_root": "/tmp/masking-app-staging-data-20260513",
+      "backup_dir": "/tmp/masking-app-staging-backups-20260513",
+      "archive_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T053637Z.tgz",
+      "manifest_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T053637Z.json",
+      "retention": {
+        "retention_count": 0,
+        "deleted_archives": [],
+        "deleted_manifests": []
+      },
+      "errors": []
+    },
+    "restore_verify": {
+      "ok": true,
+      "checked_at": "2026-05-13T05:36:38.367Z",
+      "archive_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T053637Z.tgz",
+      "restore_parent": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-rX0cUl",
+      "restored_data_root": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-rX0cUl/masking-app-staging-data-20260513",
+      "storage_verify": {
+        "ok": true,
+        "checked_at": "2026-05-13T05:36:38.633Z",
+        "data_root": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-rX0cUl/masking-app-staging-data-20260513",
+        "counts": {
+          "flat_projects": 3,
+          "hierarchy_projects": 1,
+          "task_versions": 1,
+          "training_sets": 0,
+          "identity_files": 13,
+          "images": 193,
+          "masks": 0,
+          "json_files": 19
+        },
+        "warnings": [],
+        "errors": []
+      },
+      "errors": []
+    },
+    "production_gate": {
+      "ok": true,
+      "skipped": false,
+      "checked_at": "2026-05-13T05:36:38.726Z",
+      "deployment": {
+        "mode": "production",
+        "data_root": "/tmp/masking-app-staging-data-20260513",
+        "host": "localhost",
+        "public_root": "/Users/polaris/Documents/sundonghwan/masking_app"
+      },
+      "identity": {
+        "ok": true,
+        "strict": true,
+        "data_root": "/tmp/masking-app-staging-data-20260513",
+        "checked_at": "2026-05-13T05:36:38.727Z",
+        "warnings": [],
+        "errors": []
+      },
+      "warnings": [],
+      "errors": [],
+      "security": {
+        "ok": true,
+        "strict": true,
+        "data_root": "/tmp/masking-app-staging-data-20260513",
+        "checked_at": "2026-05-13T05:36:38.727Z",
+        "warnings": [],
+        "errors": []
+      }
+    }
+  },
+  "errors": []
+}

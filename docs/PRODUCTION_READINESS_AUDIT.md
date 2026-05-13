@@ -98,6 +98,17 @@ contracts and the critical browser labeling workflow, but it is not enough to
 claim production readiness while security and storage/concurrency decisions
 remain unresolved.
 
+A staging evidence run against a copied representative data root passed after
+applying identity password migration to the copy:
+
+```text
+release-artifacts/staging-evidence-20260513-after-identity-migration.json
+```
+
+That artifact verifies storage, audit verification, audit retention dry-run,
+capacity profile, backup creation, restore rehearsal, and production gate on
+the copied data root. It does not replace the final target-host evidence run.
+
 ## Production Blockers
 
 ### 1. Browser E2E Coverage
@@ -129,8 +140,7 @@ Remaining follow-up:
 
 - host scheduler installation such as cron, launchd, systemd timer, or managed
   platform scheduler
-- restore rehearsal evidence from a real staging data root, captured with
-  `scripts/harness/staging-evidence.sh --json --output <artifact.json>`
+- repeat restore rehearsal evidence on the final target data root before release
 
 ### 3. Deployment Runbook
 
@@ -227,9 +237,10 @@ Remaining follow-up:
    `MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` for a controlled first
    production boundary.
 2. Run password migration and `production-gate.sh` on the real target data root
-   after backup.
-3. Run `scripts/harness/staging-evidence.sh --json --output <artifact.json>`
-   against a representative staging data root and archive the resulting
+   after backup. This has passed on a copied staging data root, but not on a
+   final target deployment root.
+3. Repeat `scripts/harness/staging-evidence.sh --json --output <artifact.json>`
+   against the final target staging data root and archive the resulting
    evidence JSON.
 4. Decide whether filesystem JSON remains acceptable for the first shared
    production deployment or whether metadata must move to transactional
