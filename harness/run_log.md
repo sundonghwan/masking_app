@@ -1514,3 +1514,11 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=session-login-cleanup note=checked-login-not-blocked-on-cleanup-failure-no-credential-or-token-log-and-persistent-session-path-only
+[GIT] commit=6e640a2 push=origin/main status=passed
+[START] task=operational-audit-retention-design subsystem=security,audit,operations
+[PLAN] scope=design-durable-audit-store-before-implementation risks=overbuilding-filesystem-audit,treating-runtime-logs-as-audit-db
+[DOC] created=docs/superpowers/specs/2026-05-13-operational-audit-retention-design.md note=append-only-filesystem-audit-store-design-and-implementation-slices
+[DOC] updated=docs/PRODUCTION_READINESS_AUDIT.md note=audit-retention-open-decision-now-points-to-design-artifact
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=operational-audit-retention-design note=checked-against-logging-policy-production-audit-security-plan-and-no-runtime-code-change

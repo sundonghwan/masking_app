@@ -175,7 +175,8 @@ Open production decisions:
 - session cleanup retention window beyond TTL-based expired file cleanup
 - host-specific TLS/reverse proxy deployment
 - CSRF policy if the app moves from bearer headers to browser cookies
-- audit retention for admin/review actions
+- audit retention for admin/review actions; design exists in
+  `docs/superpowers/specs/2026-05-13-operational-audit-retention-design.md`
 - host-managed runtime log rotation and retention target
 
 ### 5. Storage And Concurrency Boundary
