@@ -1673,3 +1673,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=training-set-route-utils-refactor note=checked-helper-body-preservation-active-filtering-revision-normalization-trailing-newline-and-syntax-coverage
 [GIT] commit=de86194 push=origin/main status=passed
+[START] task=user-session-invalidation subsystem=security,auth,session
+[PLAN] scope=invalidate-user-sessions-on-password-role-deactivate risks=stale-bearer-token,stale-role-claim,profile-edit-session-churn
+[TEST] updated=tests/sessionStore.test.js,tests/serverApi.test.js note=delete-sessions-for-user-and-account-mutation-session-invalidation
+[CODE] updated=src/server/sessionStore.js,src/server/api.js note=deleteSessionsForUser-plus-user-update-route-invalidation-for-password-role-deactivate
+[DOC] updated=docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=account-mutation-stale-session-invalidation-documented-with-broader-token-rotation-still-open
+[CMD] node --test tests/sessionStore.test.js tests/serverApi.test.js status=red expected=deleteSessionsForUser-missing-and-stale-session-still-authorized
+[CMD] node --test tests/sessionStore.test.js tests/serverApi.test.js status=passed tests=74
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=313
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=user-session-invalidation note=checked-password-role-deactivate-revoke-sessions-display-name-does-not-and-docs-do-not-overclaim-full-idp-token-rotation

@@ -151,7 +151,8 @@ operation. They are not a production identity system. The hardening plan now
 documents the current hard stops and minimum sequence before shared network
 deployment. The first executable gates are implemented: session tokens use
 cryptographic randomness, new local user passwords are stored as PBKDF2 hashes,
-new/rotated local passwords have a minimum local policy, and
+new/rotated local passwords have a minimum local policy, existing bearer
+sessions are invalidated after password, role, or deactivation changes, and
 `scripts/harness/security-check.sh --strict` can fail deployment checks when
 default seed or legacy plaintext passwords remain. `scripts/harness/production-gate.sh`
 now combines strict identity checks with production-mode, dedicated data-root,
@@ -171,7 +172,7 @@ Open production decisions:
   acceptance
 - password reset, lockout, and stronger organization-level password policy
 - operator-run migration for existing plaintext `identity/users.json`
-- token lifetime and rotation
+- broader token rotation policy beyond account mutation invalidation
 - session cleanup retention window beyond TTL-based expired file cleanup
 - host-specific TLS/reverse proxy deployment
 - CSRF policy if the app moves from bearer headers to browser cookies

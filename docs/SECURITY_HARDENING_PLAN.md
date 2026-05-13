@@ -83,7 +83,11 @@ For local or controlled staging:
 - Clean up expired persisted sessions during successful login. Implemented
   baseline: the login path calls `sessionStore.cleanupExpiredSessions()` when
   available and logs cleanup failure without blocking credential login.
-- Add explicit session rotation guidance.
+- Invalidate stale bearer sessions when an admin changes a user's password,
+  changes a user's role, or deactivates a user. Implemented baseline:
+  `sessionStore.deleteSessionsForUser()` plus the user update route invalidation
+  hook.
+- Add explicit broader session rotation guidance.
 - Consider HttpOnly cookies only when CSRF strategy is also decided.
 
 ### 4. Network Boundary

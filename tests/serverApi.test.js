@@ -319,6 +319,58 @@ test("admin updates, resets password, deactivates, and reactivates API users", a
   }, {})).statusCode, 201);
 });
 
+test("admin password role and deactivate changes invalidate existing user sessions", async () => {
+  const directory = await createTempUserDirectory();
+  const { route } = createApiHarness({ userDirectory: directory });
+  const adminHeaders = await loginHeaders(route, "admin");
+  await callJson(route, "POST", "/api/users", {
+    user_id: "session-worker",
+    role: "worker",
+    password: "worker-pass",
+  }, adminHeaders);
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "session-worker",
+    password: "worker-pass",
+  }, {});
+  const workerHeaders = { authorization: `Bearer ${login.body.session.token}` };
+
+  assert.equal((await callJson(route, "GET", "/api/session/me", null, workerHeaders)).statusCode, 200);
+
+  const renamed = await callJson(route, "PUT", "/api/users/session-worker", {
+    display_name: "Session Worker",
+  }, adminHeaders);
+  assert.equal(renamed.statusCode, 200);
+  assert.equal((await callJson(route, "GET", "/api/session/me", null, workerHeaders)).statusCode, 200);
+
+  const rotated = await callJson(route, "PUT", "/api/users/session-worker", {
+    password: "worker-pass-2",
+  }, adminHeaders);
+  assert.equal(rotated.statusCode, 200);
+  assert.equal((await callJson(route, "GET", "/api/session/me", null, workerHeaders)).statusCode, 401);
+
+  const relogin = await callJson(route, "POST", "/api/session/login", {
+    user_id: "session-worker",
+    password: "worker-pass-2",
+  }, {});
+  const secondHeaders = { authorization: `Bearer ${relogin.body.session.token}` };
+  const roleChanged = await callJson(route, "PUT", "/api/users/session-worker", {
+    role: "reviewer",
+  }, adminHeaders);
+  assert.equal(roleChanged.statusCode, 200);
+  assert.equal((await callJson(route, "GET", "/api/session/me", null, secondHeaders)).statusCode, 401);
+
+  const reviewerLogin = await callJson(route, "POST", "/api/session/login", {
+    user_id: "session-worker",
+    password: "worker-pass-2",
+  }, {});
+  const thirdHeaders = { authorization: `Bearer ${reviewerLogin.body.session.token}` };
+  const deactivated = await callJson(route, "PUT", "/api/users/session-worker", {
+    active: false,
+  }, adminHeaders);
+  assert.equal(deactivated.statusCode, 200);
+  assert.equal((await callJson(route, "GET", "/api/session/me", null, thirdHeaders)).statusCode, 401);
+});
+
 test("persistent session store can authorize later requests", async () => {
   const sessionRecords = new Map();
   const sessionStore = {

@@ -55,6 +55,32 @@ export function createSessionStore({ rootDir = DEFAULT_ROOT_DIR, defaultTtlMs = 
         throw error;
       }
     },
+    async deleteSessionsForUser(userId) {
+      const normalizedUserId = normalizeActorId(userId);
+      if (!normalizedUserId) return { deleted: 0 };
+      let entries = [];
+      try {
+        entries = await readdir(sessionsDir, { withFileTypes: true });
+      } catch (error) {
+        if (error.code === "ENOENT") return { deleted: 0 };
+        throw error;
+      }
+      let deleted = 0;
+      for (const entry of entries) {
+        if (!entry.isFile() || !entry.name.endsWith(".json")) continue;
+        const token = entry.name.slice(0, -5);
+        try {
+          const session = normalizeSession(JSON.parse(await readFile(sessionPath(token), "utf8")));
+          if (session.user_id === normalizedUserId) {
+            await rm(sessionPath(token), { force: true });
+            deleted += 1;
+          }
+        } catch (error) {
+          if (error.code !== "ENOENT") throw error;
+        }
+      }
+      return { deleted };
+    },
     async cleanupExpiredSessions(options = {}) {
       const now = options.now instanceof Date ? options.now : new Date();
       let entries = [];
@@ -99,6 +125,10 @@ export function readSession(token) {
 
 export function deleteSession(token) {
   return defaultSessionStore.deleteSession(token);
+}
+
+export function deleteSessionsForUser(userId) {
+  return defaultSessionStore.deleteSessionsForUser(userId);
 }
 
 export function cleanupExpiredSessions(options = {}) {

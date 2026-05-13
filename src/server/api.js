@@ -192,6 +192,9 @@ export function createApiRouter({
       const body = await readJsonBody(request);
       try {
         const user = await userDirectory.updateUser(decodePathSegment(parts[2]), userPayloadFromBody(body));
+        const invalidation = shouldInvalidateUserSessions(body)
+          ? await invalidateUserSessions(user.user_id)
+          : { deleted: 0 };
         await recordAuditEvent({
           action: auditUserUpdateAction(body),
           actor_id: session.userId,
@@ -202,6 +205,7 @@ export function createApiRouter({
           metadata: {
             role: user.role,
             active: user.active !== false,
+            sessions_revoked: invalidation.deleted || 0,
           },
         }, context);
         return sendJson(response, 200, { user });
@@ -1137,6 +1141,27 @@ export function createApiRouter({
   function auditUserUpdateAction(body = {}) {
     if (Object.hasOwn(body, "active")) return body.active === false ? "user.deactivate" : "user.reactivate";
     return "user.update";
+  }
+
+  function shouldInvalidateUserSessions(body = {}) {
+    return Object.hasOwn(body, "password") ||
+      Object.hasOwn(body, "role") ||
+      (Object.hasOwn(body, "active") && body.active === false);
+  }
+
+  async function invalidateUserSessions(userId) {
+    if (sessionStore?.deleteSessionsForUser) {
+      return sessionStore.deleteSessionsForUser(userId);
+    }
+    let deleted = 0;
+    const normalizedUserId = normalizeActorId(userId);
+    for (const [token, storedSession] of sessions.entries()) {
+      if (normalizeActorId(storedSession.userId || storedSession.user_id) === normalizedUserId) {
+        sessions.delete(token);
+        deleted += 1;
+      }
+    }
+    return { deleted };
   }
 
   function auditActor(session = {}) {

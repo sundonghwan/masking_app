@@ -10,6 +10,7 @@ import {
   createSession,
   createSessionStore,
   deleteSession,
+  deleteSessionsForUser,
   readSession,
 } from "../src/server/sessionStore.js";
 
@@ -34,6 +35,20 @@ test("filesystem session store deletes sessions by token", async () => {
   assert.equal(await store.deleteSession(session.token), true);
   assert.equal(await store.readSession(session.token), null);
   assert.equal(await store.deleteSession(session.token), false);
+});
+
+test("filesystem session store deletes all sessions for a user", async () => {
+  const { store } = await createTempSessionStore();
+  const first = await store.createSession({ user_id: "worker", role: ROLES.WORKER });
+  const second = await store.createSession({ user_id: "worker", role: ROLES.WORKER });
+  const admin = await store.createSession({ user_id: "admin", role: ROLES.ADMIN });
+
+  const result = await store.deleteSessionsForUser("worker");
+
+  assert.equal(result.deleted, 2);
+  assert.equal(await store.readSession(first.token), null);
+  assert.equal(await store.readSession(second.token), null);
+  assert.equal((await store.readSession(admin.token)).user_id, "admin");
 });
 
 test("filesystem session store creates unique cryptographic-looking tokens", async () => {
@@ -79,6 +94,7 @@ test("filesystem session store exposes module-level integration helpers", () => 
   assert.equal(typeof createSession, "function");
   assert.equal(typeof readSession, "function");
   assert.equal(typeof deleteSession, "function");
+  assert.equal(typeof deleteSessionsForUser, "function");
   assert.equal(typeof cleanupExpiredSessions, "function");
 });
 
