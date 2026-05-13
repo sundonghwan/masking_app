@@ -1,6 +1,7 @@
 {
   "ok": true,
-  "checked_at": "2026-05-13T05:36:36.736Z",
+  "checked_at": "2026-05-13T06:11:02.580Z",
+  "source_revision": "27fe63dcd7ca4bd3d2892f8da325b1c15bb64f1f",
   "data_root": "/tmp/masking-app-staging-data-20260513",
   "backup_dir": "/tmp/masking-app-staging-backups-20260513",
   "required_steps": [
@@ -48,7 +49,7 @@
       "ok": true,
       "required": true,
       "exit_code": 0,
-      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/restore-verify.mjs --json /tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T053637Z.tgz"
+      "command": "/opt/homebrew/Cellar/node/25.5.0/bin/node scripts/harness/restore-verify.mjs --json /tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T061102Z.tgz"
     },
     "production_gate": {
       "ok": true,
@@ -60,7 +61,7 @@
   "evidence": {
     "storage_verify": {
       "ok": true,
-      "checked_at": "2026-05-13T05:36:36.794Z",
+      "checked_at": "2026-05-13T06:11:02.637Z",
       "data_root": "/tmp/masking-app-staging-data-20260513",
       "counts": {
         "flat_projects": 3,
@@ -77,7 +78,7 @@
     },
     "audit_verify": {
       "ok": true,
-      "checked_at": "2026-05-13T05:36:36.924Z",
+      "checked_at": "2026-05-13T06:11:02.771Z",
       "data_root": "/tmp/masking-app-staging-data-20260513",
       "audit_dir": "/tmp/masking-app-staging-data-20260513/audit",
       "counts": {
@@ -95,11 +96,11 @@
     },
     "audit_retention": {
       "ok": true,
-      "checked_at": "2026-05-13T05:36:36.979Z",
+      "checked_at": "2026-05-13T06:11:02.827Z",
       "data_root": "/tmp/masking-app-staging-data-20260513",
       "audit_dir": "/tmp/masking-app-staging-data-20260513/audit",
       "retention_days": 180,
-      "cutoff_at": "2025-11-14T05:36:36.978Z",
+      "cutoff_at": "2025-11-14T06:11:02.827Z",
       "apply": false,
       "candidates": [],
       "deleted": [],
@@ -114,7 +115,8 @@
     "capacity_profile": {
       "ok": true,
       "strict": false,
-      "checked_at": "2026-05-13T05:36:37.033Z",
+      "checked_at": "2026-05-13T06:11:02.904Z",
+      "source_revision": "27fe63dcd7ca4bd3d2892f8da325b1c15bb64f1f",
       "data_root": "/tmp/masking-app-staging-data-20260513",
       "limits": {
         "manifestBytesWarn": 5242880,
@@ -143,11 +145,11 @@
     },
     "backup_data_root": {
       "ok": true,
-      "checked_at": "2026-05-13T05:36:37.101Z",
+      "checked_at": "2026-05-13T06:11:02.973Z",
       "data_root": "/tmp/masking-app-staging-data-20260513",
       "backup_dir": "/tmp/masking-app-staging-backups-20260513",
-      "archive_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T053637Z.tgz",
-      "manifest_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T053637Z.json",
+      "archive_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T061102Z.tgz",
+      "manifest_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T061102Z.json",
       "retention": {
         "retention_count": 0,
         "deleted_archives": [],
@@ -157,14 +159,14 @@
     },
     "restore_verify": {
       "ok": true,
-      "checked_at": "2026-05-13T05:36:38.367Z",
-      "archive_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T053637Z.tgz",
-      "restore_parent": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-rX0cUl",
-      "restored_data_root": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-rX0cUl/masking-app-staging-data-20260513",
+      "checked_at": "2026-05-13T06:11:04.241Z",
+      "archive_file": "/tmp/masking-app-staging-backups-20260513/masking-app-data-20260513T061102Z.tgz",
+      "restore_parent": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-jW3bcc",
+      "restored_data_root": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-jW3bcc/masking-app-staging-data-20260513",
       "storage_verify": {
         "ok": true,
-        "checked_at": "2026-05-13T05:36:38.633Z",
-        "data_root": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-rX0cUl/masking-app-staging-data-20260513",
+        "checked_at": "2026-05-13T06:11:04.526Z",
+        "data_root": "/var/folders/nq/5blct3d97c9_qkjzdf7j3jr80000gn/T/masking-app-restore-verify-jW3bcc/masking-app-staging-data-20260513",
         "counts": {
           "flat_projects": 3,
           "hierarchy_projects": 1,
@@ -183,7 +185,7 @@
     "production_gate": {
       "ok": true,
       "skipped": false,
-      "checked_at": "2026-05-13T05:36:38.726Z",
+      "checked_at": "2026-05-13T06:11:04.646Z",
       "deployment": {
         "mode": "production",
         "data_root": "/tmp/masking-app-staging-data-20260513",
@@ -194,7 +196,7 @@
         "ok": true,
         "strict": true,
         "data_root": "/tmp/masking-app-staging-data-20260513",
-        "checked_at": "2026-05-13T05:36:38.727Z",
+        "checked_at": "2026-05-13T06:11:04.647Z",
         "warnings": [],
         "errors": []
       },
@@ -204,7 +206,7 @@
         "ok": true,
         "strict": true,
         "data_root": "/tmp/masking-app-staging-data-20260513",
-        "checked_at": "2026-05-13T05:36:38.727Z",
+        "checked_at": "2026-05-13T06:11:04.647Z",
         "warnings": [],
         "errors": []
       }

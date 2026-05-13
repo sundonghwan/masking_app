@@ -1,6 +1,7 @@
 {
   "ok": true,
-  "checked_at": "2026-05-13T05:41:57.559Z",
+  "checked_at": "2026-05-13T06:14:03.290Z",
+  "source_revision": "27fe63dcd7ca4bd3d2892f8da325b1c15bb64f1f",
   "base_url": "http://127.0.0.1:4183",
   "health_url": "http://127.0.0.1:4183/api/health",
   "status": 200,

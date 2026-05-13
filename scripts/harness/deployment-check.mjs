@@ -1,7 +1,11 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+
 import { resolveSourceRevision } from "./source-revision.mjs";
 
 const args = process.argv.slice(2);
 const jsonOutput = takeFlag("--json");
+const outputFile = takeOption("--output");
 const baseUrl = normalizeBaseUrl(args[0] || process.env.MASKING_APP_BASE_URL || defaultBaseUrl());
 const healthUrl = new URL("/api/health", baseUrl);
 const sourceRevision = await resolveSourceRevision(process.cwd());
@@ -46,6 +50,9 @@ try {
 }
 
 result.ok = result.errors.length === 0;
+if (outputFile) {
+  await writeOutput(result, outputFile);
+}
 printResult();
 process.exit(result.ok ? 0 : 1);
 
@@ -54,6 +61,20 @@ function takeFlag(flag) {
   if (index < 0) return false;
   args.splice(index, 1);
   return true;
+}
+
+function takeOption(flag) {
+  const index = args.indexOf(flag);
+  if (index < 0) return "";
+  const value = args[index + 1] || "";
+  args.splice(index, 2);
+  return value;
+}
+
+async function writeOutput(payload, outputPath) {
+  const target = path.resolve(outputPath);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
 }
 
 function normalizeBaseUrl(value) {

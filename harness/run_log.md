@@ -1837,3 +1837,23 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=artifact_revision_missing,boundary_decisions_undecided
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=release-evidence-revision-gate note=gate-now-refuses-old-artifacts-without-source-revision
+[GIT] commit=df40026 push=origin/main status=passed
+[GIT] commit=27fe63d push=origin/main status=passed
+[START] task=refresh-revisioned-release-artifacts subsystem=release,evidence,staging
+[PLAN] scope=refresh-staging-and-local-deployment-evidence-with-source-revision risks=local-evidence-not-final-host-evidence,sandbox-port-listen
+[CMD] scripts/harness/storage-verify.sh --json /tmp/masking-app-staging-data-20260513 status=passed
+[CMD] scripts/harness/security-check.sh --strict /tmp/masking-app-staging-data-20260513 status=passed
+[CMD] staging-evidence refresh status=passed artifact=release-artifacts/staging-evidence-20260513-after-identity-migration.json source_revision=27fe63d
+[BLOCKER] command=start-production-server status=failed code=EPERM reason=sandbox-local-port-listen
+[CMD] start-production-server port=4183 data_root=/tmp/masking-app-staging-data-20260513 status=passed note=approved-escalated-local-listen
+[CODE] updated=scripts/harness/deployment-check.mjs note=added-output-option-for-health-evidence-artifact
+[CMD] deployment-check refresh status=passed artifact=release-artifacts/deployment-check-20260513-production-local.json source_revision=27fe63d
+[CMD] stop-production-server port=4183 status=passed
+[CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=boundary_decisions_undecided artifact_revision_errors=0
+[DOC] updated=harness/commands.md,docs/REMAINING_WORK_BOARD.md note=deployment-check-output-and-current-gate-status
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=325
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=refresh-revisioned-release-artifacts note=evidence-remains-local-staging-not-final-production-host

@@ -69,13 +69,12 @@ need.
 - Latest local production health artifact:
   `release-artifacts/deployment-check-20260513-production-local.json` passed
   against `127.0.0.1:4183` in production mode using the migrated copied data
-  root.
+  root and source revision metadata.
 - Latest local capacity profile artifact:
   `release-artifacts/capacity-profile-20260513-local.json` passed on the
   current local `data/` root with 202 images and no threshold warnings.
-- Release candidate gate currently fails because older release artifacts do not
-  include source revision metadata and required boundary decisions remain
-  `Undecided`.
+- Release candidate gate currently fails only because required boundary
+  decisions remain `Undecided`.
 - Last pushed commits:
   - `9cf5459` - remaining work board
   - `3be9ba0` - assignment route helper refactor

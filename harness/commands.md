@@ -223,14 +223,17 @@ Preferred wrapper:
 ```bash
 scripts/harness/deployment-check.sh [base-url]
 scripts/harness/deployment-check.sh --json [base-url]
+scripts/harness/deployment-check.sh --json --output release-artifacts/deployment-check-YYYYMMDD.json [base-url]
 ```
 
 Current behavior:
 
 - checks a running server; it does not start the app
 - defaults to `MASKING_APP_BASE_URL` or `http://$MASKING_APP_HOST:$PORT`
+- records `source_revision` from git or `MASKING_APP_SOURCE_REVISION`
 - verifies `/api/health` returns the expected service marker, deployment
   profile, and AI capability shape
+- `--output` writes the same JSON health evidence to an artifact path
 - exits non-zero when the server is unreachable or the health payload does not
   match the app contract
 
