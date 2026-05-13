@@ -1429,3 +1429,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=api-revision-helper-refactor note=checked-stale-guard-response-shape-and-no-route-behavior-change
+[GIT] commit=e870ada push=origin/main status=passed
+[START] task=multipart-parser-refactor subsystem=backend,upload,refactor
+[PLAN] scope=extract-multipart-helpers,focused-parser-tests,syntax-coverage risks=upload-field-parsing-drift,content-type-default-drift
+[TEST] added=tests/multipart.test.js note=boundary-parsing-text-field-file-part-and-content-type-defaults
+[CODE] added=src/server/multipart.js updated=src/server/api.js,scripts/harness/check-syntax.mjs note=multipart-parser-extracted-from-large-api-router
+[DOC] updated=docs/PRODUCTION_READINESS_AUDIT.md note=full-test-count-282
+[CMD] node --test tests/multipart.test.js status=passed tests=2
+[CMD] node --test tests/serverApi.test.js status=passed tests=54
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=282
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=multipart-parser-refactor note=checked-upload-field-parsing-file-part-content-type-default-and-mvp-non-streaming-boundary
