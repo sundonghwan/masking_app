@@ -441,6 +441,8 @@ Current behavior:
 - verifies required release evidence JSON artifacts exist and have `ok: true`
 - verifies required release evidence artifacts have `source_revision` metadata
   matching the gate's target revision
+- accepts a later artifact/documentation commit only when no release-relevant
+  files changed since the artifact `source_revision`
 - verifies `docs/PRODUCTION_BOUNDARY_DECISIONS.md` has explicit decisions for
   identity, metadata storage, network boundary, backup/restore, and audit/log
   retention

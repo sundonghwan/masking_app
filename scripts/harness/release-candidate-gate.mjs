@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { resolveSourceRevision } from "./source-revision.mjs";
+import { hasReleaseRelevantChanges, resolveSourceRevision } from "./source-revision.mjs";
 
 const DEFAULT_ARTIFACTS = Object.freeze({
   staging_evidence: "release-artifacts/staging-evidence-20260513-after-identity-migration.json",
@@ -43,6 +43,8 @@ export async function checkReleaseCandidate(options = {}) {
   const artifacts = options.artifacts || DEFAULT_ARTIFACTS;
   const decisionsFile = options.decisionsFile || "docs/PRODUCTION_BOUNDARY_DECISIONS.md";
   const sourceRevision = options.sourceRevision || await resolveSourceRevision(cwd);
+  const isRevisionStale = options.isRevisionStale || ((artifactRevision, targetRevision) =>
+    hasReleaseRelevantChanges(artifactRevision, targetRevision, cwd));
   const result = {
     ok: false,
     checked_at: new Date().toISOString(),
@@ -61,7 +63,7 @@ export async function checkReleaseCandidate(options = {}) {
   }
 
   for (const [name, relativePath] of Object.entries(artifacts)) {
-    result.artifacts[name] = await readArtifact({ cwd, name, relativePath, sourceRevision, errors: result.errors });
+    result.artifacts[name] = await readArtifact({ cwd, name, relativePath, sourceRevision, isRevisionStale, errors: result.errors });
   }
 
   const decisions = await readBoundaryDecisions(path.join(cwd, decisionsFile), result.errors);
@@ -88,7 +90,7 @@ export async function checkReleaseCandidate(options = {}) {
   return result;
 }
 
-async function readArtifact({ cwd, name, relativePath, sourceRevision, errors }) {
+async function readArtifact({ cwd, name, relativePath, sourceRevision, isRevisionStale, errors }) {
   const file = path.join(cwd, relativePath);
   try {
     const payload = JSON.parse(await readFile(file, "utf8"));
@@ -108,7 +110,7 @@ async function readArtifact({ cwd, name, relativePath, sourceRevision, errors })
         expected_revision: sourceRevision,
         remediation: revisionRemediation(name, relativePath),
       });
-    } else if (sourceRevision && payload.source_revision !== sourceRevision) {
+    } else if (sourceRevision && payload.source_revision !== sourceRevision && await isRevisionStale(payload.source_revision, sourceRevision)) {
       errors.push({
         code: "artifact_revision_mismatch",
         artifact: name,

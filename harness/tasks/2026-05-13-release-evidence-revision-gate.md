@@ -64,13 +64,15 @@
   profile JSON outputs.
 - Release candidate gate now fails required artifacts that lack revision
   metadata or mismatch the gate target revision.
+- Release candidate gate allows a later artifact/documentation commit when no
+  release-relevant files changed since the artifact revision.
 - Current gate is expected to fail on the older archived staging/deployment
   artifacts because they predate this metadata.
 - Validation:
-  - `node --test tests/releaseCandidateGate.test.js tests/stagingEvidence.test.js tests/capacityProfile.test.js tests/checkSyntax.test.js` passed, 13 tests
+  - `node --test tests/releaseCandidateGate.test.js tests/stagingEvidence.test.js tests/capacityProfile.test.js tests/checkSyntax.test.js` passed, 14 tests
   - `scripts/harness/lint-all.sh` passed
   - `scripts/harness/typecheck-all.sh` passed
-  - `scripts/harness/test-target.sh` passed, 324 tests
+  - `scripts/harness/test-target.sh` passed, 325 tests
   - `scripts/harness/smoke-web.sh` passed
   - `scripts/harness/release-candidate-gate.sh --json` expected-failed with artifact revision and boundary decision blockers
   - `git diff --check` passed

@@ -13,3 +13,30 @@ export async function resolveSourceRevision(cwd = process.cwd(), env = process.e
     return "";
   }
 }
+
+export async function hasReleaseRelevantChanges(fromRevision, toRevision, cwd = process.cwd()) {
+  if (!fromRevision || !toRevision || fromRevision === toRevision) return false;
+  try {
+    await execFilePromise(
+      "git",
+      [
+        "diff",
+        "--quiet",
+        fromRevision,
+        toRevision,
+        "--",
+        "server.js",
+        "src",
+        "scripts",
+        "package.json",
+        "package-lock.json",
+        "Dockerfile",
+        "docker-compose.yml",
+      ],
+      { cwd },
+    );
+    return false;
+  } catch (error) {
+    return Number(error.code) === 1 ? true : true;
+  }
+}

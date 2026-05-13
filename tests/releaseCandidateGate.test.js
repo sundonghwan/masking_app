@@ -55,6 +55,25 @@ test("checkReleaseCandidate fails when artifacts lack the current source revisio
   assert.equal(mismatchError.actual_revision, "old-revision");
 });
 
+test("checkReleaseCandidate accepts artifact revisions when release-relevant files did not change", async () => {
+  const root = await createReleaseFixture({
+    stagingOk: true,
+    deploymentOk: true,
+    sourceRevision: "artifact-revision",
+    decisions: ["local accepted", "filesystem accepted", "internal", "scheduled", "host-managed", "deferred"],
+  });
+
+  const result = await checkReleaseCandidate({
+    cwd: root,
+    artifacts: fixtureArtifacts(),
+    sourceRevision: "metadata-commit",
+    isRevisionStale: async () => false,
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.errors, []);
+});
+
 test("checkReleaseCandidate fails when a required artifact is missing", async () => {
   const root = await createReleaseFixture({
     stagingOk: true,

@@ -26,7 +26,7 @@ or production audit. This board separates:
 | Multi-class masks | Done for MVP | Label schema, selected label color, per-class masks, class-aware export/training metadata implemented |
 | Training-set output | Done | Selected sources, saved training sets, deterministic split, re-export/archive/restore implemented |
 | AI serving | Contract done | Generic detection/segmentation/classification API contract exists; real model adapter is deferred |
-| Validation harness | Strong baseline | lint, typecheck, 324 Node tests, smoke, browser E2E entrypoint, production gate, staging evidence bundle, release artifact revision checks |
+| Validation harness | Strong baseline | lint, typecheck, 325 Node tests, smoke, browser E2E entrypoint, production gate, staging evidence bundle, release artifact revision checks |
 | Code health | Active cleanup | Project settings and assignment route helpers extracted; larger route blocks remain |
 | Production readiness | Not complete | Identity/storage/host evidence decisions remain |
 
