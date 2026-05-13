@@ -198,6 +198,41 @@ test("repairs legacy project manifests with preview and apply modes", async () =
   assert.equal(repaired.images[0].mask_ratio, 0.25);
 });
 
+test("repairs project manifests by adding orphan image files", async () => {
+  const { storage } = await createTempStorage();
+  await storage.ensureProject("project-1");
+  await storage.writeProjectManifest("project-1", {
+    project_id: "project-1",
+    name: "Project 1",
+    images: [],
+  });
+  await storage.writeImageBuffer(
+    "project-1",
+    "image_0001",
+    "image_0001_frame_0001.png",
+    createPngHeader({ width: 13, height: 7 }),
+    { mimeType: "image/png" },
+  );
+
+  const preview = await storage.repairProjectManifest("project-1", { apply: false });
+  assert.equal(preview.applied, false);
+  assert.equal(preview.manifest.images.length, 1);
+  assert.equal(preview.manifest.images[0].id, "image_0001");
+  assert.equal(preview.manifest.images[0].image_path, "images/image_0001_frame_0001.png");
+  assert.equal(preview.manifest.images[0].width, 13);
+  assert.equal(preview.manifest.images[0].height, 7);
+  assert.equal(preview.changes.some((change) => change.action === "add_orphan_image_file"), true);
+
+  const unchanged = await storage.readProjectManifest("project-1");
+  assert.equal(unchanged.images.length, 0);
+
+  const applied = await storage.repairProjectManifest("project-1", { apply: true });
+  assert.equal(applied.applied, true);
+  const repaired = await storage.readProjectManifest("project-1");
+  assert.equal(repaired.images.length, 1);
+  assert.equal(repaired.images[0].original_file_name, "frame_0001.png");
+});
+
 test("updates archives restores and purges project manifests", async () => {
   const { storage, rootDir } = await createTempStorage();
   await storage.ensureProject("project-1", { name: "Project 1" });
@@ -884,4 +919,16 @@ function assertStoragePath(rootDir, value) {
   const relative = path.relative(rootDir, value);
   assert.equal(relative.startsWith(".."), false);
   assert.equal(path.isAbsolute(relative), false);
+}
+
+function createPngHeader({ width, height }) {
+  const header = Buffer.alloc(33);
+  Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(header, 0);
+  header.writeUInt32BE(13, 8);
+  header.write("IHDR", 12, "ascii");
+  header.writeUInt32BE(width, 16);
+  header.writeUInt32BE(height, 20);
+  header.writeUInt8(8, 24);
+  header.writeUInt8(6, 25);
+  return header;
 }

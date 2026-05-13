@@ -1,5 +1,6 @@
 import { copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
+import { parseImageMetadata } from "./imageMetadata.js";
 
 const DEFAULT_MANIFEST = {
   project_id: "",
@@ -115,6 +116,10 @@ export function createFileStorage({ rootDir = "data" } = {}) {
       if (!manifest) throw new TypeError("Project manifest is required");
       const repair = repairProjectManifestRecord(manifest, {
         projectId: safeProjectId,
+        now: input.now,
+      });
+      await addOrphanProjectImagesToRepair(safeProjectId, repair, {
+        projectRoot: projectPath(safeProjectId),
         now: input.now,
       });
       if (input.apply) {
@@ -1055,6 +1060,114 @@ export function repairProjectManifestRecord(manifest = {}, options = {}) {
     changes,
     manifest: repairedManifest,
   };
+}
+
+async function addOrphanProjectImagesToRepair(projectId, repair, options = {}) {
+  const imageDir = safeJoin(options.projectRoot || projectPath(projectId), "images");
+  let entries = [];
+  try {
+    entries = await readdir(imageDir, { withFileTypes: true });
+  } catch (error) {
+    if (error.code === "ENOENT") return repair;
+    throw error;
+  }
+
+  const now = normalizeNow(options.now);
+  const images = Array.isArray(repair.manifest.images) ? repair.manifest.images : [];
+  const referencedPaths = new Set(images.map((image) => String(image.image_path || "").replace(/\\/g, "/")).filter(Boolean));
+  const usedIds = new Set(images.map((image) => String(image.id || "")).filter(Boolean));
+  const orphanRecords = [];
+
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (!entry.isFile()) continue;
+    const relativePath = toArchivePath("images", entry.name);
+    if (referencedPaths.has(relativePath)) continue;
+
+    const buffer = await readFile(safeJoin(imageDir, entry.name));
+    const metadata = parseImageMetadata(buffer, mimeTypeFromFileName(entry.name));
+    if (!metadata.valid) continue;
+
+    const imageId = uniqueImageId(imageIdFromStoredFileName(entry.name), usedIds);
+    const originalFileName = originalFileNameFromStoredFileName(entry.name, imageId);
+    orphanRecords.push({
+      id: imageId,
+      image_id: imageId,
+      project_id: projectId,
+      original_file_name: originalFileName,
+      image_path: relativePath,
+      current_mask_path: "",
+      mask_path: "",
+      width: metadata.width,
+      height: metadata.height,
+      mask_width: metadata.width,
+      mask_height: metadata.height,
+      mask_values_valid: null,
+      mask_ratio: 0,
+      status: "not_started",
+      assigned_to: "",
+      worker_id: "",
+      reviewer_id: "",
+      submitted_at: "",
+      created_at: now,
+      updated_at: now,
+      object_url: "",
+      mask_data_url: "",
+      export_image_file_name: "",
+      export_mask_file_name: "",
+      deleted_at: "",
+      deleted_by: "",
+      delete_reason: "",
+      review_events: [],
+    });
+    referencedPaths.add(relativePath);
+    repair.changes.push({
+      field: `images.${imageId}`,
+      action: "add_orphan_image_file",
+      path: relativePath,
+    });
+  }
+
+  if (orphanRecords.length > 0) {
+    repair.manifest.images = [...images, ...orphanRecords];
+    repair.manifest.updated_at = now;
+    repair.change_count = repair.changes.length;
+    const latestRepair = repair.manifest.repair_history?.at(-1);
+    if (latestRepair) latestRepair.change_count = repair.change_count;
+  }
+  return repair;
+}
+
+function mimeTypeFromFileName(fileName) {
+  const ext = path.extname(String(fileName || "")).toLowerCase();
+  if (ext === ".png") return "image/png";
+  if (ext === ".jpg" || ext === ".jpeg") return "image/jpeg";
+  if (ext === ".bmp") return "image/bmp";
+  if (ext === ".webp") return "image/webp";
+  return "";
+}
+
+function imageIdFromStoredFileName(fileName) {
+  const base = path.basename(String(fileName || "image"), path.extname(String(fileName || "")));
+  const match = /^(image_\d+)/.exec(base);
+  return sanitizeSegment(match?.[1] || base || "image", "imageId");
+}
+
+function originalFileNameFromStoredFileName(fileName, imageId) {
+  const safeFileName = sanitizeFileName(fileName);
+  const prefix = `${imageId}_`;
+  return safeFileName.startsWith(prefix) ? safeFileName.slice(prefix.length) : safeFileName;
+}
+
+function uniqueImageId(baseImageId, usedIds) {
+  const initial = sanitizeSegment(baseImageId || "image", "imageId");
+  let imageId = initial;
+  let suffix = 2;
+  while (usedIds.has(imageId)) {
+    imageId = `${initial}_${suffix}`;
+    suffix += 1;
+  }
+  usedIds.add(imageId);
+  return imageId;
 }
 
 export function bufferFromDataUrl(dataUrl) {

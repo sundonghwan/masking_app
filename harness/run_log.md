@@ -1900,3 +1900,16 @@ chains in `harness/tasks/`; keep this file short.
 [DOC] updated=docs/REMAINING_WORK_BOARD.md note=linked-user-manual
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=user-manual note=manual-does-not-claim-production-approval-and-matches-current-ui-controls
+[START] task=image-not-found-repair subsystem=storage,manifest,data-repair
+[PLAN] scope=repair-flat-project-manifest-orphan-image-files risks=accidental-registration-of-non-image-files,local-indexeddb-stale-state
+[IMPACT] status=validated chain=repairProjectManifest (src/server/storage.js:113-125) -> repairProjectManifestRecord (src/server/storage.js:979-1063) -> addOrphanProjectImagesToRepair (src/server/storage.js:1065-1138)
+[IMPACT_VALIDATE] chain=repairProjectManifest validation=orphan-image-repair-test passed
+[DATA] repaired=rail-mask-20260513 added_orphan_images=image_0001,image_0002,image_0057,image_0058 note=data-root-is-gitignored
+[CMD] node --test tests/serverStorage.test.js status=passed tests=26
+[CMD] scripts/harness/storage-verify.sh --json data status=passed images=197
+[CMD] live-api-check image=image_0001 status=passed note=mask-save-now-reaches-mask_validation_failed-not-image_not_found
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=329
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=image-not-found-repair note=repair-only-registers-valid-image-files-inside-project-images-dir-and-preserves-preview-apply-mode
