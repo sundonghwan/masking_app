@@ -56,6 +56,24 @@ test("sanitizeLogFields redacts image and mask payload fields", () => {
   });
 });
 
+test("sanitizeLogFields redacts credential and token fields", () => {
+  const output = sanitizeLogFields({
+    user_id: "admin",
+    password: "secret",
+    token: "sess_secret",
+    sessionToken: "sess_secret",
+    authorization: "Bearer sess_secret",
+  });
+
+  assert.deepEqual(output, {
+    user_id: "admin",
+    password: "[REDACTED]",
+    token: "[REDACTED]",
+    sessionToken: "[REDACTED]",
+    authorization: "[REDACTED]",
+  });
+});
+
 test("sanitizeLogFields serializes errors without stack traces", () => {
   const error = new Error("boom");
   error.status = 422;

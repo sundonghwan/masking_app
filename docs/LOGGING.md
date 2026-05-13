@@ -116,6 +116,9 @@ Never log:
 - mask data URLs
 - raw image bytes
 - raw mask bytes
+- passwords
+- bearer/session tokens
+- authorization headers
 - full filesystem paths outside the repo if not needed
 - browser object URLs
 - large request bodies
@@ -156,6 +159,8 @@ When adding or changing high-risk flows, update logs with the same care as tests
 - sync changes should log fallback path and reason
 - storage changes should log only archive-relative paths or counts
 - auth/review/admin additions must define user/action IDs before implementation
+- auth/session changes must never log passwords, bearer tokens, or authorization
+  headers
 
 ## 7. Verification
 

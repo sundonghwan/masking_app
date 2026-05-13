@@ -1262,3 +1262,15 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=session-ttl-config note=checked-default-preserved-invalid-ttl-rejected-no-token-exposure
 [CLOSE] status=ready-for-commit
+[GIT] commit=006f2eb push=origin/main status=passed
+[START] task=log-redaction-hardening subsystem=observability,security
+[PLAN] scope=credential-token-redaction,logging-policy-update risks=password-token-log-leak
+[CODE] changed=src/observability/logger.js note=redacts-password-token-sessionToken-authorization
+[TEST] changed=tests/logger.test.js note=credential-token-redaction-covered
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=250
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=log-redaction-hardening note=checked-credential-fields-redacted-user-id-retained
+[CLOSE] status=ready-for-commit

@@ -74,7 +74,7 @@ For this repository, "production-level" means the following are true:
 | Performance/load limits for large datasets | Upload limits exist, but no benchmark or capacity profile | Missing |
 | Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md`, `src/server/sessionToken.js`, `src/server/passwords.js`, `scripts/harness/security-check.sh` | Partial executable gates |
 | Filesystem storage concurrency boundary | `docs/STORAGE_CONCURRENCY_DECISION.md` defines single-process limits and DB migration triggers | Accepted local/staging constraint |
-| Observability dashboard or log ingestion | Structured logs exist; no dashboard or retention plan | Missing |
+| Observability dashboard or log ingestion | Structured logs exist and credential/token redaction is covered; no dashboard or retention plan | Partial |
 
 ## Evidence From Current Validation
 

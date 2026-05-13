@@ -7,7 +7,11 @@ const DEFAULT_REDACTED_KEYS = new Set([
   "objectUrl",
   "body",
   "buffer",
+  "authorization",
   "payload",
+  "password",
+  "sessionToken",
+  "token",
 ]);
 
 export function createLogger(options = {}) {
