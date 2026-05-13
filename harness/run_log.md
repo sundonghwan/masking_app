@@ -1401,3 +1401,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/browser-e2e.sh status=passed note=local-mode-server-startup-not-broken-by-production-safety
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=production-gate note=checked-pre-release-gate-and-startup-boundary-with-no-external-idp-tls-scheduler-or-db-overclaim
+[GIT] commit=52fc626 push=origin/main status=passed
+[START] task=runtime-log-file-sink subsystem=observability,operations
+[PLAN] scope=jsonl-file-sink,server-env-wiring,docs risks=request-path-sync-append,overclaiming-log-retention
+[TEST] added=tests/runtimeLogSink.test.js note=jsonl-file-append-and-mirror-sink
+[CODE] added=src/observability/runtimeLogSink.js updated=server.js,src/observability/logger.js,scripts/harness/check-syntax.mjs note=masking-app-log-file-jsonl-runtime-sink
+[DOC] updated=docs/LOGGING.md,docs/RUNBOOK_DEPLOYMENT.md,docs/PRODUCTION_READINESS_AUDIT.md note=masking-app-log-file-usage-and-host-managed-retention
+[CMD] node --test tests/runtimeLogSink.test.js status=passed tests=3
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=276
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] scripts/harness/browser-e2e.sh status=passed note=log-file-env-wiring-does-not-break-local-server-workflow
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=runtime-log-file-sink note=checked-jsonl-sanitized-entries-host-retention-boundary-and-sync-append-risk

@@ -81,7 +81,7 @@ export function createRequestId(prefix = "req") {
   return `${prefix}_${Date.now().toString(36)}_${random}`;
 }
 
-function defaultSink(entry) {
+export function defaultSink(entry) {
   const method = entry.level === "error" ? "error" : entry.level === "warn" ? "warn" : "log";
   console[method](JSON.stringify(entry));
 }

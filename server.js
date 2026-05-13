@@ -4,7 +4,8 @@ import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { createLogger, createRequestId } from "./src/observability/logger.js";
+import { createLogger, createRequestId, defaultSink } from "./src/observability/logger.js";
+import { createJsonlFileSink } from "./src/observability/runtimeLogSink.js";
 import { createApiRouter } from "./src/server/api.js";
 import { resolveDeploymentProfile } from "./src/server/deploymentProfile.js";
 import { applyHttpSecurityHeaders, createHttpSecurityPolicy, handleCorsPreflight } from "./src/server/httpSecurity.js";
@@ -21,7 +22,12 @@ const HOST = deploymentProfile.host === "localhost" ? undefined : deploymentProf
 const PUBLIC_ROOT = deploymentProfile.publicRoot;
 const DATA_ROOT = deploymentProfile.dataRoot;
 
-const logger = createLogger({ component: "server" });
+const logger = createLogger({
+  component: "server",
+  sink: process.env.MASKING_APP_LOG_FILE
+    ? createJsonlFileSink({ logFile: process.env.MASKING_APP_LOG_FILE, mirrorSink: defaultSink })
+    : defaultSink,
+});
 const storage = createFileStorage({ rootDir: DATA_ROOT });
 const userDirectory = createUserDirectory({ rootDir: DATA_ROOT });
 const sessionStore = createSessionStore({ rootDir: DATA_ROOT });

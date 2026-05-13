@@ -75,7 +75,7 @@ For this repository, "production-level" means the following are true:
 | Performance/load limits for large datasets | Upload limits exist; `scripts/harness/capacity-profile.sh` reports data-root capacity and strict threshold warnings | Partial capacity gate |
 | Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md`, `src/server/sessionToken.js`, `src/server/passwords.js`, `src/server/httpSecurity.js`, `src/server/productionSafety.js`, `scripts/harness/security-check.sh`, `scripts/harness/production-gate.sh` | Partial executable gates |
 | Filesystem storage concurrency boundary | `docs/STORAGE_CONCURRENCY_DECISION.md` defines single-process limits and DB migration triggers | Accepted local/staging constraint |
-| Observability dashboard or log ingestion | Structured logs exist and credential/token redaction is covered; no dashboard or retention plan | Partial |
+| Observability dashboard or log ingestion | Structured logs exist, credential/token redaction is covered, and `MASKING_APP_LOG_FILE` can write sanitized JSONL runtime logs | Partial |
 
 ## Evidence From Current Validation
 
@@ -90,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 273 Node tests, and the baseline browser E2E
+The latest full test run passed 276 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -170,6 +170,7 @@ Open production decisions:
 - host-specific TLS/reverse proxy deployment
 - CSRF policy if the app moves from bearer headers to browser cookies
 - audit retention for admin/review actions
+- host-managed runtime log rotation and retention target
 
 ### 5. Storage And Concurrency Boundary
 

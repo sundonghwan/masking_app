@@ -44,6 +44,17 @@ Use runtime logs for:
 - frontend backend-sync failure
 - local fallback behavior
 
+By default the Node server writes structured runtime logs to stdout. For
+production-like operation, set `MASKING_APP_LOG_FILE` to append the same
+sanitized JSON entries to a JSONL file while still mirroring to stdout:
+
+```bash
+MASKING_APP_LOG_FILE=/var/log/masking-app/runtime.jsonl npm run dev
+```
+
+The repository does not install log rotation. Use the host platform, Docker log
+driver, or a managed log shipper for retention and archival.
+
 ## 2. Runtime Log Format
 
 Runtime logs should be structured JSON or a structured console object with these
@@ -180,3 +191,8 @@ curl -sS http://localhost:4173/api/health
 ```
 
 Inspect the terminal output for structured `api.request.completed` events.
+When `MASKING_APP_LOG_FILE` is configured, also inspect the JSONL file:
+
+```bash
+tail -n 5 "$MASKING_APP_LOG_FILE"
+```

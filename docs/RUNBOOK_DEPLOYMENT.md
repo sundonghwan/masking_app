@@ -35,6 +35,7 @@ production-hardening decisions.
 | `MASKING_APP_DATA_DIR` or `MASKING_APP_DATA_ROOT` | `data` | Filesystem runtime data root |
 | `MASKING_APP_PUBLIC_ROOT` | repo root | Static file root |
 | `MASKING_APP_LOG_LEVEL` | `info` | Log level placeholder for current logger policy |
+| `MASKING_APP_LOG_FILE` | unset | Optional JSONL runtime log file path |
 | `MASKING_APP_AI_SERVING` | disabled | Enables generic AI contract/stub only |
 | `MASKING_APP_AI_PROVIDER` | `stub` | AI provider label |
 | `MASKING_APP_AI_TASKS` | `detection,segmentation,classification` | Advertised AI task capabilities |
@@ -64,6 +65,7 @@ production-hardening decisions.
    MASKING_APP_HOST=127.0.0.1 \
    MASKING_APP_MODE=staging \
    MASKING_APP_DATA_DIR=/path/to/masking-app-data \
+   MASKING_APP_LOG_FILE=/path/to/masking-app-runtime.jsonl \
    npm run dev
    ```
 
@@ -264,6 +266,8 @@ identity checks fail.
   passwords, but it is not an external identity provider.
 - TLS termination is still external to the Node server and must be configured in
   the deployment host or reverse proxy.
+- `MASKING_APP_LOG_FILE` writes JSONL runtime logs, but log rotation and
+  retention are host-managed.
 - Docker Compose is the current packaged process runner. Host-native launchd,
   systemd, and managed platform service definitions are not installed here.
 - No database or object storage backend exists yet.
