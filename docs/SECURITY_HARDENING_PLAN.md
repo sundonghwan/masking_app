@@ -56,6 +56,10 @@ For local or controlled staging:
 - Add a startup warning when default passwords are detected. Pending.
 - Add a verifier check that can fail deployment if default passwords remain.
   Implemented baseline: `scripts/harness/security-check.sh --strict`.
+- Add a production gate that combines deployment-profile checks, strict
+  identity security checks, explicit filesystem-boundary acceptance, and
+  dedicated data-root enforcement. Implemented baseline:
+  `scripts/harness/production-gate.sh`.
 
 ### 2. Hash Stored Passwords
 
@@ -81,7 +85,8 @@ For local or controlled staging:
   for those browser origins.
 - Put TLS termination and reverse proxy details in the deployment host config.
 - Reject unsafe public-root or data-root settings at startup when in production
-  mode.
+  mode. Baseline pre-release coverage exists in `production-gate.sh`; server
+  startup enforcement remains pending.
 
 ### 5. Audit And Retention
 
@@ -117,4 +122,6 @@ Production identity can be considered acceptable only when:
 Keep the current local MVP auth for local/staging-only work while dataset and
 workflow features stabilize. Before any shared network deployment, implement at
 least default-password blocking, hashed password storage, cryptographic session
-tokens, and explicit network boundary checks.
+tokens, and explicit network boundary checks. For production-mode release
+checks, run `scripts/harness/production-gate.sh` with the real target data root
+after backup and password migration.

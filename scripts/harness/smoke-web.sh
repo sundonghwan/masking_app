@@ -61,6 +61,8 @@ require_file scripts/harness/backup-data-root.sh
 require_file scripts/harness/backup-data-root.mjs
 require_file scripts/harness/restore-verify.sh
 require_file scripts/harness/restore-verify.mjs
+require_file scripts/harness/production-gate.sh
+require_file scripts/harness/production-gate.mjs
 
 require_file docs/design/screens-v2/01-main-mask-editor.png
 require_file docs/design/screens-v2/02-dataset-upload.png
@@ -85,3 +87,4 @@ echo "smoke-web: security check entrypoint is present."
 echo "smoke-web: capacity profile entrypoint is present."
 echo "smoke-web: data-root backup entrypoint is present."
 echo "smoke-web: restore rehearsal entrypoint is present."
+echo "smoke-web: production gate entrypoint is present."

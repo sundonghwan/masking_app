@@ -237,10 +237,26 @@ For Docker packaging changes, also run:
 node --test tests/deploymentPackaging.test.js
 ```
 
+Before declaring a production-mode deployment acceptable, run the production
+gate with the real target data root:
+
+```bash
+MASKING_APP_MODE=production \
+MASKING_APP_DATA_DIR="/path/to/masking-app-data" \
+MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+scripts/harness/production-gate.sh
+```
+
+Only set `MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1` after the team accepts
+the filesystem metadata boundary documented in
+`docs/STORAGE_CONCURRENCY_DECISION.md`. The gate still does not install TLS,
+reverse proxy rules, or a scheduler; those remain host responsibilities.
+
 ## Current Production Constraints
 
 - Local bearer-token sessions are still MVP identity, not hardened production
-  auth.
+  auth. `production-gate.sh` blocks default seed passwords and plaintext
+  passwords, but it is not an external identity provider.
 - TLS termination is still external to the Node server and must be configured in
   the deployment host or reverse proxy.
 - Docker Compose is the current packaged process runner. Host-native launchd,

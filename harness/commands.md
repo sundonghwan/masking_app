@@ -30,6 +30,7 @@ scripts/harness/identity-migrate-passwords.sh
 scripts/harness/capacity-profile.sh
 scripts/harness/backup-data-root.sh
 scripts/harness/restore-verify.sh
+scripts/harness/production-gate.sh
 ```
 
 ## Install / Bootstrap
@@ -292,6 +293,34 @@ Current behavior:
 - runs `scripts/harness/storage-verify.mjs --json` against the restored root
 - exits non-zero when the archive is missing, extraction fails, or storage
   verification fails
+
+## Production Gate
+
+Preferred wrapper:
+
+```bash
+MASKING_APP_MODE=production \
+MASKING_APP_DATA_DIR=/path/to/masking-app-data \
+MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+scripts/harness/production-gate.sh
+```
+
+Package alias:
+
+```bash
+npm run production:gate
+```
+
+Current behavior:
+
+- runs deployment-profile checks from the current environment
+- requires `MASKING_APP_MODE=production` or `MASKING_APP_MODE=prod`
+- requires explicit filesystem acceptance through
+  `MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1`
+- rejects data roots inside the repository
+- runs strict identity security checks against the selected data root
+- exits non-zero when default seed passwords, plaintext passwords, missing
+  identity files, or unsafe production settings remain
 
 Manual browser smoke:
 

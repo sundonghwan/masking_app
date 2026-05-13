@@ -16,6 +16,7 @@
     "identity:migrate-passwords": "scripts/harness/identity-migrate-passwords.sh",
     "capacity:profile": "scripts/harness/capacity-profile.sh",
     "backup:data-root": "scripts/harness/backup-data-root.sh",
-    "restore:verify": "scripts/harness/restore-verify.sh"
+    "restore:verify": "scripts/harness/restore-verify.sh",
+    "production:gate": "scripts/harness/production-gate.sh"
   }
 }

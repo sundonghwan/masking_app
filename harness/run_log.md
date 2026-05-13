@@ -1385,3 +1385,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=code-health-cadence note=checked-small-tested-cleanup-guidance-and-broad-rewrite-guardrail
+[GIT] commit=0970493 push=origin/main status=passed
+[START] task=production-gate subsystem=security,deployment,operations
+[PLAN] scope=production-gate-cli,strict-identity-check,filesystem-boundary-acceptance,docs risks=overclaiming-external-idp-or-database-readiness
+[TEST] added=tests/productionGate.test.js note=unsafe-local-defaults-fail-and-production-fixture-passes
+[CODE] added=scripts/harness/production-gate.sh,scripts/harness/production-gate.mjs note=production-mode-strict-security-dedicated-data-root-filesystem-acceptance-gate
+[DOC] updated=harness/commands.md,docs/RUNBOOK_DEPLOYMENT.md,docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=production-gate-usage-and-remaining-non-goals
+[CMD] node --test tests/productionGate.test.js status=passed tests=2
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=269
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=production-gate note=checked-pre-release-gate-boundary-and-no-external-idp-tls-scheduler-or-db-overclaim
