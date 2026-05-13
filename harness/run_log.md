@@ -1145,3 +1145,8 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=derived-indexed-mask-export note=checked-overlap-policy-class-id-range-invalid-mask-skip-and-binary-mask-export-compatibility
 [CLOSE] status=ready-for-commit
+[GIT] commit=3fb8288 push=origin/main status=passed
+[START] task=production-readiness-audit subsystem=docs,operations,harness
+[PLAN] scope=production-success-criteria,evidence-map,blocker-list,next-development-order risks=overclaiming-production-readiness,proxy-test-confidence
+[DOC] created=docs/PRODUCTION_READINESS_AUDIT.md note=objective-restated-as-verifiable-production-deliverables-with-current-evidence-and-blockers
+[FINDING] status=not-production-ready blockers=browser-e2e,backup-restore-runbook,deployment-runbook,security-hardening,storage-concurrency-decision
