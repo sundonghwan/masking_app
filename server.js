@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createLogger, createRequestId, defaultSink } from "./src/observability/logger.js";
 import { createJsonlFileSink } from "./src/observability/runtimeLogSink.js";
 import { createApiRouter } from "./src/server/api.js";
+import { createAuditStore } from "./src/server/auditStore.js";
 import { resolveDeploymentProfile } from "./src/server/deploymentProfile.js";
 import { applyHttpSecurityHeaders, createHttpSecurityPolicy, handleCorsPreflight } from "./src/server/httpSecurity.js";
 import { createHttpError, sendJson } from "./src/server/httpUtils.js";
@@ -31,7 +32,8 @@ const logger = createLogger({
 const storage = createFileStorage({ rootDir: DATA_ROOT });
 const userDirectory = createUserDirectory({ rootDir: DATA_ROOT });
 const sessionStore = createSessionStore({ rootDir: DATA_ROOT });
-const routeApi = createApiRouter({ storage, logger, userDirectory, sessionStore, deploymentProfile });
+const auditStore = createAuditStore({ rootDir: DATA_ROOT });
+const routeApi = createApiRouter({ storage, logger, userDirectory, sessionStore, auditStore, deploymentProfile });
 const httpSecurityPolicy = createHttpSecurityPolicy(process.env);
 
 await assertProductionStartupSafety({

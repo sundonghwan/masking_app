@@ -423,6 +423,111 @@ test("session login logs cleanup failure without blocking credential login", asy
   assert.equal(Object.hasOwn(entries[0].fields, "token"), false);
 });
 
+test("session login and logout write sanitized audit events", async () => {
+  const auditEvents = [];
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route } = createApiHarness({ auditStore });
+
+  const failed = await callJson(route, "POST", "/api/session/login", {
+    user_id: "admin",
+    password: "wrong",
+  }, {});
+  const login = await callJson(route, "POST", "/api/session/login", {
+    user_id: "admin",
+    password: "admin123",
+  }, {});
+  const headers = { authorization: `Bearer ${login.body.session.token}` };
+  const logout = await callJson(route, "POST", "/api/session/logout", null, headers);
+
+  assert.equal(failed.statusCode, 401);
+  assert.equal(login.statusCode, 201);
+  assert.equal(logout.statusCode, 200);
+  assert.deepEqual(auditEvents.map((event) => `${event.action}:${event.outcome}:${event.actor_id}`), [
+    "session.login:failure:admin",
+    "session.login:success:admin",
+    "session.logout:success:admin",
+  ]);
+  assert.equal(auditEvents[0].reason, "invalid_credentials");
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "password")), false);
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "token")), false);
+});
+
+test("user administration writes audit events for create update deactivate and reactivate", async () => {
+  const auditEvents = [];
+  const directory = await createTempUserDirectory();
+  const auditStore = {
+    async appendEvent(event) {
+      auditEvents.push(JSON.parse(JSON.stringify(event)));
+      return event;
+    },
+  };
+  const { route } = createApiHarness({ auditStore, userDirectory: directory });
+  const adminHeaders = await loginHeaders(route, "admin");
+
+  const created = await callJson(route, "POST", "/api/users", {
+    user_id: "audited-worker",
+    role: "worker",
+    display_name: "Audited Worker",
+    password: "worker-pass",
+  }, adminHeaders);
+  const updated = await callJson(route, "PUT", "/api/users/audited-worker", {
+    display_name: "Renamed Worker",
+  }, adminHeaders);
+  const deactivated = await callJson(route, "PUT", "/api/users/audited-worker", {
+    active: false,
+  }, adminHeaders);
+  const reactivated = await callJson(route, "PUT", "/api/users/audited-worker", {
+    active: true,
+  }, adminHeaders);
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(updated.statusCode, 200);
+  assert.equal(deactivated.statusCode, 200);
+  assert.equal(reactivated.statusCode, 200);
+  assert.deepEqual(
+    auditEvents
+      .filter((event) => event.resource_type === "user" && event.resource_id === "audited-worker")
+      .map((event) => event.action),
+    ["user.create", "user.update", "user.deactivate", "user.reactivate"],
+  );
+  assert.equal(auditEvents.some((event) => Object.hasOwn(event.metadata || {}, "password")), false);
+});
+
+test("audit write failure is logged without blocking user administration", async () => {
+  const warnings = [];
+  const directory = await createTempUserDirectory();
+  const auditStore = {
+    async appendEvent() {
+      throw Object.assign(new Error("audit unavailable"), { code: "audit_failed" });
+    },
+  };
+  const logger = {
+    warn(event, fields = {}) {
+      warnings.push({ event, fields });
+    },
+  };
+  const { route } = createApiHarness({ auditStore, logger, userDirectory: directory });
+  const adminHeaders = await loginHeaders(route, "admin");
+
+  const created = await callJson(route, "POST", "/api/users", {
+    user_id: "audit-failure-worker",
+    role: "worker",
+    password: "worker-pass",
+  }, adminHeaders);
+
+  assert.equal(created.statusCode, 201);
+  assert.equal(warnings.some((entry) => entry.event === "audit.write.failed"), true);
+  const auditWarning = warnings.find((entry) => entry.event === "audit.write.failed" && entry.fields.action === "user.create");
+  assert.equal(auditWarning.fields.action, "user.create");
+  assert.equal(Object.hasOwn(auditWarning.fields, "password"), false);
+  assert.equal(Object.hasOwn(auditWarning.fields, "token"), false);
+});
+
 test("admin creates projects and non-admin users cannot create them", async () => {
   const { route, storage } = createApiHarness();
   const workerHeaders = await loginHeaders(route, "worker");

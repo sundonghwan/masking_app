@@ -1538,12 +1538,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed note=rerun-after-redaction-fix
 [CMD] git diff --check status=passed note=rerun-after-redaction-fix
 [REVIEW] finding=none-blocking scope=audit-store-foundation note=checked-jsonl-append-list-validation-sanitization-syntax-harness-doc-boundary-and-route-integration-not-overclaimed
+[GIT] commit=ed470ee push=origin/main status=passed
+[START] task=session-user-audit-events subsystem=security,audit,identity
+[PLAN] scope=session-and-user-route-audit-events risks=credential-token-leak,blocking-domain-actions-on-audit-write-failure,overclaiming-full-audit-retention
+[TEST] updated=tests/serverApi.test.js note=session-login-logout-user-admin-audit-events-and-non-blocking-audit-write-failure
+[CODE] updated=src/server/api.js,server.js note=optional-auditStore-dependency-route-audit-helper-and-default-filesystem-store-wiring
+[DOC] updated=docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=session-user-audit-wired-project-review-export-retention-verifier-pending
+[CMD] node --test tests/serverApi.test.js status=red expected=audit-events-not-written-and-failure-not-logged
+[CMD] node --test tests/serverApi.test.js status=passed tests=59
 [CMD] scripts/harness/lint-all.sh status=passed
 [CMD] scripts/harness/typecheck-all.sh status=passed
-[CMD] scripts/harness/test-target.sh status=passed tests=293
+[CMD] scripts/harness/test-target.sh status=passed tests=296
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
-[REVIEW] finding=fixed scope=audit-store-foundation note=uppercase-Authorization-metadata-was-not-redacted
-[CMD] node --test tests/auditStore.test.js status=red expected=uppercase-Authorization-not-redacted
-[CODE] updated=src/server/auditStore.js note=metadata-forbidden-key-check-is-case-insensitive
-[CMD] node --test tests/auditStore.test.js tests/checkSyntax.test.js status=passed tests=5
+[REVIEW] finding=none-blocking scope=session-user-audit-events note=checked-no-password-token-metadata-audit-failure-non-blocking-and-project-review-export-not-overclaimed

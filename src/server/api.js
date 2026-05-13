@@ -34,7 +34,14 @@ import {
 } from "../config/runtimeDefaults.js";
 import { LOCAL_MVP_USER_ACCOUNTS, validateDirectoryCredentials } from "./auth.js";
 
-export function createApiRouter({ storage, logger = null, userDirectory = null, sessionStore = null, deploymentProfile = {} } = {}) {
+export function createApiRouter({
+  storage,
+  logger = null,
+  userDirectory = null,
+  sessionStore = null,
+  auditStore = null,
+  deploymentProfile = {},
+} = {}) {
   const sessions = new Map();
 
   return async function routeApi(request, response, url, context = {}) {
@@ -73,12 +80,29 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
         password: body.password,
       });
       if (!account) {
+        await recordAuditEvent({
+          action: "session.login",
+          actor_id: normalizeActorId(body.user_id || body.userId) || "anonymous",
+          actor_role: "anonymous",
+          resource_type: "session",
+          resource_id: normalizeActorId(body.user_id || body.userId) || "anonymous",
+          outcome: "failure",
+          reason: "invalid_credentials",
+        }, context);
         return sendJson(response, 401, {
           error: "unauthorized",
           message: "Invalid user ID or password",
         });
       }
       const session = await createSession(account, context);
+      await recordAuditEvent({
+        action: "session.login",
+        actor_id: account.user_id || account.userId,
+        actor_role: account.role,
+        resource_type: "session",
+        resource_id: account.user_id || account.userId,
+        outcome: "success",
+      }, context);
       return sendJson(response, 201, { session });
     }
 
@@ -90,6 +114,16 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
         } else {
           sessions.delete(session.token);
         }
+      }
+      if (session.authenticated) {
+        await recordAuditEvent({
+          action: "session.logout",
+          actor_id: session.userId,
+          actor_role: session.role,
+          resource_type: "session",
+          resource_id: session.userId,
+          outcome: "success",
+        }, context);
       }
       return sendJson(response, 200, { ok: true });
     }
@@ -126,6 +160,18 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       const body = await readJsonBody(request);
       try {
         const user = await userDirectory.createUser(userPayloadFromBody(body, { includeUserId: true }));
+        await recordAuditEvent({
+          action: "user.create",
+          actor_id: session.userId,
+          actor_role: session.role,
+          resource_type: "user",
+          resource_id: user.user_id,
+          outcome: "success",
+          metadata: {
+            role: user.role,
+            active: user.active !== false,
+          },
+        }, context);
         return sendJson(response, 201, { user });
       } catch (error) {
         return sendUserDirectoryError(response, error);
@@ -140,6 +186,18 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       const body = await readJsonBody(request);
       try {
         const user = await userDirectory.updateUser(decodePathSegment(parts[2]), userPayloadFromBody(body));
+        await recordAuditEvent({
+          action: auditUserUpdateAction(body),
+          actor_id: session.userId,
+          actor_role: session.role,
+          resource_type: "user",
+          resource_id: user.user_id,
+          outcome: "success",
+          metadata: {
+            role: user.role,
+            active: user.active !== false,
+          },
+        }, context);
         return sendJson(response, 200, { user });
       } catch (error) {
         return sendUserDirectoryError(response, error);
@@ -969,6 +1027,29 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       role: session.role,
       created_at: session.created_at,
     };
+  }
+
+  async function recordAuditEvent(event = {}, context = {}) {
+    if (!auditStore?.appendEvent) return;
+    try {
+      await auditStore.appendEvent({
+        request_id: context.requestId,
+        ...event,
+      });
+    } catch (error) {
+      logger?.warn("audit.write.failed", {
+        request_id: context.requestId,
+        action: event.action || "",
+        resource_type: event.resource_type || "",
+        resource_id: event.resource_id || "",
+        error,
+      });
+    }
+  }
+
+  function auditUserUpdateAction(body = {}) {
+    if (Object.hasOwn(body, "active")) return body.active === false ? "user.deactivate" : "user.reactivate";
+    return "user.update";
   }
 
   function bearerToken(request) {

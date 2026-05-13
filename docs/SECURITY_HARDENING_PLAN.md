@@ -100,8 +100,9 @@ For local or controlled staging:
 
 - Persist login/logout/admin/user/review/export events with retention rules.
   Foundation status: `src/server/auditStore.js` can append and list sanitized
-  monthly JSONL audit events under `<data_root>/audit/`; API route integration
-  and retention verification remain next slices.
+  monthly JSONL audit events under `<data_root>/audit/`. Session login/logout
+  and local user administration routes now write audit events; project, review,
+  export, retention, and verification remain next slices.
 - Do not log passwords, tokens, image bytes, mask bytes, or data URLs.
 - Add a reviewer/admin activity export for incident review if needed.
 
