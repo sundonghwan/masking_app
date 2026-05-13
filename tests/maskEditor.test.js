@@ -249,6 +249,24 @@ test("magic tool options can be updated for dataset sensitivity", async () => {
   }
 });
 
+test("mask overlay color can follow the selected label without changing mask data", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const editor = new MaskEditor(new TestCanvas(), { overlayColor: "#12ab34" });
+
+    assert.equal(editor.getState().overlayColor, "#12AB34");
+
+    editor.setOverlayColor("#0044aa");
+
+    assert.equal(editor.getState().overlayColor, "#0044AA");
+    assert.equal(editor.getMaskRatio(), 0);
+    assert.equal(editor.getState().canUndo, false);
+  } finally {
+    restoreDocument();
+  }
+});
+
 test("camera pan override moves viewport without changing tool, mask, onChange, or undo", async () => {
   const restoreDocument = installCanvasDocument();
   try {

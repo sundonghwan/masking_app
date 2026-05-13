@@ -163,6 +163,8 @@ Current foundation implemented:
   the selected `class_id` in local project recovery.
 - Project creation and project settings can persist user-defined
   `label_schema`; defaults are fallback values for legacy/empty manifests only.
+- The selected label color drives the editor overlay and brush-panel color
+  swatch as display state; saved masks remain binary grayscale PNGs.
 
 Still pending:
 

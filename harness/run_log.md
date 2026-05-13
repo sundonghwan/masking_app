@@ -1034,3 +1034,21 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=user-defined-label-schema note=checked-no-silent-empty-label-save-api-manifest-persistence-and-remaining-class-mask-storage-gap
 [CLOSE] status=ready-for-commit
 [GIT] commit=e1c85ba push=origin/main status=passed
+[START] task=selected-label-mask-color subsystem=frontend,canvas-editor,annotation-contract
+[PLAN] scope=selected-label-overlay-color,brush-color-swatch risks=overlay-color-hardcode,binary-mask-contract,label-state-mismatch
+[IMPACT] status=validated chain=renderLabelSelector->applySelectedLabelColor->MaskEditor.setOverlayColor->MaskEditor.drawMaskOverlay
+[IMPACT] status=validated chain=MaskEditor.constructor->MaskEditor.setOverlayColor->MaskEditor.getState
+[IMPACT_DROP] chain=saved-mask-export-color reason=saved masks remain binary grayscale and label color is display-only
+[FIX] scope=canvas-editor note=overlay-color-now-editor-owned-state-instead-of-fixed-rgb-constant
+[FIX] scope=workbench-ui note=selected-label-color-updates-brush-panel-swatch-and-canvas-overlay
+[DOC] updated=docs/FEATURE_STATUS.md,docs/ARCHITECTURE.md note=selected-label-mask-overlay-color-marked-complete
+[IMPACT_VALIDATE] task=selected-label-mask-color chain=label-color-to-overlay validation=maskEditor-and-appContracts-passed
+[CMD] node --test tests/maskEditor.test.js tests/appContracts.test.js status=passed tests=42
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=226
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health,app-js
+[REVIEW] finding=none-blocking scope=selected-label-mask-color note=checked-display-only-color-state-no-mask-pixel-mutation-and-no-undo-history-change
+[CLOSE] status=ready-for-commit

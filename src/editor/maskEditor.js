@@ -1,4 +1,5 @@
-const MASK_COLOR = [229, 72, 77];
+const DEFAULT_OVERLAY_COLOR = "#E5484D";
+const DEFAULT_OVERLAY_RGB = [229, 72, 77];
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 12;
 const MAGIC_DEFAULTS = {
@@ -20,7 +21,7 @@ const EIGHT_NEIGHBORS = [
 ];
 
 export const MASK_EDITOR_DEFAULTS = {
-  overlayColor: "#E5484D",
+  overlayColor: DEFAULT_OVERLAY_COLOR,
   overlayOpacity: 0.55,
   brushSize: 32,
   minScale: MIN_SCALE,
@@ -144,6 +145,8 @@ export class MaskEditor {
     this.tool = "brush";
     this.brushSize = options.brushSize || 32;
     this.magicOptions = { ...MAGIC_DEFAULTS, ...(options.magicOptions || {}) };
+    this.overlayColor = normalizeOverlayColor(options.overlayColor);
+    this.overlayRgb = overlayColorToRgb(this.overlayColor);
     this.overlayOpacity = options.overlayOpacity ?? 0.55;
     this.displayMode = "overlay";
     this.scale = 1;
@@ -214,6 +217,12 @@ export class MaskEditor {
 
   setOverlayOpacity(opacity) {
     this.overlayOpacity = opacity;
+    this.redraw();
+  }
+
+  setOverlayColor(color) {
+    this.overlayColor = normalizeOverlayColor(color);
+    this.overlayRgb = overlayColorToRgb(this.overlayColor);
     this.redraw();
   }
 
@@ -344,6 +353,7 @@ export class MaskEditor {
     return {
       tool: this.tool,
       brushSize: this.brushSize,
+      overlayColor: this.overlayColor,
       overlayOpacity: this.overlayOpacity,
       displayMode: this.displayMode,
       viewport: this.getViewportState(),
@@ -556,9 +566,9 @@ export class MaskEditor {
     for (let i = 0; i < mask.data.length; i += 4) {
       const active = maskPixelActive(mask.data, i);
       if (!active) continue;
-      overlay.data[i] = MASK_COLOR[0];
-      overlay.data[i + 1] = MASK_COLOR[1];
-      overlay.data[i + 2] = MASK_COLOR[2];
+      overlay.data[i] = this.overlayRgb[0];
+      overlay.data[i + 1] = this.overlayRgb[1];
+      overlay.data[i + 2] = this.overlayRgb[2];
       overlay.data[i + 3] = this.displayMode === "mask" ? 255 : Math.round(this.overlayOpacity * 255);
     }
 
@@ -945,6 +955,21 @@ function colorDistance(left, right) {
     Math.abs(left[1] - right[1]),
     Math.abs(left[2] - right[2]),
   );
+}
+
+function normalizeOverlayColor(color) {
+  const value = String(color || DEFAULT_OVERLAY_COLOR).trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(value)) return DEFAULT_OVERLAY_COLOR;
+  return value.toUpperCase();
+}
+
+function overlayColorToRgb(color) {
+  const normalized = normalizeOverlayColor(color);
+  const red = Number.parseInt(normalized.slice(1, 3), 16);
+  const green = Number.parseInt(normalized.slice(3, 5), 16);
+  const blue = Number.parseInt(normalized.slice(5, 7), 16);
+  if (![red, green, blue].every(Number.isFinite)) return DEFAULT_OVERLAY_RGB;
+  return [red, green, blue];
 }
 
 function inBounds(point, image) {

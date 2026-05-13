@@ -246,11 +246,15 @@ test("workbench exposes class label selection for mask tools", () => {
   assert.match(html, /id="labelSelector"/);
   assert.match(html, /id="imageAnnotationList"/);
   assert.match(html, /id="labelMessage"/);
+  assert.match(html, /id="maskColorSwatch"/);
   assert.match(app, /selectedClassId/);
   assert.match(app, /labelSchema/);
   assert.match(app, /function renderLabelSelector\(/);
   assert.match(app, /function selectClassLabel\(/);
   assert.match(app, /function selectedLabelAnnotation\(/);
+  assert.match(app, /function applySelectedLabelColor\(/);
+  assert.match(app, /editor\.setOverlayColor\(color\)/);
+  assert.match(app, /els\.maskColorSwatch\.style\.backgroundColor = color/);
   assert.match(app, /normalizeLabelSchema\(manifest\.label_schema/);
   assert.match(app, /labelSchema: state\.labelSchema/);
   assert.match(app, /function parseLabelSchemaText\(/);

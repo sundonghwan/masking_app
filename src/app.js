@@ -193,6 +193,7 @@ const els = {
   magicEdgeValue: document.querySelector("#magicEdgeValue"),
   overlayOpacity: document.querySelector("#overlayOpacity"),
   opacityValue: document.querySelector("#opacityValue"),
+  maskColorSwatch: document.querySelector("#maskColorSwatch"),
   displayMode: document.querySelector("#displayMode"),
   validationList: document.querySelector("#validationList"),
   metaImageId: document.querySelector("#metaImageId"),
@@ -272,6 +273,7 @@ const els = {
 const editor = new MaskEditor(els.editorCanvas, {
   brushSize: Number(els.brushSize.value),
   overlayOpacity: Number(els.overlayOpacity.value) / 100,
+  overlayColor: selectedLabelColor(),
   onChange: handleEditorChange,
   onViewportChange: updateStatusbar,
   onPointerMove: updatePointerStatus,
@@ -2594,6 +2596,7 @@ function getReviewActorId() {
 function renderLabelSelector() {
   const labels = activeLabelSchema();
   ensureSelectedClassId();
+  applySelectedLabelColor();
   const image = getSelectedImage();
   const selectedAnnotation = selectedLabelAnnotation(image);
   const rows = labels.map((label) => renderLabelOption(label, image));
@@ -2695,6 +2698,24 @@ async function selectClassLabel(classId) {
 
 function selectedLabelAnnotation(image = getSelectedImage()) {
   return imageAnnotationForClass(image, state.selectedClassId);
+}
+
+function selectedLabel() {
+  const labels = activeLabelSchema();
+  return labelByClassId(labels, state.selectedClassId) || labels.find((label) => label.enabled !== false) || DEFAULT_LABEL_SCHEMA[0];
+}
+
+function selectedLabelColor() {
+  return selectedLabel()?.color || DEFAULT_LABEL_SCHEMA[0].color;
+}
+
+function applySelectedLabelColor() {
+  const label = selectedLabel();
+  const color = label.color;
+  editor.setOverlayColor(color);
+  els.maskColorSwatch.style.backgroundColor = color;
+  els.maskColorSwatch.setAttribute("aria-label", `마스크 색상 ${label.name} ${color}`);
+  els.maskColorSwatch.title = `${label.name} / class_id=${label.class_id} / ${color}`;
 }
 
 function selectedImageAnnotations(image = getSelectedImage()) {
