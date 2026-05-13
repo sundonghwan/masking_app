@@ -46,8 +46,9 @@ The current MVP is local-first:
 - Browser editor owns interactive canvas work.
 - IndexedDB is the local recovery source.
 - Backend filesystem storage is a sync/export mirror.
-- Backend validates PNG signature, dimensions, and 8-bit grayscale format.
-- Backend does not yet fully decode PNG pixels to prove all values are `0/255`.
+- Backend validates PNG signature, dimensions, 8-bit grayscale format, decoded
+  pixel values, and non-empty binary `0/255` masks for supported
+  non-interlaced PNG masks.
 
 No frontend framework, backend framework, or database has been introduced. Do
 not add one unless it directly supports the next checkpoint.

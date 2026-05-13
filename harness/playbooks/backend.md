@@ -21,13 +21,10 @@ correctness checks:
 - image upload from JSON data URLs
 - immutable original image storage
 - mask PNG save/load
-- validation of PNG header, dimensions, and 8-bit grayscale mask format
+- validation of PNG header, dimensions, 8-bit grayscale mask format, decoded
+  pixels, and non-empty binary `0/255` mask values for supported
+  non-interlaced PNG masks
 - export ZIP generation
-
-Important current limitation:
-
-- backend pixel validation is not full binary `0/255` validation yet. It checks
-  PNG signature, dimensions, and 8-bit grayscale format only.
 
 ## Runtime Logging
 
@@ -79,8 +76,8 @@ Mask files:
 - PNG
 - same width and height as original image
 - 8-bit grayscale PNG at the backend boundary
-- binary grayscale values only: `0` and `255` at the editor/export helper
-  boundary; full backend IDAT pixel decoding is a later dependency decision
+- binary grayscale values only: `0` and `255`; the backend decodes supported
+  non-interlaced PNG IDAT data and rejects non-binary or empty masks
 
 Export archive:
 
@@ -99,8 +96,8 @@ Before adding review/admin/auth/DB features, close the MVP data contract:
 
 - invalid mask saves must not update `current_mask_path` - done
 - invalid mask saves must not move an image to `submitted` - done
-- backend metadata must not claim full pixel validation when it is not checked -
-  done
+- backend metadata must only claim pixel validation for supported decoded PNG
+  masks - done
 - server ZIP files, `annotations.json`, and `export_summary.json` must use the
   same exportable decision - done
 

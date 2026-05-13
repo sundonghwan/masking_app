@@ -1687,3 +1687,10 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=user-session-invalidation note=checked-password-role-deactivate-revoke-sessions-display-name-does-not-and-docs-do-not-overclaim-full-idp-token-rotation
 [GIT] commit=ca51b81 push=origin/main status=passed
+[START] task=backend-playbook-mask-validation-refresh subsystem=harness,docs,backend
+[PLAN] scope=refresh-current-backend-mask-validation-guidance risks=overclaiming-png-support,rewrite-history
+[DOC] updated=harness/repo_index.md,harness/playbooks/backend.md note=current-guidance-now-matches-decoded-binary-pixel-validation
+[CMD] rg stale-mask-validation-current-docs status=passed matches=0
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=backend-playbook-mask-validation-refresh note=checked-current-docs-only-history-left-unchanged-and-supported-png-scope-limited
