@@ -22,11 +22,11 @@ can be implemented while the product still lacks production operation gates.
 The app is a strong local-first MVP with many production-shaped workflows, but
 it is **not yet fully production-ready**.
 
-Production completion is still blocked by security hardening and
-storage/concurrency decisions. Baseline browser E2E, backup/restore
-verification, and deployment health/runbook coverage now exist, but
-role-specific browser coverage, visual regression, process supervision, and
-scheduled/retained backup operations can still be expanded. These are not
+Production completion is still blocked by security hardening. Storage and
+concurrency limits are now explicitly accepted for local/staging only. Baseline
+browser E2E, backup/restore verification, and deployment health/runbook coverage
+now exist, but role-specific browser coverage, visual regression, process
+supervision, and scheduled/retained backup operations can still be expanded. These are not
 cosmetic gaps; they affect whether a team can safely operate the tool with real
 labeling data over time.
 
@@ -73,6 +73,7 @@ For this repository, "production-level" means the following are true:
 | Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist, but no benchmark or capacity profile | Missing |
 | Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md` documents current hard stops and hardening order | Planned / not implemented |
+| Filesystem storage concurrency boundary | `docs/STORAGE_CONCURRENCY_DECISION.md` defines single-process limits and DB migration triggers | Accepted local/staging constraint |
 | Observability dashboard or log ingestion | Structured logs exist; no dashboard or retention plan | Missing |
 
 ## Evidence From Current Validation
@@ -158,6 +159,10 @@ Filesystem manifests plus revision guards cover current local operations. For
 multi-user production, the team must decide whether filesystem JSON remains
 acceptable or whether metadata should move to SQLite/PostgreSQL-style storage.
 
+Decision: filesystem JSON is accepted only for local/staging and single-process
+operation. Production multi-user deployment remains blocked unless the team
+accepts that constraint explicitly or moves metadata to a transactional store.
+
 Trigger to migrate:
 
 - concurrent edits become common
@@ -171,8 +176,7 @@ Trigger to migrate:
 2. Add backup/restore runbook and a storage verification script.
 3. Add deployment runbook for local/staging production-like operation.
 4. Add security hardening plan for identity/session/CORS/CSRF.
-5. Re-evaluate database-backed storage after filesystem operations show real
-   bottlenecks or concurrency limits.
+5. Use the storage/concurrency decision as the DB migration gate.
 6. Add real AI model adapter only after sample datasets prove the local magic
    tool is insufficient.
 

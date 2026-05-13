@@ -1197,3 +1197,13 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=security-hardening-plan note=checked-no-overclaim-default-password-plaintext-session-cors-csrf-tls-gaps
 [CLOSE] status=ready-for-commit
+[GIT] commit=8c23c23 push=origin/main status=passed
+[START] task=storage-concurrency-decision subsystem=storage,operations
+[PLAN] scope=filesystem-json-boundary,single-process-rule,revision-guard-limits,db-migration-triggers risks=overclaiming-file-storage,db-too-early
+[DOC] created=docs/STORAGE_CONCURRENCY_DECISION.md note=accepts-filesystem-for-local-staging-only-and-blocks-multi-user-production-without-db-or-explicit-constraint
+[CMD] scripts/harness/storage-verify.sh data status=passed flat_projects=3 hierarchy_projects=1 task_versions=1 images=193 masks=0
+[CMD] scripts/harness/test-target.sh status=passed tests=243
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=storage-concurrency-decision note=checked-single-process-limit-revision-guard-limit-db-trigger-language
+[CLOSE] status=ready-for-commit
