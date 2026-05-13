@@ -34,6 +34,7 @@ scripts/harness/backup-data-root.sh
 scripts/harness/restore-verify.sh
 scripts/harness/production-gate.sh
 scripts/harness/staging-evidence.sh
+scripts/harness/release-candidate-gate.sh
 ```
 
 ## Install / Bootstrap
@@ -415,6 +416,30 @@ Current behavior:
   evidence runs
 - runs `deployment-check` only when `--base-url` is supplied
 - does not start the app server and does not replace the individual commands
+
+## Release Candidate Gate
+
+Preferred wrapper:
+
+```bash
+scripts/harness/release-candidate-gate.sh
+```
+
+JSON output:
+
+```bash
+scripts/harness/release-candidate-gate.sh --json
+```
+
+Current behavior:
+
+- verifies required release evidence JSON artifacts exist and have `ok: true`
+- verifies `docs/PRODUCTION_BOUNDARY_DECISIONS.md` has explicit decisions for
+  identity, metadata storage, network boundary, backup/restore, and audit/log
+  retention
+- exits non-zero while required boundary decisions are `Undecided`
+- is intentionally stricter than test/smoke checks because passing tests are
+  not sufficient proof of production readiness
 
 Manual browser smoke:
 

@@ -69,6 +69,8 @@ require_file scripts/harness/production-gate.sh
 require_file scripts/harness/production-gate.mjs
 require_file scripts/harness/staging-evidence.sh
 require_file scripts/harness/staging-evidence.mjs
+require_file scripts/harness/release-candidate-gate.sh
+require_file scripts/harness/release-candidate-gate.mjs
 
 require_file docs/design/screens-v2/01-main-mask-editor.png
 require_file docs/design/screens-v2/02-dataset-upload.png
@@ -97,3 +99,4 @@ echo "smoke-web: data-root backup entrypoint is present."
 echo "smoke-web: restore rehearsal entrypoint is present."
 echo "smoke-web: production gate entrypoint is present."
 echo "smoke-web: staging evidence entrypoint is present."
+echo "smoke-web: release candidate gate entrypoint is present."

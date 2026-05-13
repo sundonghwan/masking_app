@@ -1774,3 +1774,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=network-edge-runbook note=checked-runbook-does-not-claim-installed-tls-or-internet-readiness
+[START] task=release-candidate-gate subsystem=release,production-readiness,evidence
+[PLAN] scope=add-harness-gate-for-artifacts-and-boundary-decisions risks=proxy-signal-overtrust,loose-undecided-parsing
+[TEST] added=tests/releaseCandidateGate.test.js note=artifact-ok-missing-failed-and-undecided-boundary-cases
+[CODE] added=scripts/harness/release-candidate-gate.mjs,scripts/harness/release-candidate-gate.sh note=checks-release-artifacts-and-required-boundary-decisions
+[DOC] updated=harness/commands.md,harness/checklists/release.md,docs/REMAINING_WORK_BOARD.md,docs/PRODUCTION_READINESS_AUDIT.md note=release-candidate-gate-docs
+[CMD] node --test tests/releaseCandidateGate.test.js status=passed tests=3
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=322
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] scripts/harness/release-candidate-gate.sh status=expected-failed reason=boundary_decisions_undecided
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=release-candidate-gate note=checked-artifact-json-ok-and-undecided-boundary-failure

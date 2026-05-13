@@ -31,6 +31,7 @@ or production audit. This board separates:
 | Production readiness | Not complete | Identity/storage/host evidence decisions remain |
 
 Decision checklist: `docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
+Release candidate gate: `scripts/harness/release-candidate-gate.sh`.
 
 ## Remaining Production Gates
 
@@ -69,6 +70,8 @@ need.
   `release-artifacts/deployment-check-20260513-production-local.json` passed
   against `127.0.0.1:4183` in production mode using the migrated copied data
   root.
+- Release candidate gate currently fails because required boundary decisions
+  remain `Undecided`.
 - Last pushed commits:
   - `9cf5459` - remaining work board
   - `3be9ba0` - assignment route helper refactor

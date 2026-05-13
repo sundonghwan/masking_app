@@ -122,6 +122,12 @@ This verifies startup safety and `/api/health` on `127.0.0.1:4183` in
 production mode. It does not replace TLS, reverse-proxy, scheduler, or final
 target-host evidence.
 
+The release candidate gate is implemented as
+`scripts/harness/release-candidate-gate.sh`. It currently fails because
+required boundary decisions remain `Undecided`; this is expected and prevents
+accidental production-ready claims from relying only on green tests or evidence
+artifacts.
+
 ## Production Blockers
 
 ### 1. Browser E2E Coverage
@@ -281,4 +287,5 @@ Do not mark the project as production-ready until:
 - backup/restore can be executed from docs without guessing,
 - deployment startup and health checks are documented,
 - current MVP identity/storage constraints are explicitly accepted or replaced,
+- `scripts/harness/release-candidate-gate.sh` passes,
 - and the final audit maps every success criterion above to evidence.

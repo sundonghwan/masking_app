@@ -24,6 +24,8 @@ backup scheduler, and log-retention boundaries.
 - Run `scripts/harness/smoke-web.sh`.
 - Run `scripts/harness/browser-e2e.sh` for the admin-worker-reviewer-export
   journey.
+- Run `scripts/harness/release-candidate-gate.sh` after attaching release
+  evidence and recording boundary decisions.
 - Run targeted tests for changed risky areas such as mask contracts, export,
   sessions, assignment lifecycle, audit logs, or storage utilities.
 - Run `git diff --check`.
