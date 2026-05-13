@@ -59,3 +59,4 @@
   - `git diff --check` passed
   - live HTTP smoke passed for `/api/health`, `/`, and `/src/app.js`
   - initial live static smoke failed against stale dev server; dev server was restarted with `MASKING_APP_HOST=127.0.0.1 npm run dev`, then passed.
+- commit `4fcf888` pushed to `origin/main`
