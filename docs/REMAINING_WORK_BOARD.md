@@ -31,6 +31,7 @@ or production audit. This board separates:
 | Production readiness | Not complete | Identity/storage/host evidence decisions remain |
 
 Decision checklist: `docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
+Decision proposal: `docs/PRODUCTION_BOUNDARY_DECISION_PROPOSAL.md`.
 Release candidate gate: `scripts/harness/release-candidate-gate.sh`.
 
 ## Remaining Production Gates
@@ -75,6 +76,9 @@ need.
   current local `data/` root with 202 images and no threshold warnings.
 - Release candidate gate currently fails only because required boundary
   decisions remain `Undecided`.
+- Controlled internal MVP decision proposal exists at
+  `docs/PRODUCTION_BOUNDARY_DECISION_PROPOSAL.md`; it still requires owner
+  approval before copying into the decision checklist.
 - Last pushed commits:
   - `9cf5459` - remaining work board
   - `3be9ba0` - assignment route helper refactor

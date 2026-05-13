@@ -1863,3 +1863,10 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] deployment-check refresh status=passed artifact=release-artifacts/deployment-check-20260513-production-local.json source_revision=5ae5a3e
 [CMD] stop-production-server port=4183 status=passed
 [CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=boundary_decisions_undecided artifact_revision_errors=0
+[GIT] commit=d66912c push=origin/main status=passed
+[START] task=production-boundary-decision-proposal subsystem=release,operations,decision
+[PLAN] scope=draft-controlled-internal-mvp-boundary-proposal risks=proposal-mistaken-for-approval,over-scoping-internet-facing-deployment
+[DOC] created=docs/PRODUCTION_BOUNDARY_DECISION_PROPOSAL.md note=controlled-internal-mvp-decision-set-for-owner-approval
+[DOC] updated=docs/REMAINING_WORK_BOARD.md note=linked-boundary-decision-proposal
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=production-boundary-decision-proposal note=proposal-does-not-change-approved-decisions-or-claim-production-readiness
