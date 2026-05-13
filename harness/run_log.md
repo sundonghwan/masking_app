@@ -1887,3 +1887,9 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=boundary_decisions_undecided
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=boundary-decision-apply-tool note=preview-default-real-decision-file-unchanged-apply-requires-owner-and-date
+[GIT] commit=fe9da0c push=origin/main status=passed
+[CMD] staging-evidence refresh status=passed artifact=release-artifacts/staging-evidence-20260513-after-identity-migration.json source_revision=fe9da0c
+[CMD] start-production-server port=4183 data_root=/tmp/masking-app-staging-data-20260513 status=passed note=approved-escalated-local-listen
+[CMD] deployment-check refresh status=passed artifact=release-artifacts/deployment-check-20260513-production-local.json source_revision=fe9da0c
+[CMD] stop-production-server port=4183 status=passed
+[CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=boundary_decisions_undecided artifact_revision_errors=0
