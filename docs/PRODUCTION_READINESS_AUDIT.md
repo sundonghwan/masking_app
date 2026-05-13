@@ -153,6 +153,7 @@ Remaining follow-up:
 
 - host scheduler installation such as cron, launchd, systemd timer, or managed
   platform scheduler
+  - templates are documented in `docs/RUNBOOK_OPERATIONS_SCHEDULING.md`
 - repeat restore rehearsal evidence on the final target data root before release
 
 ### 3. Deployment Runbook
@@ -214,6 +215,8 @@ Open production decisions:
   evidence bundle now runs both audit verification and audit retention dry-run.
   Host scheduling for recurring retention remains pending
 - host-managed runtime log rotation and retention target
+  - template guidance is documented in
+    `docs/RUNBOOK_OPERATIONS_SCHEDULING.md`
 
 ### 5. Storage And Concurrency Boundary
 
@@ -262,7 +265,8 @@ Remaining follow-up:
    production deployment or whether metadata must move to transactional
    storage.
 5. Add host-specific scheduler/TLS/reverse-proxy setup once the deployment
-   target is chosen.
+   target is chosen. Scheduler templates exist in
+   `docs/RUNBOOK_OPERATIONS_SCHEDULING.md`, but are not installed.
 6. Add browser trace/screenshot artifacts if browser E2E becomes flaky.
 7. Add real AI model adapter only after sample datasets prove the local magic
    tool is insufficient.

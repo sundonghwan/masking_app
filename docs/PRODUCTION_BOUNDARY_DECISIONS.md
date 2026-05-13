@@ -23,7 +23,8 @@ operations are acceptable for a real deployment.
 | Local production health | `release-artifacts/deployment-check-20260513-production-local.json` passed on `127.0.0.1:4183` in production mode |
 | Storage model | Filesystem JSON accepted for local/staging/single-process only |
 | External identity provider | Not implemented |
-| Host TLS/reverse proxy/scheduler | Not selected or installed |
+| Host scheduler templates | `docs/RUNBOOK_OPERATIONS_SCHEDULING.md` provides cron, launchd, and systemd examples; not installed |
+| Host TLS/reverse proxy | Not selected or installed |
 
 ## Decision Summary
 
@@ -133,6 +134,8 @@ Before controlled production, record:
 - backup schedule and restore drill owner
 - audit retention schedule
 - runtime log path and rotation policy
+- scheduler implementation path or explicit deferral, using
+  `docs/RUNBOOK_OPERATIONS_SCHEDULING.md` as the template source
 - staging evidence artifact path
 - rollback command and last tested date
 

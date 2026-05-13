@@ -1760,3 +1760,10 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=production-host-health-evidence note=local-production-health-evidence-does-not-replace-final-host-tls-scheduler-evidence
+[START] task=host-ops-schedule-template subsystem=deployment,backup,audit,logs
+[PLAN] scope=add-cron-launchd-systemd-schedule-templates risks=wrong-path-copy,overclaiming-installed-scheduler
+[DOC] created=docs/RUNBOOK_OPERATIONS_SCHEDULING.md note=cron-launchd-systemd-log-rotation-templates
+[DOC] updated=docs/PRODUCTION_BOUNDARY_DECISIONS.md,docs/REMAINING_WORK_BOARD.md,docs/PRODUCTION_READINESS_AUDIT.md note=scheduler-templates-exist-but-not-installed
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=host-ops-schedule-template note=checked-templates-do-not-claim-installed-scheduler
