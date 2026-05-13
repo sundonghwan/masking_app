@@ -32,7 +32,9 @@ test("checkReleaseCandidate fails when a required artifact is missing", async ()
   const result = await checkReleaseCandidate({ cwd: root, artifacts: fixtureArtifacts() });
 
   assert.equal(result.ok, false);
-  assert.equal(result.errors.some((error) => error.code === "artifact_missing" && error.artifact === "deployment_check"), true);
+  const error = result.errors.find((item) => item.code === "artifact_missing" && item.artifact === "deployment_check");
+  assert.ok(error);
+  assert.match(error.remediation, /deployment-check/i);
 });
 
 test("checkReleaseCandidate fails for failed artifact payloads and undecided boundaries", async () => {
@@ -45,9 +47,21 @@ test("checkReleaseCandidate fails for failed artifact payloads and undecided bou
   const result = await checkReleaseCandidate({ cwd: root, artifacts: fixtureArtifacts() });
 
   assert.equal(result.ok, false);
-  assert.equal(result.errors.some((error) => error.code === "artifact_failed" && error.artifact === "staging_evidence"), true);
-  assert.equal(result.errors.some((error) => error.code === "boundary_decision_undecided" && error.boundary === "Identity"), true);
-  assert.equal(result.errors.some((error) => error.code === "boundary_decision_undecided" && error.boundary === "Network boundary"), true);
+  const stagingError = result.errors.find(
+    (error) => error.code === "artifact_failed" && error.artifact === "staging_evidence",
+  );
+  const identityError = result.errors.find(
+    (error) => error.code === "boundary_decision_undecided" && error.boundary === "Identity",
+  );
+  const networkError = result.errors.find(
+    (error) => error.code === "boundary_decision_undecided" && error.boundary === "Network boundary",
+  );
+  assert.ok(stagingError);
+  assert.match(stagingError.remediation, /staging-evidence\.sh/i);
+  assert.ok(identityError);
+  assert.match(identityError.remediation, /local identity|external IDP/i);
+  assert.ok(networkError);
+  assert.match(networkError.remediation, /RUNBOOK_NETWORK_EDGE/i);
 });
 
 async function createReleaseFixture(options = {}) {

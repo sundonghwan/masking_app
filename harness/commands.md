@@ -438,6 +438,9 @@ Current behavior:
   identity, metadata storage, network boundary, backup/restore, and audit/log
   retention
 - exits non-zero while required boundary decisions are `Undecided`
+- includes a `remediation` hint for each failed artifact or missing/undecided
+  boundary so operators can see the next required action without reading the
+  gate source code
 - is intentionally stricter than test/smoke checks because passing tests are
   not sufficient proof of production readiness
 

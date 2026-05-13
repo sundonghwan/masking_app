@@ -1787,3 +1787,19 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/release-candidate-gate.sh status=expected-failed reason=boundary_decisions_undecided
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=release-candidate-gate note=checked-artifact-json-ok-and-undecided-boundary-failure
+[START] task=release-gate-remediation subsystem=release,production-readiness,evidence
+[PLAN] scope=add-actionable-remediation-to-release-gate-failures risks=guidance-as-approval,noisy-cli
+[TEST] red=passed note=release-candidate-gate-remediation-assertions-failed-before-implementation
+[CODE] updated=scripts/harness/release-candidate-gate.mjs note=artifact-and-boundary-errors-now-include-remediation
+[DOC] updated=harness/commands.md note=release-gate-remediation-output-documented
+[IMPACT] status=validated chain=checkReleaseCandidate->remediationForBoundary validation=releaseCandidateGate-test
+[IMPACT] status=validated chain=readArtifact->remediationForArtifact validation=releaseCandidateGate-test
+[CMD] node --test tests/releaseCandidateGate.test.js status=passed tests=3
+[CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=boundary_decisions_undecided remediation_fields=present
+[CMD] scripts/harness/release-candidate-gate.sh status=expected-failed reason=boundary_decisions_undecided cli_fix_lines=present
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=322
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=release-gate-remediation note=gate-stays-strict-and-remediation-does-not-approve-undecided-boundaries

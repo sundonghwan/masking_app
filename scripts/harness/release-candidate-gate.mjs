@@ -15,6 +15,19 @@ const REQUIRED_BOUNDARIES = Object.freeze([
   "Audit/log retention",
 ]);
 
+const BOUNDARY_REMEDIATION = Object.freeze({
+  Identity:
+    "Record whether production accepts controlled local identity or requires an external IDP in docs/PRODUCTION_BOUNDARY_DECISIONS.md.",
+  "Metadata storage":
+    "Record whether production accepts single-process filesystem metadata or requires a SQLite/PostgreSQL migration in docs/PRODUCTION_BOUNDARY_DECISIONS.md.",
+  "Network boundary":
+    "Record whether deployment is localhost, trusted internal network, or internet-facing, and attach edge evidence using docs/RUNBOOK_NETWORK_EDGE.md.",
+  "Backup/restore":
+    "Record backup owner, schedule, and restore drill evidence using docs/RUNBOOK_OPERATIONS_SCHEDULING.md.",
+  "Audit/log retention":
+    "Record audit/log retention owner, schedule, and rotation or ingestion policy using docs/RUNBOOK_OPERATIONS_SCHEDULING.md.",
+});
+
 if (isCliEntry()) {
   const args = process.argv.slice(2);
   const jsonOutput = takeFlag(args, "--json");
@@ -45,9 +58,18 @@ export async function checkReleaseCandidate(options = {}) {
   for (const boundary of REQUIRED_BOUNDARIES) {
     const decision = decisions[boundary] || "";
     if (!decision) {
-      result.errors.push({ code: "boundary_decision_missing", boundary });
+      result.errors.push({
+        code: "boundary_decision_missing",
+        boundary,
+        remediation: remediationForBoundary(boundary),
+      });
     } else if (/undecided/i.test(decision)) {
-      result.errors.push({ code: "boundary_decision_undecided", boundary, decision });
+      result.errors.push({
+        code: "boundary_decision_undecided",
+        boundary,
+        decision,
+        remediation: remediationForBoundary(boundary),
+      });
     }
   }
 
@@ -60,7 +82,12 @@ async function readArtifact({ cwd, name, relativePath, errors }) {
   try {
     const payload = JSON.parse(await readFile(file, "utf8"));
     if (payload.ok !== true) {
-      errors.push({ code: "artifact_failed", artifact: name, path: relativePath });
+      errors.push({
+        code: "artifact_failed",
+        artifact: name,
+        path: relativePath,
+        remediation: remediationForArtifact(name, relativePath),
+      });
     }
     return {
       ok: payload.ok === true,
@@ -73,6 +100,7 @@ async function readArtifact({ cwd, name, relativePath, errors }) {
       artifact: name,
       path: relativePath,
       message: error.message,
+      remediation: remediationForArtifact(name, relativePath),
     });
     return {
       ok: false,
@@ -87,7 +115,12 @@ async function readBoundaryDecisions(file, errors) {
   try {
     text = await readFile(file, "utf8");
   } catch (error) {
-    errors.push({ code: "boundary_decisions_missing", path: file, message: error.message });
+    errors.push({
+      code: "boundary_decisions_missing",
+      path: file,
+      message: error.message,
+      remediation: "Create or restore docs/PRODUCTION_BOUNDARY_DECISIONS.md and fill the required boundary decision table.",
+    });
     return {};
   }
 
@@ -125,7 +158,24 @@ function printResult(result, options = {}) {
   for (const error of result.errors) {
     const subject = error.artifact || error.boundary || error.path || "";
     console.error(`release-candidate-gate: error ${error.code}${subject ? ` ${subject}` : ""}`);
+    if (error.remediation) {
+      console.error(`release-candidate-gate: fix ${error.remediation}`);
+    }
   }
+}
+
+function remediationForArtifact(name, relativePath) {
+  if (name === "staging_evidence") {
+    return `Run scripts/harness/staging-evidence.sh --json --output ${relativePath} against the target data root and archive a passing artifact.`;
+  }
+  if (name === "deployment_check") {
+    return `Start the target server and run scripts/harness/deployment-check.sh --json <base-url>, then archive the passing artifact at ${relativePath}.`;
+  }
+  return `Regenerate or replace ${relativePath} with a passing release evidence artifact.`;
+}
+
+function remediationForBoundary(boundary) {
+  return BOUNDARY_REMEDIATION[boundary] || "Record the production boundary decision in docs/PRODUCTION_BOUNDARY_DECISIONS.md.";
 }
 
 function isCliEntry() {
