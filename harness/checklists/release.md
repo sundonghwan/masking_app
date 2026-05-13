@@ -1,24 +1,68 @@
 # Release Checklist
 
-This project does not have a deployable app yet. Use this checklist once an app
-stack and release target exist.
+Use this checklist before tagging or handing off a staging or production release
+candidate. The app is deployable as a local/staging web app, but production
+acceptance still depends on the chosen identity, storage, TLS, reverse-proxy,
+backup scheduler, and log-retention boundaries.
 
-## Required Before First Real Release
+## Scope
 
-- `harness/commands.md` defines install, dev, build, lint, typecheck, test, and
-  smoke commands.
-- CI runs the same wrapper commands used locally.
-- Environment variables are documented.
-- Storage path and export path behavior are verified.
-- Dataset export has a fixture-based validation check.
-- Main editor has at least one browser smoke test.
+- Confirm the release target: local demo, staging, controlled internal
+  production, or internet-facing production.
+- Confirm the data root and backup directory are outside the repository for
+  staging or production targets.
+- Record changed features, migrations or storage-contract changes, and skipped
+  checks.
+- Do not claim production-ready unless identity, storage, network, scheduler,
+  backup, and observability responsibilities have named owners.
 
-## Release Checks
+## Required Checks
 
-- Run lint.
-- Run typecheck.
-- Run targeted tests for changed areas.
-- Run smoke for project home, upload, editor, save, submit, and export.
-- Verify export ZIP structure.
-- Verify `annotations.json` uses relative archive paths.
-- Record any skipped checks and release risk.
+- Run `scripts/harness/lint-all.sh`.
+- Run `scripts/harness/typecheck-all.sh`.
+- Run `scripts/harness/test-target.sh`.
+- Run `scripts/harness/smoke-web.sh`.
+- Run `scripts/harness/browser-e2e.sh` for the admin-worker-reviewer-export
+  journey.
+- Run targeted tests for changed risky areas such as mask contracts, export,
+  sessions, assignment lifecycle, audit logs, or storage utilities.
+- Run `git diff --check`.
+
+## Data-Root Evidence
+
+- Run `scripts/harness/storage-verify.sh "${MASKING_APP_DATA_DIR:-data}"`.
+- Run `scripts/harness/audit-verify.sh "${MASKING_APP_DATA_DIR:-data}"`.
+- Run `scripts/harness/audit-retention.sh --dry-run "${MASKING_APP_DATA_DIR:-data}"`.
+- Run `scripts/harness/capacity-profile.sh "${MASKING_APP_DATA_DIR:-data}"`.
+- Run a backup and restore rehearsal for the release data root.
+- Run the staging evidence bundle and archive its JSON artifact:
+
+```bash
+MASKING_APP_MODE=production \
+MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
+scripts/harness/staging-evidence.sh --json \
+  --output release-artifacts/staging-evidence-YYYYMMDD.json \
+  --base-url http://127.0.0.1:4173 \
+  "${MASKING_APP_DATA_DIR:-data}" \
+  "${MASKING_APP_BACKUP_DIR:-backups}"
+```
+
+## Production Gate
+
+- Run `scripts/harness/production-gate.sh` against the real target data root.
+- Confirm default seed passwords are removed or rotated.
+- Confirm local user passwords are hashed and strict identity checks pass.
+- Set `MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1` only after accepting the
+  filesystem JSON metadata boundary.
+- Set `MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` only for a controlled
+  first production boundary, or replace local identity with an external
+  provider before internet-facing deployment.
+
+## Release Notes
+
+- Link the archived staging evidence JSON.
+- Link browser E2E output or record its project id.
+- Record backup archive path and restore rehearsal status.
+- Record remaining risks, skipped checks, and owner/date for each follow-up.
+- Record commit hash and push status.

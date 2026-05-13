@@ -381,13 +381,27 @@ MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
 scripts/harness/staging-evidence.sh --json [data-root] [backup-dir]
 ```
 
+Durable release artifact:
+
+```bash
+MASKING_APP_MODE=production \
+MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
+scripts/harness/staging-evidence.sh --json \
+  --output release-artifacts/staging-evidence-YYYYMMDD.json \
+  [data-root] [backup-dir]
+```
+
 Optional running-server health evidence:
 
 ```bash
 MASKING_APP_MODE=production \
 MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
 MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
-scripts/harness/staging-evidence.sh --json --base-url http://127.0.0.1:4173 [data-root] [backup-dir]
+scripts/harness/staging-evidence.sh --json \
+  --output release-artifacts/staging-evidence-YYYYMMDD.json \
+  --base-url http://127.0.0.1:4173 \
+  [data-root] [backup-dir]
 ```
 
 Current behavior:
@@ -397,6 +411,8 @@ Current behavior:
   `production-gate` in JSON mode
 - uses the backup archive created by the same run for restore rehearsal
 - records every sub-check result and exits non-zero when any required step fails
+- writes the same JSON evidence to `--output` when supplied, including failed
+  evidence runs
 - runs `deployment-check` only when `--base-url` is supplied
 - does not start the app server and does not replace the individual commands
 

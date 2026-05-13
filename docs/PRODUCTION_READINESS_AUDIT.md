@@ -129,7 +129,7 @@ Remaining follow-up:
 - host scheduler installation such as cron, launchd, systemd timer, or managed
   platform scheduler
 - restore rehearsal evidence from a real staging data root, captured with
-  `scripts/harness/staging-evidence.sh --json`
+  `scripts/harness/staging-evidence.sh --json --output <artifact.json>`
 
 ### 3. Deployment Runbook
 
@@ -227,8 +227,9 @@ Remaining follow-up:
    production boundary.
 2. Run password migration and `production-gate.sh` on the real target data root
    after backup.
-3. Run `scripts/harness/staging-evidence.sh --json` against a representative
-   staging data root and archive the resulting evidence JSON.
+3. Run `scripts/harness/staging-evidence.sh --json --output <artifact.json>`
+   against a representative staging data root and archive the resulting
+   evidence JSON.
 4. Decide whether filesystem JSON remains acceptable for the first shared
    production deployment or whether metadata must move to transactional
    storage.

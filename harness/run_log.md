@@ -1702,3 +1702,13 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=production-audit-evidence-refresh note=checked-doc-still-says-not-production-ready-and-goal-not-marked-complete
 [GIT] commit=d19bc34 push=origin/main status=passed
+[START] task=staging-evidence-output-file subsystem=release,staging-evidence,ops
+[PLAN] scope=save-staging-evidence-json-to-output-file risks=hiding-failed-evidence,artifact-in-data-root,overclaiming-readiness
+[IMPACT] status=validated chain=staging-evidence-cli->writeEvidenceOutput validation=node-test-stagingEvidence
+[CMD] node --test tests/stagingEvidence.test.js status=passed tests=4
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=314
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=staging-evidence-output-file note=checked-output-preserves-failed-evidence-and-docs-do-not-overclaim-production-readiness

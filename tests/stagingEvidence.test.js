@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 
-import { collectStagingEvidence } from "../scripts/harness/staging-evidence.mjs";
+import { collectStagingEvidence, writeEvidenceOutput } from "../scripts/harness/staging-evidence.mjs";
 
 test("collectStagingEvidence runs core checks and restores the created backup archive", async () => {
   const calls = [];
@@ -77,6 +80,27 @@ test("collectStagingEvidence skips restore when backup does not produce an archi
   assert.equal(result.steps.restore_verify.status, "skipped");
   assert.equal(calls.includes("restore_verify"), false);
   assert.equal(result.errors.some((error) => error.step === "restore_verify" && error.code === "backup_archive_unavailable"), true);
+});
+
+test("writeEvidenceOutput saves pretty JSON evidence and creates parent directories", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "masking-app-staging-evidence-"));
+  try {
+    const outputFile = path.join(root, "artifacts", "staging-evidence.json");
+    const result = {
+      ok: false,
+      errors: [{ step: "production_gate", code: "production_mode_required" }],
+    };
+
+    const writtenFile = await writeEvidenceOutput(result, outputFile);
+
+    assert.equal(writtenFile, outputFile);
+    assert.equal(
+      await readFile(outputFile, "utf8"),
+      `${JSON.stringify(result, null, 2)}\n`,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 function fakePayload(step) {

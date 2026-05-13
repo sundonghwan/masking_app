@@ -240,14 +240,18 @@ MASKING_APP_MODE=production \
 MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
 MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
 scripts/harness/staging-evidence.sh --json \
+  --output release-artifacts/staging-evidence-YYYYMMDD.json \
   --base-url http://127.0.0.1:4173 \
   "${MASKING_APP_DATA_DIR:-data}" \
   "${MASKING_APP_BACKUP_DIR:-backups}"
 ```
 
 This bundle does not start the app. It records storage verification, capacity
-profile, backup creation, restore rehearsal against the created archive,
-production gate, and optional deployment health evidence in one JSON object.
+profile, audit verification, audit retention dry-run, backup creation, restore
+rehearsal against the created archive, production gate, and optional deployment
+health evidence in one JSON object. Use `--output` to archive the exact evidence
+JSON with the release notes; failed runs are still written so blockers can be
+reviewed without rerunning the check.
 
 For Docker packaging changes, also run:
 

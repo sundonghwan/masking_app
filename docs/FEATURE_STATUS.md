@@ -98,6 +98,7 @@
 - [x] Global logout action available from project list, dashboard, and workbench screens
 - [x] Role-specific browser E2E smoke across admin, worker, and reviewer journeys
 - [x] Minimal local password policy for account creation and password rotation
+- [x] Staging evidence JSON output artifact for release records
 
 ## In Progress
 
@@ -113,6 +114,7 @@
 - AI-backed segmentation adapter remains optional hardening after the generic AI serving contract and local edge-aware magic tool reach real dataset limits.
 - Production identity provider remains out of MVP scope.
 - Database-backed storage remains out of MVP scope until filesystem operation becomes a bottleneck.
+- Real staging evidence still needs to be collected with `staging-evidence.sh --json --output` against representative staging data before a release handoff.
 
 ## Recommended Development Order
 
@@ -137,6 +139,7 @@
 - [x] Add server revision or optimistic concurrency checks before multi-user editing expands.
 - [x] Promote training-set export source selection into the main workbench/project flow.
 - [x] Add physical purge maintenance for deleted version files if operations needs it.
+- [x] Add durable staging evidence JSON output for release records.
 
 ## Hardcoded Runtime Debt
 

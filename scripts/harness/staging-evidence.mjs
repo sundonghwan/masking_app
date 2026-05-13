@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
@@ -20,6 +21,7 @@ const OPTIONAL_STEPS = Object.freeze(["deployment_check"]);
 if (isCliEntry()) {
   const args = process.argv.slice(2);
   const jsonOutput = takeFlag(args, "--json");
+  const outputFile = takeOption(args, "--output");
   const baseUrl = takeOption(args, "--base-url") || process.env.MASKING_APP_BASE_URL || "";
   const dataRoot = path.resolve(args[0] || process.env.MASKING_APP_DATA_DIR || process.env.MASKING_APP_DATA_ROOT || "data");
   const backupDir = path.resolve(args[1] || process.env.MASKING_APP_BACKUP_DIR || "backups");
@@ -31,6 +33,7 @@ if (isCliEntry()) {
     cwd: process.cwd(),
   });
 
+  await writeEvidenceOutput(result, outputFile);
   printResult(result, { jsonOutput });
   process.exit(result.ok ? 0 : 1);
 }
@@ -85,6 +88,14 @@ export async function collectStagingEvidence(options = {}) {
 
   result.ok = REQUIRED_STEPS.every((step) => result.steps[step]?.ok === true);
   return result;
+}
+
+export async function writeEvidenceOutput(result, outputFile) {
+  if (!outputFile) return "";
+  const target = path.resolve(outputFile);
+  await mkdir(path.dirname(target), { recursive: true });
+  await writeFile(target, `${JSON.stringify(result, null, 2)}\n`);
+  return target;
 }
 
 async function runStep(result, runCommand, step, command, env, options = {}) {
