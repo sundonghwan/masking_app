@@ -26,6 +26,7 @@ scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh
 scripts/harness/deployment-check.sh
 scripts/harness/security-check.sh
+scripts/harness/identity-migrate-passwords.sh
 ```
 
 ## Install / Bootstrap
@@ -199,6 +200,25 @@ Current behavior:
   present
 - strict mode exits non-zero for default seed passwords or plaintext passwords
 - use strict mode before shared network or production-like deployment
+
+## Identity Password Migration
+
+Preferred wrapper:
+
+```bash
+scripts/harness/identity-migrate-passwords.sh [data-root]
+scripts/harness/identity-migrate-passwords.sh --apply [data-root]
+scripts/harness/identity-migrate-passwords.sh --json [data-root]
+```
+
+Current behavior:
+
+- dry-run by default
+- converts legacy `password` fields in `identity/users.json` to
+  `password_hash`
+- writes a timestamped `users.json.bak-*` backup before applying
+- does not change roles, display names, or active flags
+- should be run only after data-root backup for real deployments
 
 Manual browser smoke:
 

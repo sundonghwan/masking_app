@@ -61,7 +61,8 @@ For local or controlled staging:
   and rotated local users through `src/server/passwords.js`.
 - Use a modern password hashing algorithm available in the deployment runtime.
   Current baseline: PBKDF2-SHA256 with per-password salt.
-- Keep a one-time migration path from current plaintext local files. Pending.
+- Keep a one-time migration path from current plaintext local files. Implemented
+  baseline: `scripts/harness/identity-migrate-passwords.sh --apply`.
 
 ### 3. Session Policy
 

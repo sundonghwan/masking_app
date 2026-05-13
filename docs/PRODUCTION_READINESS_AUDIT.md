@@ -146,13 +146,15 @@ documents the current hard stops and minimum sequence before shared network
 deployment. The first executable gates are implemented: session tokens use
 cryptographic randomness, new local user passwords are stored as PBKDF2 hashes,
 and `scripts/harness/security-check.sh --strict` can fail deployment checks when
-default seed or legacy plaintext passwords remain.
+default seed or legacy plaintext passwords remain. A dry-run-first identity
+password migration script exists for converting legacy plaintext local user
+files after backup.
 
 Open production decisions:
 
 - external identity provider or local hardened account store
 - password policy and reset flow
-- one-time migration for existing plaintext `identity/users.json`
+- operator-run migration for existing plaintext `identity/users.json`
 - token lifetime and rotation
 - CSRF/CORS policy for non-local deployment
 - audit retention for admin/review actions

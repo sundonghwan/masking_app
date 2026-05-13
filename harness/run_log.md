@@ -1236,3 +1236,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=password-hash-storage note=checked-default-login-admin-created-login-public-user-redaction-and-no-implicit-data-migration
 [CLOSE] status=ready-for-commit
+[GIT] commit=7c4f6c3 push=origin/main status=passed
+[START] task=identity-password-migration subsystem=auth,security,operations
+[PLAN] scope=dry-run-apply-password-migration,backup-before-write,tests-docs risks=accidental-data-mutation,credential-loss,false-security-claim
+[CODE] added=scripts/harness/identity-migrate-passwords.sh,scripts/harness/identity-migrate-passwords.mjs note=dry-run-default-apply-writes-backup-before-password_hash-migration
+[TEST] added=tests/identityMigratePasswords.test.js note=verifies-dry-run-immutability-apply-hash-and-backup
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=248
+[CMD] scripts/harness/identity-migrate-passwords.sh data status=passed applied=false migrated=3 skipped=0
+[CMD] scripts/harness/security-check.sh data status=passed warnings=default_seed_passwords,plaintext_passwords
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=identity-password-migration note=checked-dry-run-default-backup-before-write-and-no-active-data-mutation
+[CLOSE] status=ready-for-commit
