@@ -17,6 +17,7 @@ import { createHttpError, methodNotAllowed, notFound, readJsonBody, readRawBody,
 import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimensions } from "./imageMetadata.js";
 import { normalizeMaskPngForStorage, validateMaskContract } from "./maskValidation.js";
 import { createSessionToken } from "./sessionToken.js";
+import { assertRevisionMatch, nextRevision, normalizeRevision } from "./revisions.js";
 import { applyReviewTransition } from "../review/policy.js";
 import { repairProjectManifestRecord } from "./storage.js";
 import { labelByClassId, normalizeLabelSchema } from "../annotations/labels.js";
@@ -1266,37 +1267,6 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
         };
     await storage.writeProjectManifest(projectId, updated);
     return updated;
-  }
-
-  function assertRevisionMatch(response, request, body = {}, currentRevision = 0) {
-    const expected = readIfMatchRevision(request, body);
-    if (expected === null) return true;
-    const actual = normalizeRevision(currentRevision);
-    if (expected === actual) return true;
-    sendJson(response, 409, {
-      error: "revision_conflict",
-      message: "The requested mutation is based on a stale revision",
-      expected_revision: actual,
-      received_revision: expected,
-    });
-    return false;
-  }
-
-  function readIfMatchRevision(request, body = {}) {
-    const value = body.if_match_revision ?? body.ifMatchRevision ?? request.headers["if-match"] ?? request.headers["If-Match"];
-    if (value === undefined || value === null || value === "") return null;
-    const cleaned = String(value).trim().replace(/^W\//i, "").replace(/^"|"$/g, "");
-    const revision = Number(cleaned);
-    return Number.isFinite(revision) ? revision : null;
-  }
-
-  function normalizeRevision(value) {
-    const revision = Number(value || 0);
-    return Number.isFinite(revision) && revision >= 0 ? revision : 0;
-  }
-
-  function nextRevision(value) {
-    return normalizeRevision(value) + 1;
   }
 
   function normalizeMagicToolPreset(input = {}, fallback = {}) {

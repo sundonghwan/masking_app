@@ -1415,3 +1415,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/browser-e2e.sh status=passed note=log-file-env-wiring-does-not-break-local-server-workflow
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=runtime-log-file-sink note=checked-jsonl-sanitized-entries-host-retention-boundary-and-sync-append-risk
+[GIT] commit=841b76b push=origin/main status=passed
+[START] task=api-revision-helper-refactor subsystem=backend,api,refactor
+[PLAN] scope=extract-revision-helpers,focused-tests,syntax-coverage risks=stale-revision-protection-drift,conflict-response-shape-drift
+[TEST] added=tests/revisions.test.js note=body-and-if-match-parsing-stale-conflict-response-and-normalization
+[CODE] added=src/server/revisions.js updated=src/server/api.js,scripts/harness/check-syntax.mjs note=revision-helper-extracted-from-large-api-router
+[DOC] updated=docs/PRODUCTION_READINESS_AUDIT.md note=full-test-count-280
+[CMD] node --test tests/revisions.test.js status=passed tests=4
+[CMD] node --test tests/serverApi.test.js status=passed tests=54
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=280
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=api-revision-helper-refactor note=checked-stale-guard-response-shape-and-no-route-behavior-change
