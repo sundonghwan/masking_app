@@ -1713,3 +1713,14 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=staging-evidence-output-file note=checked-output-preserves-failed-evidence-and-docs-do-not-overclaim-production-readiness
 [GIT] commit=beb12c1 push=origin/main status=passed
+[START] task=project-settings-route-refactor subsystem=backend,project-settings,code-health
+[PLAN] scope=extract-project-settings-update-helper risks=settings-field-loss,revision-change
+[IMPACT] status=validated chain=routeProject-settings->buildProjectSettingsUpdate->storage.writeProjectManifest validation=projectSettings-test,serverApi-test
+[CMD] node --test tests/projectSettings.test.js status=passed tests=2
+[CMD] node --test tests/serverApi.test.js status=passed tests=67
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=316
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=project-settings-route-refactor note=checked-route-boundary-and-existing-settings-contract-preserved

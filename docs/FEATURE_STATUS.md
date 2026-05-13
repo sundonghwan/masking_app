@@ -99,6 +99,7 @@
 - [x] Role-specific browser E2E smoke across admin, worker, and reviewer journeys
 - [x] Minimal local password policy for account creation and password rotation
 - [x] Staging evidence JSON output artifact for release records
+- [x] Project settings route normalization helper refactor
 
 ## In Progress
 
