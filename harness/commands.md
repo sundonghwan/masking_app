@@ -25,6 +25,7 @@ scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh
 scripts/harness/deployment-check.sh
+scripts/harness/security-check.sh
 ```
 
 ## Install / Bootstrap
@@ -180,6 +181,25 @@ Current behavior:
 - exits non-zero when the server is unreachable or the health payload does not
   match the app contract
 
+## Security Check
+
+Preferred wrapper:
+
+```bash
+scripts/harness/security-check.sh [data-root]
+scripts/harness/security-check.sh --strict [data-root]
+scripts/harness/security-check.sh --json [data-root]
+```
+
+Current behavior:
+
+- reads only; does not modify identity files
+- defaults to `MASKING_APP_DATA_DIR`, then `MASKING_APP_DATA_ROOT`, then `data`
+- relaxed mode warns when local MVP seed passwords or plaintext passwords are
+  present
+- strict mode exits non-zero for default seed passwords or plaintext passwords
+- use strict mode before shared network or production-like deployment
+
 Manual browser smoke:
 
 - run `npm run dev`
@@ -204,6 +224,7 @@ scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh "${MASKING_APP_DATA_DIR:-data}"
 scripts/harness/deployment-check.sh http://127.0.0.1:4173
+scripts/harness/security-check.sh --strict "${MASKING_APP_DATA_DIR:-data}"
 ```
 
 ## Updating Commands

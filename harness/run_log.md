@@ -1207,3 +1207,18 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=storage-concurrency-decision note=checked-single-process-limit-revision-guard-limit-db-trigger-language
 [CLOSE] status=ready-for-commit
+[GIT] commit=3c21eb2 push=origin/main status=passed
+[START] task=security-hardening-gates subsystem=auth,security,operations
+[PLAN] scope=crypto-session-token,security-check-default-password-plaintext-password risks=breaking-login,overblocking-local-dev,overclaiming-production-auth
+[CODE] added=src/server/sessionToken.js note=session-tokens-use-node-crypto-randomBytes
+[CODE] added=scripts/harness/security-check.sh,scripts/harness/security-check.mjs note=relaxed-warns-strict-fails-default-or-plaintext-passwords
+[TEST] added=tests/securityCheck.test.js note=strict-default-password-and-plaintext-detection
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=246
+[CMD] scripts/harness/security-check.sh data status=passed warnings=default_seed_passwords,plaintext_passwords
+[CMD_EXPECTED_FAIL] scripts/harness/security-check.sh --strict data status=failed reason=current-data-has-default-plaintext-seed-passwords
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=session-token,security-check,docs note=checked-centralized-token-generation-relaxed-vs-strict-gate-and-no-production-overclaim
+[CLOSE] status=ready-for-commit

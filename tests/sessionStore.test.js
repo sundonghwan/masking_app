@@ -19,7 +19,7 @@ test("filesystem session store creates and reads public session records", async 
   const session = await store.createSession({ user_id: "worker", role: ROLES.WORKER });
   const loaded = await store.readSession(session.token);
 
-  assert.match(session.token, /^sess_/);
+  assert.match(session.token, /^sess_[a-f0-9]{64}$/);
   assert.equal(loaded.user_id, "worker");
   assert.equal(loaded.userId, "worker");
   assert.equal(loaded.role, ROLES.WORKER);
@@ -34,6 +34,16 @@ test("filesystem session store deletes sessions by token", async () => {
   assert.equal(await store.deleteSession(session.token), true);
   assert.equal(await store.readSession(session.token), null);
   assert.equal(await store.deleteSession(session.token), false);
+});
+
+test("filesystem session store creates unique cryptographic-looking tokens", async () => {
+  const { store } = await createTempSessionStore();
+  const first = await store.createSession({ user_id: "worker", role: ROLES.WORKER });
+  const second = await store.createSession({ user_id: "worker", role: ROLES.WORKER });
+
+  assert.notEqual(first.token, second.token);
+  assert.match(first.token, /^sess_[a-f0-9]{64}$/);
+  assert.match(second.token, /^sess_[a-f0-9]{64}$/);
 });
 
 test("filesystem session store cleanup removes expired sessions only", async () => {

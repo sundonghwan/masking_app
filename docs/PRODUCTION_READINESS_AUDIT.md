@@ -72,7 +72,7 @@ For this repository, "production-level" means the following are true:
 | Production deployment packaging | `docs/RUNBOOK_DEPLOYMENT.md`, `scripts/harness/deployment-check.sh`, `src/server/deploymentProfile.js` | Implemented baseline |
 | Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist, but no benchmark or capacity profile | Missing |
-| Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md` documents current hard stops and hardening order | Planned / not implemented |
+| Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md`, `src/server/sessionToken.js`, `scripts/harness/security-check.sh` | Partial executable gates |
 | Filesystem storage concurrency boundary | `docs/STORAGE_CONCURRENCY_DECISION.md` defines single-process limits and DB migration triggers | Accepted local/staging constraint |
 | Observability dashboard or log ingestion | Structured logs exist; no dashboard or retention plan | Missing |
 
@@ -143,7 +143,9 @@ Remaining follow-up:
 The current bearer-token sessions and role checks are enough for local MVP
 operation. They are not a production identity system. The hardening plan now
 documents the current hard stops and minimum sequence before shared network
-deployment.
+deployment. The first executable gates are implemented: session tokens use
+cryptographic randomness, and `scripts/harness/security-check.sh --strict` can
+fail deployment checks when default seed or plaintext passwords remain.
 
 Open production decisions:
 

@@ -16,6 +16,7 @@ import {
 import { createHttpError, methodNotAllowed, notFound, readJsonBody, readRawBody, sendBuffer, sendJson } from "./httpUtils.js";
 import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimensions } from "./imageMetadata.js";
 import { normalizeMaskPngForStorage, validateMaskContract } from "./maskValidation.js";
+import { createSessionToken } from "./sessionToken.js";
 import { applyReviewTransition } from "../review/policy.js";
 import { repairProjectManifestRecord } from "./storage.js";
 import { labelByClassId, normalizeLabelSchema } from "../annotations/labels.js";
@@ -953,10 +954,6 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       role: session.role,
       created_at: session.created_at,
     };
-  }
-
-  function createSessionToken() {
-    return `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
   }
 
   function bearerToken(request) {

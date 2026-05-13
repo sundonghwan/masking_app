@@ -35,6 +35,7 @@ require_file src/observability/logger.js
 require_file src/server/api.js
 require_file src/server/httpUtils.js
 require_file src/server/maskValidation.js
+require_file src/server/sessionToken.js
 require_file src/server/storage.js
 require_file src/styles.css
 require_file scripts/harness/browser-e2e.sh
@@ -43,6 +44,8 @@ require_file scripts/harness/storage-verify.sh
 require_file scripts/harness/storage-verify.mjs
 require_file scripts/harness/deployment-check.sh
 require_file scripts/harness/deployment-check.mjs
+require_file scripts/harness/security-check.sh
+require_file scripts/harness/security-check.mjs
 
 require_file docs/design/screens-v2/01-main-mask-editor.png
 require_file docs/design/screens-v2/02-dataset-upload.png
@@ -61,3 +64,4 @@ echo "smoke-web: backend/static MVP app files are present."
 echo "smoke-web: browser E2E harness entrypoint is present."
 echo "smoke-web: storage verification entrypoint is present."
 echo "smoke-web: deployment check entrypoint is present."
+echo "smoke-web: security check entrypoint is present."

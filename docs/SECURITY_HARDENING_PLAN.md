@@ -50,9 +50,10 @@ For local or controlled staging:
 
 ### 1. Remove Default Password Risk
 
-- Force password reset or admin-created credentials on first run.
-- Add a startup warning when default passwords are detected.
+- Force password reset or admin-created credentials on first run. Pending.
+- Add a startup warning when default passwords are detected. Pending.
 - Add a verifier check that can fail deployment if default passwords remain.
+  Implemented baseline: `scripts/harness/security-check.sh --strict`.
 
 ### 2. Hash Stored Passwords
 
@@ -63,6 +64,7 @@ For local or controlled staging:
 ### 3. Session Policy
 
 - Replace `Math.random()` token generation with cryptographic randomness.
+  Implemented baseline: `src/server/sessionToken.js`.
 - Make session TTL configurable.
 - Add session rotation on login and explicit cleanup guidance.
 - Consider HttpOnly cookies only when CSRF strategy is also decided.

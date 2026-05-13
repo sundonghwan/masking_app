@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { DEFAULT_ACTORS, ROLES, normalizeActorId, normalizeRole } from "../config/runtimeDefaults.js";
+import { createSessionToken } from "./sessionToken.js";
 
 const DEFAULT_ROOT_DIR = process.env.MASKING_APP_DATA_DIR || process.env.MASKING_APP_DATA_ROOT || "data";
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -101,10 +102,6 @@ export function deleteSession(token) {
 
 export function cleanupExpiredSessions(options = {}) {
   return defaultSessionStore.cleanupExpiredSessions(options);
-}
-
-function createSessionToken() {
-  return `sess_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
 }
 
 function sanitizeToken(token) {
