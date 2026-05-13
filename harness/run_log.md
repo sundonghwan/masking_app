@@ -1686,3 +1686,4 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=user-session-invalidation note=checked-password-role-deactivate-revoke-sessions-display-name-does-not-and-docs-do-not-overclaim-full-idp-token-rotation
+[GIT] commit=ca51b81 push=origin/main status=passed
