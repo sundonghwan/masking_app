@@ -1222,3 +1222,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=session-token,security-check,docs note=checked-centralized-token-generation-relaxed-vs-strict-gate-and-no-production-overclaim
 [CLOSE] status=ready-for-commit
+[GIT] commit=05cdd5d push=origin/main status=passed
+[START] task=password-hash-storage subsystem=auth,security
+[PLAN] scope=pbkdf2-password-hash,new-seed-create-update-users,legacy-plaintext-login-compat risks=breaking-login,mutating-existing-data-without-backup
+[CODE] added=src/server/passwords.js note=pbkdf2-sha256-salted-hashes-and-legacy-plaintext-verify
+[CODE] changed=src/server/userDirectory.js note=seed-create-update-write-password_hash-while-validate-supports-legacy-plaintext
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=246
+[CMD] scripts/harness/security-check.sh data status=passed warnings=default_seed_passwords,plaintext_passwords
+[CMD_EXPECTED_FAIL] scripts/harness/security-check.sh --strict data status=failed reason=existing-local-data-still-has-legacy-default-plaintext-passwords
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=password-hash-storage note=checked-default-login-admin-created-login-public-user-redaction-and-no-implicit-data-migration
+[CLOSE] status=ready-for-commit

@@ -57,9 +57,11 @@ For local or controlled staging:
 
 ### 2. Hash Stored Passwords
 
-- Store password hashes, not plaintext.
+- Store password hashes, not plaintext. Implemented for newly seeded, created,
+  and rotated local users through `src/server/passwords.js`.
 - Use a modern password hashing algorithm available in the deployment runtime.
-- Keep a one-time migration path from current plaintext local files.
+  Current baseline: PBKDF2-SHA256 with per-password salt.
+- Keep a one-time migration path from current plaintext local files. Pending.
 
 ### 3. Session Policy
 

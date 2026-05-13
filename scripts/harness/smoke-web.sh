@@ -35,6 +35,7 @@ require_file src/observability/logger.js
 require_file src/server/api.js
 require_file src/server/httpUtils.js
 require_file src/server/maskValidation.js
+require_file src/server/passwords.js
 require_file src/server/sessionToken.js
 require_file src/server/storage.js
 require_file src/styles.css

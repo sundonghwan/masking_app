@@ -26,6 +26,8 @@ test("filesystem user directory seeds the local MVP accounts", async () => {
 
   const stored = JSON.parse(await readFile(path.join(rootDir, "identity", "users.json"), "utf8"));
   assert.equal(stored.users.length, LOCAL_MVP_USER_ACCOUNTS.length);
+  assert.equal(stored.users.some((user) => Object.hasOwn(user, "password")), false);
+  assert.equal(stored.users.every((user) => Object.hasOwn(user, "password_hash")), true);
 });
 
 test("user directory validates credentials without trusting caller-provided role", async () => {
@@ -94,7 +96,9 @@ test("user directory creates users without returning stored passwords", async ()
   assert.equal((await directory.validateCredentials({ user_id: "worker-2", password: "initial-pass" })).role, ROLES.WORKER);
 
   const stored = JSON.parse(await readFile(path.join(rootDir, "identity", "users.json"), "utf8"));
-  assert.equal(stored.users.find((user) => user.user_id === "worker-2").password, "initial-pass");
+  const storedUser = stored.users.find((user) => user.user_id === "worker-2");
+  assert.equal(Object.hasOwn(storedUser, "password"), false);
+  assert.match(storedUser.password_hash, /^pbkdf2_sha256\$/);
 });
 
 test("user directory updates profile fields and rotates passwords", async () => {

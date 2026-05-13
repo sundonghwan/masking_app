@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { normalizeActorId, normalizeRole, publicMvpUser } from "../config/runtimeDefaults.js";
 import { LOCAL_MVP_USER_ACCOUNTS } from "./auth.js";
+import { hashPassword, isPasswordHash, verifyPassword } from "./passwords.js";
 
 const DEFAULT_ROOT_DIR = process.env.MASKING_APP_DATA_DIR || process.env.MASKING_APP_DATA_ROOT || "data";
 
@@ -51,8 +52,10 @@ export function createUserDirectory({ rootDir = DEFAULT_ROOT_DIR } = {}) {
       const role = normalizeRole(input.role, "");
       if (!userId) throw userDirectoryError("user_id_required", "User ID is required", 400);
       if (!role) throw userDirectoryError("role_required", "A valid role is required", 400);
+      if (!String(input.password || input.password_hash || "").trim()) {
+        throw userDirectoryError("password_required", "Password is required", 400);
+      }
       const user = normalizeStoredUser({ ...input, user_id: userId, role });
-      if (!user.password) throw userDirectoryError("password_required", "Password is required", 400);
       if (file.users.some((item) => item.user_id === user.user_id)) {
         throw userDirectoryError("user_already_exists", "User already exists", 409);
       }
@@ -88,7 +91,7 @@ export function createUserDirectory({ rootDir = DEFAULT_ROOT_DIR } = {}) {
       const password = String(input.password || "");
       const file = await this.ensureSeeded();
       const user = file.users.find((item) => item.user_id === userId && item.active !== false);
-      if (!user || String(user.password || "") !== password) return null;
+      if (!user || !verifyPassword(password, user)) return null;
       return publicUser(user);
     },
     async userHasRole(userId, role) {
@@ -164,7 +167,7 @@ function normalizeStoredUser(user = {}) {
     user_id: userId,
     role,
     display_name: String(user.display_name || user.displayName || userId).trim(),
-    password: String(user.password || ""),
+    password_hash: normalizePasswordHash(user.password_hash) || hashPassword(user.password),
     active: user.active !== false,
   };
 }
@@ -184,14 +187,21 @@ function normalizeUpdatedUser(existing, input = {}) {
     updated.display_name = String(input.display_name || input.displayName || existing.user_id).trim();
   }
   if (Object.hasOwn(input, "password")) {
-    updated.password = String(input.password || "");
-    if (!updated.password) throw userDirectoryError("password_required", "Password is required", 400);
+    const password = String(input.password || "");
+    if (!password) throw userDirectoryError("password_required", "Password is required", 400);
+    updated.password = password;
+    updated.password_hash = "";
   }
   if (Object.hasOwn(input, "active")) {
     updated.active = input.active !== false;
   }
 
   return normalizeStoredUser(updated);
+}
+
+function normalizePasswordHash(value) {
+  const passwordHash = String(value || "");
+  return isPasswordHash(passwordHash) ? passwordHash : "";
 }
 
 function publicUser(user = {}) {
