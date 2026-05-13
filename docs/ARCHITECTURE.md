@@ -169,10 +169,14 @@ Current foundation implemented:
   with `class_id + class_name + mask_path`, stores local mask blobs by
   `image_id::class_id`, and keeps legacy `current_mask_path` mirrored to the
   currently selected class for existing export compatibility.
+- `annotations.json`, project ZIP export, and training-set manifests now prefer
+  `image.annotations[]` when present, emitting one export/training item per
+  class annotation with `annotation_id`, `class_id`, `class_name`, and the
+  annotation-specific binary mask path while preserving legacy single-mask
+  output for old records.
 
 Still pending:
 
-- class-aware export/training-set metadata
 - AI prediction import with `class_id + mask_data_url`
 
 Target model:
@@ -216,6 +220,10 @@ Compatibility rule:
   during migration
 - new class-aware save/export paths should prefer `annotations[]`
 - legacy masks can be migrated into default `class_id=1`, `name=target`
+- project ZIP export stores each original image once and writes one mask entry
+  per class annotation
+- training-set export uses one item per annotation so split files can pair each
+  image path with the correct class-specific binary mask path
 
 Implementation detail:
 

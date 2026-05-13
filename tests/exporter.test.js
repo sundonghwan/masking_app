@@ -14,6 +14,7 @@ import {
   createValidationSummary,
   downloadBlobFile,
   serializeJson,
+  validateImageForExport,
 } from "../src/export/exporter.js";
 
 const NOW = "2026-04-29T00:00:00.000Z";
@@ -211,6 +212,81 @@ test("creates annotations.json with archive-relative paths only", () => {
       submitted_at: NOW,
     },
   ]);
+});
+
+test("creates class-aware annotations metadata from image annotation records", () => {
+  const project = createProjectRecord({ id: "project-1", name: "Rail Masks" }, { now: NOW });
+  const image = createImageRecord(
+    {
+      id: "image-1",
+      originalFileName: "frame.png",
+      imagePath: "images/image-1.png",
+      maskPath: "masks/image-1_class_2_scratch_mask.png",
+      width: 640,
+      height: 480,
+      maskWidth: 640,
+      maskHeight: 480,
+      status: "submitted",
+      submittedAt: NOW,
+      annotations: [
+        {
+          annotation_id: "ann_image-1_class_1",
+          class_id: 1,
+          class_name: "crack",
+          mask_path: "masks/image-1_class_1_crack_mask.png",
+          mask_width: 640,
+          mask_height: 480,
+          mask_ratio: 0.2,
+        },
+        {
+          annotation_id: "ann_image-1_class_2",
+          class_id: 2,
+          class_name: "scratch",
+          mask_path: "masks/image-1_class_2_scratch_mask.png",
+          mask_width: 640,
+          mask_height: 480,
+          mask_ratio: 0.1,
+        },
+      ],
+    },
+    { now: NOW },
+  );
+
+  const annotations = createAnnotationsJson(project, [image], { now: NOW });
+
+  assert.deepEqual(annotations.annotations.map((item) => `${item.image_id}:${item.class_id}:${item.class_name}`), [
+    "image-1:1:crack",
+    "image-1:2:scratch",
+  ]);
+  assert.equal(annotations.annotations[0].mask_path, "masks/image-1_class_1_crack_mask.png");
+  assert.equal(annotations.annotations[0].source_mask_path, "masks/image-1_class_1_crack_mask.png");
+  assert.equal(annotations.annotations[1].mask_ratio, 0.1);
+});
+
+test("treats class annotation mask paths as exportable mask sources", () => {
+  const image = createImageRecord(
+    {
+      id: "image-1",
+      projectId: "project-1",
+      originalFileName: "frame.png",
+      imagePath: "images/image-1.png",
+      width: 640,
+      height: 480,
+      status: "submitted",
+      annotations: [{
+        annotation_id: "ann_image-1_class_1",
+        class_id: 1,
+        class_name: "crack",
+        mask_path: "masks/image-1_class_1_crack_mask.png",
+      }],
+    },
+    { now: NOW },
+  );
+
+  const validation = validateImageForExport(image, { requireProjectId: true });
+
+  assert.equal(validation.valid, true);
+  assert.equal(validation.checks.mask, true);
 });
 
 test("creates export_summary.json from the same validation decisions", () => {

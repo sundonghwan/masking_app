@@ -76,6 +76,7 @@ export function createImageRecord(input = {}, options = {}) {
     deleted_by: input.deletedBy || input.deleted_by || "",
     delete_reason: input.deleteReason || input.delete_reason || "",
     review_events: Array.isArray(input.reviewEvents || input.review_events) ? input.reviewEvents || input.review_events : [],
+    annotations: Array.isArray(input.annotations) ? input.annotations.map((annotation) => ({ ...annotation })) : [],
   };
 }
 
@@ -116,7 +117,7 @@ export function validateImageForExport(imageRecord, options = {}) {
     original: Boolean(imageRecord.image_path || imageRecord.object_url),
     dimensions: imageRecord.width > 0 && imageRecord.height > 0,
     status: allowedStatuses.has(imageRecord.status),
-    mask: Boolean(imageRecord.current_mask_path || imageRecord.mask_data_url),
+    mask: hasMaskSource(imageRecord),
     mask_dimensions: true,
     mask_values: imageRecord.mask_values_valid !== false,
     not_empty: true,
@@ -156,6 +157,11 @@ export function validateImageForExport(imageRecord, options = {}) {
   };
 }
 
+function hasMaskSource(imageRecord = {}) {
+  if (imageRecord.current_mask_path || imageRecord.mask_data_url) return true;
+  return Array.isArray(imageRecord.annotations) && imageRecord.annotations.some((annotation) => annotation?.mask_path);
+}
+
 export function createAnnotationsJson(projectRecord, imageRecords, options = {}) {
   const now = options.now || new Date().toISOString();
   const exportable = filterActiveImages(imageRecords, options)
@@ -167,18 +173,34 @@ export function createAnnotationsJson(projectRecord, imageRecords, options = {})
     project_id: projectRecord.id,
     generated_at: now,
     mask_contract: MASK_CONTRACT,
-    annotations: exportable.map(({ image, index }) => {
+    annotations: exportable.flatMap(({ image, index }) => {
       const paths = createExportPaths(image, { index });
-      return {
+      const base = {
         image_id: image.id,
         original_file_name: image.original_file_name,
         image_path: paths.image_path,
-        mask_path: paths.mask_path,
         width: image.width,
         height: image.height,
         status: image.status,
         submitted_at: image.submitted_at || "",
       };
+      if (!Array.isArray(image.annotations) || image.annotations.length === 0) {
+        return [{
+          ...base,
+          mask_path: paths.mask_path,
+        }];
+      }
+      return image.annotations.map((annotation) => ({
+        ...base,
+        annotation_id: annotation.annotation_id || "",
+        class_id: Number(annotation.class_id),
+        class_name: annotation.class_name || "",
+        mask_path: annotation.mask_path || paths.mask_path,
+        source_mask_path: annotation.mask_path || image.current_mask_path || "",
+        mask_width: annotation.mask_width || image.mask_width || image.width,
+        mask_height: annotation.mask_height || image.mask_height || image.height,
+        mask_ratio: Number(annotation.mask_ratio ?? image.mask_ratio ?? 0),
+      }));
     }),
   };
 }

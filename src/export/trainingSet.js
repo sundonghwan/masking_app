@@ -1,9 +1,11 @@
+import { normalizeLabelSchema } from "../annotations/labels.js";
 import { createExportPaths, createProjectRecord, createValidationSummary, serializeJson } from "./exporter.js";
 
 export function createTrainingSetManifest(sources = [], options = {}) {
   const now = options.now || new Date().toISOString();
   const items = [];
   const sourceVersions = [];
+  const labelSchema = [];
   const splitConfig = normalizeSplitConfig(options.split || options.splitConfig);
 
   for (const source of sources) {
@@ -14,6 +16,7 @@ export function createTrainingSetManifest(sources = [], options = {}) {
     const taskId = source.task_id || source.taskId || "legacy_project";
     const versionId = source.version_id || source.versionId || "legacy";
     const images = Array.isArray(source.images) ? source.images.filter((image) => !image.deleted_at) : [];
+    mergeLabelSchema(labelSchema, normalizeLabelSchema(source.label_schema || source.labelSchema || []));
     const validation = createValidationSummary(project, images, {
       now,
       approvedOnly: Boolean(options.approvedOnly),
@@ -31,24 +34,31 @@ export function createTrainingSetManifest(sources = [], options = {}) {
     images.forEach((image, index) => {
       const validationItem = validation.items[index];
       if (!validationItem?.exportable) return;
-      const paths = createTrainingSetPaths({ projectId: project.id, taskId, versionId, image, index: items.length });
-      const exportPaths = createExportPaths(image, { index });
-      items.push({
-        image_id: image.id,
-        project_id: project.id,
-        task_id: taskId,
-        version_id: versionId,
-        original_file_name: image.original_file_name || image.fileName || "",
-        source_image_path: image.image_path || "",
-        source_mask_path: image.current_mask_path || "",
-        image_path: paths.image_path,
-        mask_path: paths.mask_path,
-        default_image_path: exportPaths.image_path,
-        default_mask_path: exportPaths.mask_path,
-        width: image.width,
-        height: image.height,
-        status: image.status,
-        split: "",
+      const annotations = trainingAnnotationsForImage(image);
+      annotations.forEach((annotation) => {
+        const paths = createTrainingSetPaths({ projectId: project.id, taskId, versionId, image, annotation, index: items.length });
+        const exportPaths = createExportPaths(image, { index });
+        items.push({
+          annotation_id: annotation.annotation_id,
+          class_id: annotation.class_id,
+          class_name: annotation.class_name,
+          image_id: image.id,
+          project_id: project.id,
+          task_id: taskId,
+          version_id: versionId,
+          original_file_name: image.original_file_name || image.fileName || "",
+          source_image_path: image.image_path || "",
+          source_mask_path: annotation.mask_path || image.current_mask_path || "",
+          image_path: paths.image_path,
+          mask_path: paths.mask_path,
+          default_image_path: exportPaths.image_path,
+          default_mask_path: exportPaths.mask_path,
+          width: image.width,
+          height: image.height,
+          mask_ratio: Number(annotation.mask_ratio ?? image.mask_ratio ?? 0),
+          status: image.status,
+          split: "",
+        });
       });
     });
   }
@@ -64,6 +74,7 @@ export function createTrainingSetManifest(sources = [], options = {}) {
       description: options.description || "",
       generated_at: now,
       approved_only: Boolean(options.approvedOnly),
+      label_schema: labelSchema,
       split: splitConfig,
       split_counts: splitCounts,
       total_sources: sourceVersions.length,
@@ -128,14 +139,42 @@ export function createTrainingSetZipEntries(sources = [], options = {}) {
   };
 }
 
-function createTrainingSetPaths({ projectId, taskId, versionId, image, index }) {
-  const prefix = sanitizeTrainingPath(`${projectId}_${taskId}_${versionId}_${String(index + 1).padStart(4, "0")}_${image.id}`);
+function createTrainingSetPaths({ projectId, taskId, versionId, image, annotation, index }) {
+  const classPart = annotation?.class_id ? `_class_${annotation.class_id}_${annotation.class_name || "mask"}` : "";
+  const prefix = sanitizeTrainingPath(`${projectId}_${taskId}_${versionId}_${String(index + 1).padStart(4, "0")}_${image.id}${classPart}`);
   const sourceName = sanitizeTrainingPath(image.original_file_name || image.fileName || `${image.id}.png`);
   const imageName = sourceName.includes(".") ? `${prefix}_${sourceName}` : `${prefix}_${sourceName}.png`;
   return {
     image_path: `images/${imageName}`,
     mask_path: `masks/${stripExtension(imageName)}_mask.png`,
   };
+}
+
+function trainingAnnotationsForImage(image = {}) {
+  if (Array.isArray(image.annotations) && image.annotations.length > 0) {
+    return image.annotations.map((annotation) => ({
+      annotation_id: annotation.annotation_id || `ann_${image.id}_class_${annotation.class_id}`,
+      class_id: Number(annotation.class_id),
+      class_name: annotation.class_name || "",
+      mask_path: annotation.mask_path || image.current_mask_path || "",
+      mask_ratio: Number(annotation.mask_ratio ?? image.mask_ratio ?? 0),
+    }));
+  }
+  return [{
+    annotation_id: "",
+    class_id: null,
+    class_name: "",
+    mask_path: image.current_mask_path || "",
+    mask_ratio: Number(image.mask_ratio || 0),
+  }];
+}
+
+function mergeLabelSchema(target, labels) {
+  for (const label of labels) {
+    if (target.some((item) => Number(item.class_id) === Number(label.class_id))) continue;
+    target.push({ ...label });
+  }
+  target.sort((left, right) => Number(left.class_id) - Number(right.class_id));
 }
 
 function sanitizeTrainingPath(value) {
@@ -187,7 +226,7 @@ function applySplits(items, splitConfig) {
 }
 
 function splitSortKey(item, seed) {
-  return `${hashString(`${seed}:${item.project_id}:${item.task_id}:${item.version_id}:${item.image_id}`)}`.padStart(10, "0");
+  return `${hashString(`${seed}:${item.project_id}:${item.task_id}:${item.version_id}:${item.image_id}:${item.annotation_id || item.class_id || ""}`)}`.padStart(10, "0");
 }
 
 function hashString(value) {

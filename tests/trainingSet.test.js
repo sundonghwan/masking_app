@@ -63,6 +63,48 @@ test("creates zip entries with metadata first and source file traceability", () 
   assert.equal(result.entries[6].source_path, "masks/image-1_mask.png");
 });
 
+test("creates training items per class annotation with class metadata", () => {
+  const result = createTrainingSetManifest([
+    {
+      project_id: "project-a",
+      task_id: "defect",
+      version_id: "v3",
+      label_schema: [
+        { class_id: 1, name: "crack", color: "#EF4444" },
+        { class_id: 2, name: "scratch", color: "#F59E0B" },
+      ],
+      images: [{
+        ...exportableImage("image-1", "frame.png"),
+        annotations: [
+          {
+            annotation_id: "ann_image-1_class_1",
+            class_id: 1,
+            class_name: "crack",
+            mask_path: "masks/image-1_class_1_crack_mask.png",
+            mask_ratio: 0.2,
+          },
+          {
+            annotation_id: "ann_image-1_class_2",
+            class_id: 2,
+            class_name: "scratch",
+            mask_path: "masks/image-1_class_2_scratch_mask.png",
+            mask_ratio: 0.1,
+          },
+        ],
+      }],
+    },
+  ], { now: NOW });
+
+  assert.equal(result.training_set.total_items, 2);
+  assert.deepEqual(result.training_set.label_schema.map((label) => label.class_id), [1, 2]);
+  assert.deepEqual(result.training_set.items.map((item) => `${item.annotation_id}:${item.class_id}:${item.class_name}`), [
+    "ann_image-1_class_1:1:crack",
+    "ann_image-1_class_2:2:scratch",
+  ]);
+  assert.equal(result.training_set.items[0].source_mask_path, "masks/image-1_class_1_crack_mask.png");
+  assert.match(result.training_set.items[0].mask_path, /class_1_crack_frame_mask\.png$/);
+});
+
 test("assigns deterministic train val test splits from seed", () => {
   const images = Array.from({ length: 10 }, (_, index) => exportableImage(`image-${index + 1}`, `frame-${index + 1}.png`));
   const first = createTrainingSetManifest([

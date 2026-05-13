@@ -1073,3 +1073,23 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] live-http-smoke status=passed checks=health
 [REVIEW] finding=none-blocking scope=class-aware-mask-save-load note=checked-binary-mask-contract-legacy-current-mask-compatibility-and-label-switch-dirty-state
 [CLOSE] status=ready-for-commit
+[GIT] commit=d0d4b32 push=origin/main status=passed
+[START] task=class-aware-export-metadata subsystem=export,training-set,annotation-contract
+[PLAN] scope=annotations-json,project-zip-class-masks,training-set-class-items risks=legacy-export-compatibility,mask-source-path-mismatch,duplicate-image-paths
+[IMPACT] status=validated chain=createAnnotationsJson->exportProject->createZipBlob
+[IMPACT] status=validated chain=createTrainingSetManifest->createTrainingSetZipEntries->exportTrainingSet
+[IMPACT_DROP] chain=indexed-mask-export reason=source-of-truth-remains-one-binary-mask-per-class-indexed-mask-is-future-derived-output
+[FIX] scope=exporter note=annotations-json-now-emits-one-row-per-class-annotation-and-export-validation-accepts-annotation-mask-sources
+[FIX] scope=training-set note=manifest-and-zip-entries-expand-exportable-images-into-per-class-training-items
+[FIX] scope=server-export note=project-zip-writes-image-once-and-mask-entry-per-annotation-source-path
+[DOC] updated=docs/FEATURE_STATUS.md,docs/ARCHITECTURE.md note=class-aware-export-training-set-metadata-marked-complete
+[IMPACT_VALIDATE] task=class-aware-export-metadata chain=project-export-class-masks validation=exporter-trainingSet-serverApi-passed
+[IMPACT_VALIDATE] task=class-aware-export-metadata chain=training-set-class-items validation=full-test-target-lint-typecheck-smoke-passed
+[CMD] node --test tests/exporter.test.js tests/trainingSet.test.js tests/serverApi.test.js status=passed tests=68
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=232
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=fixed scope=class-aware-export-metadata note=annotation-only-mask-paths-now-count-as-exportable-mask-sources
+[CLOSE] status=ready-for-commit

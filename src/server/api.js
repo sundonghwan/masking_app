@@ -1519,7 +1519,11 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       if (!item?.exportable) continue;
       const exportPaths = createExportPaths(image, { index });
       entries.push({ path: exportPaths.image_path, data: await storage.readProjectFile(projectId, image.image_path) });
-      entries.push({ path: exportPaths.mask_path, data: await storage.readProjectFile(projectId, image.current_mask_path) });
+    }
+
+    for (const annotation of annotations.annotations) {
+      const sourceMaskPath = annotation.source_mask_path || (manifest.images || []).find((image) => image.id === annotation.image_id)?.current_mask_path || "";
+      entries.push({ path: annotation.mask_path, data: await storage.readProjectFile(projectId, sourceMaskPath) });
     }
 
     const zip = await createZipBlob(entries);

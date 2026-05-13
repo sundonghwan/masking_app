@@ -1067,6 +1067,48 @@ test("project export writes files only for the same images included in annotatio
   assert.match(response.text, /status_not_exportable/);
 });
 
+test("project export includes each class annotation mask file", async () => {
+  const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "admin");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    id: "submitted-1",
+    original_file_name: "submitted.png",
+    image_path: "images/submitted_source.png",
+    current_mask_path: "",
+    status: "submitted",
+    mask_values_valid: true,
+    annotations: [
+      {
+        annotation_id: "ann_submitted-1_class_1",
+        class_id: 1,
+        class_name: "crack",
+        mask_path: "masks/submitted_class_1_crack_mask.png",
+        mask_ratio: 0.2,
+      },
+      {
+        annotation_id: "ann_submitted-1_class_2",
+        class_id: 2,
+        class_name: "scratch",
+        mask_path: "masks/submitted_class_2_scratch_mask.png",
+        mask_ratio: 0.1,
+      },
+    ],
+  });
+  storage.files.set("project-1/images/submitted_source.png", "submitted-image");
+  storage.files.set("project-1/masks/submitted_class_1_crack_mask.png", "crack-mask");
+  storage.files.set("project-1/masks/submitted_class_2_scratch_mask.png", "scratch-mask");
+
+  const response = await callRoute(route, "GET", "/api/projects/project-1/export", null, headers);
+
+  assert.equal(response.statusCode, 200);
+  assert.match(response.text, /submitted_class_1_crack_mask/);
+  assert.match(response.text, /submitted_class_2_scratch_mask/);
+  assert.match(response.text, /crack-mask/);
+  assert.match(response.text, /scratch-mask/);
+});
+
 test("project export approved-only query excludes submitted images", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "admin");
