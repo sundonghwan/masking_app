@@ -59,8 +59,8 @@ For local or controlled staging:
 - Add a verifier check that can fail deployment if default passwords remain.
   Implemented baseline: `scripts/harness/security-check.sh --strict`.
 - Add a production gate that combines deployment-profile checks, strict
-  identity security checks, explicit filesystem-boundary acceptance, and
-  dedicated data-root enforcement. Implemented baseline:
+  identity security checks, explicit filesystem-boundary acceptance, explicit
+  local-identity acceptance, and dedicated data-root enforcement. Implemented baseline:
   `scripts/harness/production-gate.sh`.
 
 ### 2. Hash Stored Passwords
@@ -127,4 +127,7 @@ workflow features stabilize. Before any shared network deployment, implement at
 least default-password blocking, hashed password storage, cryptographic session
 tokens, and explicit network boundary checks. For production-mode release
 checks, run `scripts/harness/production-gate.sh` with the real target data root
-after backup and password migration.
+after backup and password migration. Set
+`MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` only when the team explicitly
+accepts the local filesystem user directory as the first production identity
+boundary; otherwise replace it with an external identity provider first.

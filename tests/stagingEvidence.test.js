@@ -8,6 +8,9 @@ test("collectStagingEvidence runs core checks and restores the created backup ar
   const result = await collectStagingEvidence({
     dataRoot: "/tmp/data-root",
     backupDir: "/tmp/backups",
+    env: {
+      MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION: "1",
+    },
     baseUrl: "http://127.0.0.1:4173",
     now: () => "2026-05-13T00:00:00.000Z",
     runCommand: async (step, command) => {
@@ -32,6 +35,7 @@ test("collectStagingEvidence runs core checks and restores the created backup ar
   assert.equal(result.evidence.backup_data_root.archive_file, "/tmp/backups/masking-app-data-test.tgz");
   assert.equal(calls.find((call) => call.step === "restore_verify").command.args.at(-1), "/tmp/backups/masking-app-data-test.tgz");
   assert.equal(calls.find((call) => call.step === "deployment_check").command.args.at(-1), "http://127.0.0.1:4173");
+  assert.equal(calls.find((call) => call.step === "production_gate").command.env.MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION, "1");
 });
 
 test("collectStagingEvidence records failed sub-checks without hiding them", async () => {

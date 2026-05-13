@@ -67,7 +67,7 @@ For this repository, "production-level" means the following are true:
 | Runtime logging policy | `docs/LOGGING.md`, `src/observability/logger.js`, structured server/frontend events | Implemented baseline |
 | Standard validation commands | `harness/commands.md`, `package.json`, `scripts/harness/*` | Implemented |
 | Git-backed task history | `harness/tasks/`, `harness/run_log.md` | Implemented |
-| Production identity provider | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing |
+| Production identity provider | `docs/FEATURE_STATUS.md` hardcoded debt table; local identity production use now requires `MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` | Missing external IDP / explicit local boundary gate |
 | Database-backed metadata storage | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing / intentionally deferred |
 | Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh`, `scripts/harness/backup-data-root.sh`, `scripts/harness/restore-verify.sh`, `scripts/harness/staging-evidence.sh` | Implemented baseline |
 | Production deployment packaging | `Dockerfile`, `docker-compose.yml`, `docs/RUNBOOK_DEPLOYMENT.md`, `scripts/harness/deployment-check.sh`, `src/server/deploymentProfile.js` | Implemented baseline |
@@ -154,17 +154,20 @@ cryptographic randomness, new local user passwords are stored as PBKDF2 hashes,
 and `scripts/harness/security-check.sh --strict` can fail deployment checks when
 default seed or legacy plaintext passwords remain. `scripts/harness/production-gate.sh`
 now combines strict identity checks with production-mode, dedicated data-root,
-and explicit filesystem-boundary acceptance checks. Server startup now applies
-the same production safety core when `MASKING_APP_MODE=production`, so unsafe
-production-mode starts fail before listening. A dry-run-first identity password
-migration script exists for converting legacy plaintext local user files after
-backup. Baseline response security headers and explicit CORS allowlisting are
-now applied at the server boundary.
+explicit filesystem-boundary acceptance, and explicit local-identity production
+acceptance checks. Server startup now applies the same production safety core
+when `MASKING_APP_MODE=production`, so unsafe production-mode starts fail before
+listening. A dry-run-first identity password migration script exists for
+converting legacy plaintext local user files after backup. Baseline response
+security headers and explicit CORS allowlisting are now applied at the server
+boundary.
 
 Open production decisions:
 
-- external identity provider or explicit acceptance of the hardened local account
-  store as the first production boundary
+- external identity provider remains preferable for internet-facing deployment;
+  hardened local account store now requires
+  `MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` as an explicit first-boundary
+  acceptance
 - password policy and reset flow
 - operator-run migration for existing plaintext `identity/users.json`
 - token lifetime and rotation
@@ -205,7 +208,10 @@ Remaining follow-up:
 
 ## Recommended Next Development Order
 
-1. Replace or explicitly production-accept the current local identity boundary.
+1. Replace the current local identity boundary with an external provider before
+   internet-facing deployment, or explicitly set
+   `MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` for a controlled first
+   production boundary.
 2. Run password migration and `production-gate.sh` on the real target data root
    after backup.
 3. Run `scripts/harness/staging-evidence.sh --json` against a representative

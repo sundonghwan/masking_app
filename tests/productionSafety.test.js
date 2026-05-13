@@ -38,6 +38,7 @@ test("production safety rejects unsafe startup settings", async () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.errors.some((error) => error.code === "filesystem_production_acceptance_missing"), true);
+  assert.equal(result.errors.some((error) => error.code === "local_identity_production_acceptance_missing"), true);
   assert.equal(result.errors.some((error) => error.code === "data_root_inside_repo"), true);
   assert.equal(result.errors.some((error) => error.code === "users_file_missing"), true);
 });
@@ -58,7 +59,7 @@ test("assertProductionStartupSafety throws before unsafe production startup", as
   );
 });
 
-test("production safety passes with hashed identity and accepted filesystem boundary", async () => {
+test("production safety passes with hashed identity and accepted filesystem plus local identity boundaries", async () => {
   const cwd = await mkdtemp(path.join(os.tmpdir(), "masking-startup-safety-repo-"));
   const dataRoot = await createHashedIdentityDataRoot();
   const result = await checkProductionSafety({
@@ -69,6 +70,7 @@ test("production safety passes with hashed identity and accepted filesystem boun
     cwd,
     env: {
       MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION: "1",
+      MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION: "1",
     },
   });
 

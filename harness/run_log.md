@@ -1457,3 +1457,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=staging-evidence-bundle note=checked-required-step-failures-not-hidden-restore-uses-current-backup-archive-and-no-production-readiness-overclaim
+[GIT] commit=3cd88f1 push=origin/main status=passed
+[START] task=local-identity-production-acceptance subsystem=security,identity,production-gate
+[PLAN] scope=explicit-local-identity-production-acceptance,tests,docs risks=breaking-production-mode-commands,overclaiming-local-identity
+[TEST] updated=tests/productionSafety.test.js,tests/productionGate.test.js,tests/stagingEvidence.test.js note=production-mode-now-requires-local-identity-acceptance
+[CODE] updated=src/server/productionSafety.js note=MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION-required-for-forced-production-safety
+[DOC] updated=harness/commands.md,docs/RUNBOOK_DEPLOYMENT.md,docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=local-identity-production-acceptance-env-and-boundary
+[CMD] node --test tests/productionSafety.test.js tests/productionGate.test.js tests/stagingEvidence.test.js status=passed tests=9
+[CMD] scripts/harness/staging-evidence.sh --json <temp-data-root> <temp-backup-dir> status=passed note=production-env-fixture-with-filesystem-and-local-identity-acceptance
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=285
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=local-identity-production-acceptance note=checked-local-mode-skip-production-gate-failure-path-doc-commands-and-no-external-idp-overclaim

@@ -42,6 +42,12 @@ export async function checkProductionSafety(options = {}) {
       message: "Set MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 only after accepting the documented filesystem storage boundary.",
     });
   }
+  if (!isEnabled(env.MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION)) {
+    result.errors.push({
+      code: "local_identity_production_acceptance_missing",
+      message: "Set MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 only after accepting the local filesystem identity boundary or replace it with an external identity provider.",
+    });
+  }
   if (isSubpath(cwd, dataRoot)) {
     result.errors.push({
       code: "data_root_inside_repo",

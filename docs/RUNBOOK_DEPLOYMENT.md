@@ -238,6 +238,7 @@ For a production-like staging data root, collect the data-root evidence bundle:
 ```bash
 MASKING_APP_MODE=production \
 MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
 scripts/harness/staging-evidence.sh --json \
   --base-url http://127.0.0.1:4173 \
   "${MASKING_APP_DATA_DIR:-data}" \
@@ -261,18 +262,22 @@ gate with the real target data root:
 MASKING_APP_MODE=production \
 MASKING_APP_DATA_DIR="/path/to/masking-app-data" \
 MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
 scripts/harness/production-gate.sh
 ```
 
 Only set `MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1` after the team accepts
 the filesystem metadata boundary documented in
-`docs/STORAGE_CONCURRENCY_DECISION.md`. The gate still does not install TLS,
-reverse proxy rules, or a scheduler; those remain host responsibilities.
+`docs/STORAGE_CONCURRENCY_DECISION.md`. Only set
+`MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` after the team accepts the
+local filesystem user directory as the first production identity boundary, or
+replace it with an external identity provider. The gate still does not install
+TLS, reverse proxy rules, or a scheduler; those remain host responsibilities.
 
 When `MASKING_APP_MODE=production`, the server also runs the production safety
 check during startup and fails before listening if the data root is inside the
 repository, filesystem production acceptance is missing, or strict local
-identity checks fail.
+identity acceptance/checks fail.
 
 ## Current Production Constraints
 

@@ -18,10 +18,11 @@ test("production gate rejects local defaults and unsafe filesystem acceptance", 
   assert.equal(result.ok, false);
   assert.equal(result.errors.some((error) => error.code === "production_mode_required"), true);
   assert.equal(result.errors.some((error) => error.code === "filesystem_production_acceptance_missing"), true);
+  assert.equal(result.errors.some((error) => error.code === "local_identity_production_acceptance_missing"), true);
   assert.equal(result.errors.some((error) => error.code === "data_root_inside_repo"), true);
 });
 
-test("production gate passes with production mode strict identity and accepted filesystem boundary", async () => {
+test("production gate passes with strict identity and accepted filesystem plus local identity boundaries", async () => {
   const cwd = await mkdtemp(path.join(os.tmpdir(), "masking-production-gate-repo-"));
   const dataRoot = await createHashedIdentityDataRoot();
   const result = await checkProductionGate({
@@ -30,6 +31,7 @@ test("production gate passes with production mode strict identity and accepted f
       MASKING_APP_HOST: "0.0.0.0",
       MASKING_APP_DATA_DIR: dataRoot,
       MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION: "1",
+      MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION: "1",
     },
     cwd,
   });

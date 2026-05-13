@@ -303,6 +303,7 @@ Preferred wrapper:
 MASKING_APP_MODE=production \
 MASKING_APP_DATA_DIR=/path/to/masking-app-data \
 MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
 scripts/harness/production-gate.sh
 ```
 
@@ -318,6 +319,9 @@ Current behavior:
 - requires `MASKING_APP_MODE=production` or `MASKING_APP_MODE=prod`
 - requires explicit filesystem acceptance through
   `MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1`
+- requires explicit local identity acceptance through
+  `MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` unless an external identity
+  provider replaces the local filesystem user directory
 - rejects data roots inside the repository
 - runs strict identity security checks against the selected data root
 - exits non-zero when default seed passwords, plaintext passwords, missing
@@ -330,12 +334,16 @@ Preferred wrapper:
 ```bash
 MASKING_APP_MODE=production \
 MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
 scripts/harness/staging-evidence.sh --json [data-root] [backup-dir]
 ```
 
 Optional running-server health evidence:
 
 ```bash
+MASKING_APP_MODE=production \
+MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 \
+MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1 \
 scripts/harness/staging-evidence.sh --json --base-url http://127.0.0.1:4173 [data-root] [backup-dir]
 ```
 
