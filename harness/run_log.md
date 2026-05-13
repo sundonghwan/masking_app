@@ -1893,3 +1893,10 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] deployment-check refresh status=passed artifact=release-artifacts/deployment-check-20260513-production-local.json source_revision=fe9da0c
 [CMD] stop-production-server port=4183 status=passed
 [CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=boundary_decisions_undecided artifact_revision_errors=0
+[GIT] commit=dff20c3 push=origin/main status=passed
+[START] task=user-manual subsystem=docs,user-operations,data-work
+[PLAN] scope=write-local-staging-user-manual risks=overstating-production-readiness,documenting-nonexistent-controls
+[DOC] created=docs/USER_MANUAL.md note=login-project-label-mask-review-export-training-troubleshooting
+[DOC] updated=docs/REMAINING_WORK_BOARD.md note=linked-user-manual
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=user-manual note=manual-does-not-claim-production-approval-and-matches-current-ui-controls

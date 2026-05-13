@@ -33,6 +33,7 @@ or production audit. This board separates:
 Decision checklist: `docs/PRODUCTION_BOUNDARY_DECISIONS.md`.
 Decision proposal: `docs/PRODUCTION_BOUNDARY_DECISION_PROPOSAL.md`.
 Decision apply helper: `scripts/harness/apply-boundary-decisions.sh`.
+User manual: `docs/USER_MANUAL.md`.
 Release candidate gate: `scripts/harness/release-candidate-gate.sh`.
 
 ## Remaining Production Gates
