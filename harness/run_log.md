@@ -1485,3 +1485,18 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=local-password-policy note=checked-seed-compatibility-account-admin-path-and-no-password-management-overclaim
+[GIT] commit=dee4123 push=origin/main status=passed
+[START] task=password-policy-helper-refactor subsystem=code-health,security,identity
+[PLAN] scope=extract-password-policy-helper-and-focused-tests risks=changing-user-directory-error-shape,missing-syntax-harness-coverage
+[TEST] updated=tests/passwordPolicy.test.js note=focused-policy-contract-red-green
+[CODE] updated=src/server/passwordPolicy.js,src/server/userDirectory.js,scripts/harness/check-syntax.mjs note=policy-helper-extracted-and-syntax-list-updated
+[CMD] node --test tests/passwordPolicy.test.js status=red expected=missing-module
+[CMD] node --test tests/passwordPolicy.test.js status=passed tests=2
+[CMD] node --test tests/userDirectory.test.js status=passed tests=9
+[CMD] node --test tests/passwordPolicy.test.js tests/userDirectory.test.js tests/checkSyntax.test.js status=passed tests=13
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=288
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=password-policy-helper-refactor note=checked-error-shape-policy-unchanged-seed-compatibility-and-syntax-harness-coverage

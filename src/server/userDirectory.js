@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { normalizeActorId, normalizeRole, publicMvpUser } from "../config/runtimeDefaults.js";
 import { LOCAL_MVP_USER_ACCOUNTS } from "./auth.js";
+import { validatePasswordPolicy } from "./passwordPolicy.js";
 import { hashPassword, isPasswordHash, verifyPassword } from "./passwords.js";
 
 const DEFAULT_ROOT_DIR = process.env.MASKING_APP_DATA_DIR || process.env.MASKING_APP_DATA_ROOT || "data";
@@ -204,19 +205,6 @@ function normalizeUpdatedUser(existing, input = {}) {
 function normalizePasswordHash(value) {
   const passwordHash = String(value || "");
   return isPasswordHash(passwordHash) ? passwordHash : "";
-}
-
-function validatePasswordPolicy(value) {
-  const password = String(value || "");
-  const hasLetter = /[A-Za-z]/.test(password);
-  const hasNumberOrSymbol = /[0-9]/.test(password) || /[^A-Za-z0-9\s]/.test(password);
-  if (password.length < 8 || !hasLetter || !hasNumberOrSymbol) {
-    throw userDirectoryError(
-      "weak_password",
-      "Password must be at least 8 characters and include letters plus a number or symbol",
-      400,
-    );
-  }
 }
 
 function publicUser(user = {}) {
