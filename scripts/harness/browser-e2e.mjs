@@ -12,6 +12,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const PLAYWRIGHT_CLI = process.env.PLAYWRIGHT_CLI || "playwright-cli";
 const ADMIN_USER = "admin";
 const ADMIN_PASSWORD = "admin123";
+const WORKER_USER = "worker";
+const WORKER_PASSWORD = "worker123";
+const REVIEWER_USER = "reviewer";
+const REVIEWER_PASSWORD = "reviewer123";
 
 const tempRoot = await mkdtemp(path.join(tmpdir(), "masking-app-browser-e2e-"));
 const dataRoot = path.join(tempRoot, "data");
@@ -172,12 +176,47 @@ function createPlaywrightSmokeCode({ baseUrl, imagePath, projectId }) {
       return node && new RegExp(source, flags).test(node.textContent || node.value || "");
     }, { selector, source: pattern.source, flags: pattern.flags });
   };
+  const loginAs = async (userId, password, role) => {
+    await page.waitForSelector("#loginScreen:not([hidden])");
+    await page.locator("#sessionUserId").fill(userId);
+    await page.locator("#sessionPassword").fill(password);
+    await page.locator("#loginButton").click();
+    await page.waitForSelector("#projectsScreen:not([hidden])");
+    await expect(async () => await page.locator("#sessionRoleLabel").inputValue() === role, role + " login did not derive role");
+  };
+  const logout = async () => {
+    if (!(await page.locator("#logoutButton").isVisible())) {
+      await page.locator("[data-session-logout]:visible").first().click();
+      await page.waitForSelector("#loginScreen:not([hidden])");
+      return;
+    }
+    await page.locator("#logoutButton").click();
+    await page.waitForSelector("#loginScreen:not([hidden])");
+  };
+  const openProject = async () => {
+    await page.waitForSelector("#projectsScreen:not([hidden])");
+    await page.locator(${JSON.stringify(`.project-summary-main[data-project-id="${projectId}"]`)}).click();
+    await page.waitForSelector("#dashboardScreen:not([hidden])");
+    await page.locator("#dashboardWorkbenchButton").click();
+    await page.waitForSelector("#workbenchScreen:not([hidden])");
+  };
+  const paintAndSubmit = async () => {
+    const canvas = page.locator("#editorCanvas");
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error("editor canvas has no bounding box");
+    const x = box.x + (box.width / 2);
+    const y = box.y + (box.height / 2);
+    await page.mouse.move(x - 20, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 20, y, { steps: 6 });
+    await page.mouse.up();
+    await waitForText("#saveStatus", /수정|저장|로드/);
+    await page.locator("#submitButton").click();
+    await waitForText("#saveStatus", /제출됨/);
+    await waitForText("#metaStatus", /제출/);
+  };
   await page.goto(${JSON.stringify(baseUrl)}, { waitUntil: "domcontentloaded" });
-  await page.locator("#sessionUserId").fill(${JSON.stringify(ADMIN_USER)});
-  await page.locator("#sessionPassword").fill(${JSON.stringify(ADMIN_PASSWORD)});
-  await page.locator("#loginButton").click();
-  await page.waitForSelector("#projectsScreen:not([hidden])");
-  await expect(async () => await page.locator("#sessionRoleLabel").inputValue() === "admin", "admin login did not derive role");
+  await loginAs(${JSON.stringify(ADMIN_USER)}, ${JSON.stringify(ADMIN_PASSWORD)}, "admin");
 
   await page.locator("#projectCreateId").fill(${JSON.stringify(projectId)});
   await page.locator("#projectCreateName").fill("Browser E2E Labeling Project");
@@ -204,20 +243,7 @@ function createPlaywrightSmokeCode({ baseUrl, imagePath, projectId }) {
     return color === "rgb(34, 197, 94)";
   }, "brush color did not follow selected project label color");
 
-  const canvas = page.locator("#editorCanvas");
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("editor canvas has no bounding box");
-  const x = box.x + (box.width / 2);
-  const y = box.y + (box.height / 2);
-  await page.mouse.move(x - 20, y);
-  await page.mouse.down();
-  await page.mouse.move(x + 20, y, { steps: 6 });
-  await page.mouse.up();
-  await waitForText("#saveStatus", /수정|저장|로드/);
-
-  await page.locator("#submitButton").click();
-  await waitForText("#saveStatus", /제출됨/);
-  await waitForText("#metaStatus", /제출/);
+  await paintAndSubmit();
 
   await page.locator("#approveButton").click();
   await page.waitForFunction(() => /승인/.test(document.querySelector("#metaStatus")?.textContent || ""));
@@ -244,9 +270,29 @@ function createPlaywrightSmokeCode({ baseUrl, imagePath, projectId }) {
     return download && /export_.*\\.zip/.test(download.filename || "");
   }, "export did not create a ZIP download");
 
+  await logout();
+  await loginAs(${JSON.stringify(WORKER_USER)}, ${JSON.stringify(WORKER_PASSWORD)}, "worker");
+  await openProject();
+  await expect(async () => !(await page.locator("#approveButton").isVisible()), "worker should not see reviewer approve action");
+  await page.locator("#imageInput").setInputFiles(${JSON.stringify(imagePath)});
+  await page.waitForFunction(() => document.querySelectorAll("#imageList .image-row").length >= 2);
+  await page.locator("#imageList .image-row").last().click();
+  await page.locator('.label-option[data-class-id="1"]').click();
+  await paintAndSubmit();
+
+  await logout();
+  await loginAs(${JSON.stringify(REVIEWER_USER)}, ${JSON.stringify(REVIEWER_PASSWORD)}, "reviewer");
+  await openProject();
+  await expect(async () => !(await page.locator("#imageInput").isVisible()), "reviewer should not see upload control");
+  await page.locator('[data-filter="submitted"]').click();
+  await page.locator("#imageList .image-row").first().click();
+  await page.locator("#approveButton").click();
+  await page.waitForFunction(() => /승인/.test(document.querySelector("#metaStatus")?.textContent || ""));
+
   return {
     projectId: ${JSON.stringify(projectId)},
     status: await page.locator("#metaStatus").textContent(),
+    role: await page.locator("#sessionRoleLabel").inputValue(),
     label: await page.locator("#labelMessage").textContent(),
     saveStatus: await page.locator("#saveStatus").textContent(),
   };

@@ -25,8 +25,9 @@ it is **not yet fully production-ready**.
 Production completion is still blocked by security hardening. Storage and
 concurrency limits are now explicitly accepted for local/staging only. Baseline
 browser E2E, backup/restore verification, and deployment health/runbook coverage
-now exist, but role-specific browser coverage, visual regression, process
-supervision, and scheduled/retained backup operations can still be expanded. These are not
+now exist, including role-specific admin/worker/reviewer coverage. Visual
+regression, process supervision, and scheduled/retained backup operations can
+still be expanded. These are not
 cosmetic gaps; they affect whether a team can safely operate the tool with real
 labeling data over time.
 
@@ -70,7 +71,7 @@ For this repository, "production-level" means the following are true:
 | Database-backed metadata storage | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing / intentionally deferred |
 | Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh` | Implemented baseline |
 | Production deployment packaging | `docs/RUNBOOK_DEPLOYMENT.md`, `scripts/harness/deployment-check.sh`, `src/server/deploymentProfile.js` | Implemented baseline |
-| Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with `playwright-cli` | Implemented baseline |
+| Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with admin, worker, and reviewer roles via `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist; `scripts/harness/capacity-profile.sh` reports data-root capacity and strict threshold warnings | Partial capacity gate |
 | Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md`, `src/server/sessionToken.js`, `src/server/passwords.js`, `scripts/harness/security-check.sh` | Partial executable gates |
 | Filesystem storage concurrency boundary | `docs/STORAGE_CONCURRENCY_DECISION.md` defines single-process limits and DB migration triggers | Accepted local/staging constraint |
@@ -89,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 250 Node tests, and the baseline browser E2E
+The latest full test run passed 252 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -99,14 +100,14 @@ decisions remain unresolved.
 
 ### 1. Browser E2E Coverage
 
-The baseline browser journey now logs in, creates a project, uploads an image,
-selects a project label, verifies label-driven brush color, paints a mask,
-submits, approves, and exports.
+The baseline browser journey now covers admin, worker, and reviewer role paths.
+It logs in, creates a project, uploads an image, selects a project label,
+verifies label-driven brush color, paints a mask, submits, approves, exports,
+then verifies worker editing/submission and reviewer approval from the real UI.
 
 Remaining follow-up:
 
-- add screenshots or trace artifacts if the smoke becomes flaky
-- add role-specific worker/reviewer journeys once production identity is chosen
+- add screenshots or trace artifacts if role-specific smoke becomes flaky
 
 ### 2. Backup And Restore Runbook
 

@@ -141,12 +141,12 @@ Current behavior:
 - requires `playwright-cli` on `PATH`
 - starts `npm run dev` on a temporary local port
 - uses a temporary data root outside the repository
-- logs in as the local MVP admin account
-- creates a project with a two-class label schema
-- uploads a generated fixture image
+- logs in as the local MVP admin, worker, and reviewer accounts
+- creates a project with a two-class label schema as admin
+- uploads generated fixture images as admin and worker
 - verifies the selected brush color follows the selected project label color
-- paints the canvas, submits the mask, approves it, and triggers approved-only
-  export
+- paints the canvas, submits masks, verifies worker review controls are hidden,
+  approves submitted work as reviewer, and triggers approved-only export
 
 ## Storage Verification
 

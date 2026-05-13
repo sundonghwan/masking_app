@@ -472,6 +472,9 @@ function bindEvents() {
     void refreshProjectSummaries();
   });
   els.loginButton.addEventListener("click", () => void loginSession());
+  document.querySelectorAll("[data-session-logout]").forEach((button) => {
+    button.addEventListener("click", () => void logoutSession());
+  });
   els.logoutButton.addEventListener("click", () => void logoutSession());
   els.approveButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.APPROVE));
   els.rejectButton.addEventListener("click", () => void reviewSelectedImage(REVIEW_ACTIONS.REJECT));
@@ -2129,6 +2132,7 @@ function renderProjectSummaries() {
     const main = document.createElement("button");
     main.type = "button";
     main.className = "project-summary-main";
+    main.dataset.projectId = project.project_id || "";
     main.disabled = Boolean(project.deleted_at);
     main.addEventListener("click", () => void loadServerProject(project.project_id));
     main.innerHTML = `
@@ -2591,6 +2595,9 @@ function renderSessionPanel() {
   els.sessionRoleLabel.value = state.sessionRole || "미확인";
   els.loginButton.disabled = !state.sessionUserId || !state.sessionPassword;
   els.logoutButton.disabled = !state.sessionAuthenticated;
+  document.querySelectorAll("[data-session-logout]").forEach((button) => {
+    button.disabled = !state.sessionAuthenticated;
+  });
   els.sessionMessage.textContent = state.sessionAuthenticated
     ? `${state.sessionUserId} / ${state.sessionRole} / session`
     : `${state.sessionUserId || "미설정"} / ${state.sessionRole || "role 없음"} / 로그인 필요`;

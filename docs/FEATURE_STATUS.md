@@ -95,6 +95,8 @@
 - [x] Class-aware export and training-set metadata emit per-class annotation records and mask paths
 - [x] AI prediction import contract for `class_id + mask_data_url` draft annotations
 - [x] Derived indexed-mask server export from class-labeled binary masks
+- [x] Global logout action available from project list, dashboard, and workbench screens
+- [x] Role-specific browser E2E smoke across admin, worker, and reviewer journeys
 
 ## In Progress
 

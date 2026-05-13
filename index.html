@@ -46,7 +46,10 @@
               <div class="project-name">프로젝트 열기</div>
             </div>
           </div>
-          <button class="button secondary" id="refreshProjectsButton" type="button">새로고침</button>
+          <div class="review-actions">
+            <button class="button secondary" id="refreshProjectsButton" type="button">새로고침</button>
+            <button class="button secondary" type="button" data-session-logout>로그아웃</button>
+          </div>
         </div>
         <form class="project-create-form" id="projectCreateForm" data-role-panel="admin">
           <label class="stacked-field">
@@ -93,6 +96,7 @@
           <div class="review-actions">
             <button class="button secondary" id="dashboardProjectsButton" type="button">프로젝트</button>
             <button class="button primary" id="dashboardWorkbenchButton" type="button">작업도구</button>
+            <button class="button secondary" type="button" data-session-logout>로그아웃</button>
           </div>
         </div>
         <div class="dashboard-layout compact-dashboard">
@@ -157,6 +161,7 @@
         <div class="topbar-actions" aria-label="작업 도구">
           <button class="button secondary" id="workbenchProjectsButton" type="button">프로젝트</button>
           <button class="button secondary" id="workbenchDashboardButton" type="button">대시보드</button>
+          <button class="button secondary" type="button" data-session-logout>로그아웃</button>
           <button class="icon-button" id="undoButton" type="button" title="실행 취소" aria-label="실행 취소">↶</button>
           <button class="icon-button" id="redoButton" type="button" title="다시 실행" aria-label="다시 실행">↷</button>
           <button class="button secondary" id="downloadMaskButton" type="button" data-role-panel="admin worker">마스크 저장</button>

@@ -1287,3 +1287,15 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=capacity-profile-gate note=checked-read-only-scan-strict-warning-promotion-and-audit-wording
 [CLOSE] status=ready-for-commit
+[GIT] commit=fcc23af push=origin/main status=passed
+[START] task=role-browser-e2e subsystem=browser-e2e,auth,review
+[PLAN] scope=admin-worker-reviewer-browser-journey risks=flaky-selectors,row-selection,identity-overclaim
+[FINDING] task=role-browser-e2e issue=logout-only-inside-login-screen impact=role-switch-unavailable-from-real-ui
+[FINDING] task=role-browser-e2e issue=project-summary-lacked-stable-project-id-selector impact=browser-automation-used-fragile-text
+[CMD] scripts/harness/browser-e2e.sh status=passed note=admin-create-upload-submit-approve-export-worker-upload-submit-reviewer-approve
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=252
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=role-browser-e2e note=checked-session-logout-surface-stable-project-selector-role-journey-doc-consistency
