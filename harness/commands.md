@@ -87,8 +87,9 @@ scripts/harness/lint-all.sh
 Current behavior:
 
 - runs `npm run lint`
-- lint currently uses `node --check` for `server.js` and all active API,
-  frontend, export, storage, and backend server modules
+- lint currently delegates to `scripts/harness/check-syntax.mjs`, which runs
+  `node --check` for `server.js` and all active API, frontend, export,
+  storage, backend server, and harness modules
 
 ## Typecheck
 
@@ -101,8 +102,9 @@ scripts/harness/typecheck-all.sh
 Current behavior:
 
 - runs `npm run typecheck`
-- typecheck currently uses syntax-level `node --check` until TypeScript or a
-  richer checker is introduced
+- typecheck currently delegates to `scripts/harness/check-syntax.mjs`, which
+  provides syntax-level `node --check` coverage until TypeScript or a richer
+  checker is introduced
 
 ## Targeted Tests
 

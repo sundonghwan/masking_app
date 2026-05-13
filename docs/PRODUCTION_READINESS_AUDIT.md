@@ -90,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 263 Node tests, and the baseline browser E2E
+The latest full test run passed 265 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency

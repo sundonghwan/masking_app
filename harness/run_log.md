@@ -1354,3 +1354,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=restore-rehearsal-harness note=checked-temp-restore-boundary-storage-verify-propagation-and-staging-evidence-language
+[GIT] commit=1ec6e2a push=origin/main status=passed
+[START] task=syntax-check-harness-refactor subsystem=harness,validation,refactor
+[PLAN] scope=package-script-dedup,shared-syntax-check-script,tests,docs risks=dropping-syntax-coverage,overstating-typecheck
+[CODE] added=scripts/harness/check-syntax.mjs updated=package.json note=centralized-node-check-file-list-for-lint-and-typecheck
+[TEST] added=tests/checkSyntax.test.js note=package-scripts-use-shared-harness-and-listed-files-exist
+[DOC] updated=harness/commands.md,docs/PRODUCTION_READINESS_AUDIT.md note=syntax-check-entrypoint-and-265-test-count
+[CMD] node --test tests/checkSyntax.test.js status=passed tests=2
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=265
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=syntax-check-harness-refactor note=checked-coverage-retained-and-typecheck-syntax-level-language

@@ -45,6 +45,7 @@ require_file src/server/storage.js
 require_file src/styles.css
 require_file scripts/harness/browser-e2e.sh
 require_file scripts/harness/browser-e2e.mjs
+require_file scripts/harness/check-syntax.mjs
 require_file scripts/harness/storage-verify.sh
 require_file scripts/harness/storage-verify.mjs
 require_file scripts/harness/deployment-check.sh
@@ -76,6 +77,7 @@ echo "smoke-web: planning/design/harness references are present."
 echo "smoke-web: backend/static MVP app files are present."
 echo "smoke-web: Docker deployment packaging files are present."
 echo "smoke-web: browser E2E harness entrypoint is present."
+echo "smoke-web: syntax check harness entrypoint is present."
 echo "smoke-web: storage verification entrypoint is present."
 echo "smoke-web: deployment check entrypoint is present."
 echo "smoke-web: security check entrypoint is present."
