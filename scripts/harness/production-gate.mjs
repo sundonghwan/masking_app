@@ -2,7 +2,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { resolveDeploymentProfile } from "../../src/server/deploymentProfile.js";
-import { checkSecurity } from "./security-check.mjs";
+import { checkProductionSafety } from "../../src/server/productionSafety.js";
 
 if (isCliEntry()) {
   const args = process.argv.slice(2);
@@ -25,59 +25,22 @@ export async function checkProductionGate(options = {}) {
     ...env,
     ...(options.dataRoot ? { MASKING_APP_DATA_DIR: options.dataRoot } : {}),
   }, { cwd });
-  const result = {
-    ok: true,
-    checked_at: new Date().toISOString(),
-    deployment: {
-      mode: profile.mode,
-      host: profile.host,
-      data_root: profile.dataRoot,
-      public_root: profile.publicRoot,
-    },
-    security: null,
-    warnings: [],
-    errors: [],
-  };
-
+  const result = await checkProductionSafety({ profile, cwd, env, force: true });
+  result.deployment.host = profile.host;
+  result.deployment.public_root = profile.publicRoot;
+  result.security = result.identity;
   if (!isProductionMode(profile.mode)) {
-    result.errors.push({
+    result.errors.unshift({
       code: "production_mode_required",
       message: "Set MASKING_APP_MODE=production before running the production gate.",
     });
+    result.ok = false;
   }
-  if (!isEnabled(env.MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION)) {
-    result.errors.push({
-      code: "filesystem_production_acceptance_missing",
-      message: "Set MASKING_APP_ACCEPT_FILESYSTEM_PRODUCTION=1 only after accepting the documented filesystem storage boundary.",
-    });
-  }
-  if (isSubpath(cwd, profile.dataRoot)) {
-    result.errors.push({
-      code: "data_root_inside_repo",
-      path: profile.dataRoot,
-      message: "Use a dedicated MASKING_APP_DATA_DIR outside the repository for production-like operation.",
-    });
-  }
-
-  result.security = await checkSecurity({ dataRoot: profile.dataRoot, strict: true });
-  for (const warning of result.security.warnings || []) {
-    result.warnings.push({ source: "security-check", ...warning });
-  }
-  for (const error of result.security.errors || []) {
-    result.errors.push({ source: "security-check", ...error });
-  }
-
-  result.ok = result.errors.length === 0;
   return result;
 }
 
-function isProductionMode(value) {
+export function isProductionMode(value) {
   return ["production", "prod"].includes(String(value || "").trim().toLowerCase());
-}
-
-function isSubpath(parent, child) {
-  const relative = path.relative(path.resolve(parent), path.resolve(child));
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
 function takeFlag(args, flag) {
@@ -85,10 +48,6 @@ function takeFlag(args, flag) {
   if (index < 0) return false;
   args.splice(index, 1);
   return true;
-}
-
-function isEnabled(value) {
-  return ["1", "true", "yes", "on"].includes(String(value || "").trim().toLowerCase());
 }
 
 function isCliEntry() {

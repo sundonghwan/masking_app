@@ -9,6 +9,7 @@ import { createApiRouter } from "./src/server/api.js";
 import { resolveDeploymentProfile } from "./src/server/deploymentProfile.js";
 import { applyHttpSecurityHeaders, createHttpSecurityPolicy, handleCorsPreflight } from "./src/server/httpSecurity.js";
 import { createHttpError, sendJson } from "./src/server/httpUtils.js";
+import { assertProductionStartupSafety } from "./src/server/productionSafety.js";
 import { createSessionStore } from "./src/server/sessionStore.js";
 import { createFileStorage } from "./src/server/storage.js";
 import { createUserDirectory } from "./src/server/userDirectory.js";
@@ -26,6 +27,12 @@ const userDirectory = createUserDirectory({ rootDir: DATA_ROOT });
 const sessionStore = createSessionStore({ rootDir: DATA_ROOT });
 const routeApi = createApiRouter({ storage, logger, userDirectory, sessionStore, deploymentProfile });
 const httpSecurityPolicy = createHttpSecurityPolicy(process.env);
+
+await assertProductionStartupSafety({
+  profile: deploymentProfile,
+  cwd: __dirname,
+  env: process.env,
+});
 
 const server = createServer(async (request, response) => {
   const startedAt = performance.now();

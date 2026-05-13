@@ -73,7 +73,7 @@ For this repository, "production-level" means the following are true:
 | Production deployment packaging | `Dockerfile`, `docker-compose.yml`, `docs/RUNBOOK_DEPLOYMENT.md`, `scripts/harness/deployment-check.sh`, `src/server/deploymentProfile.js` | Implemented baseline |
 | Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with admin, worker, and reviewer roles via `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist; `scripts/harness/capacity-profile.sh` reports data-root capacity and strict threshold warnings | Partial capacity gate |
-| Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md`, `src/server/sessionToken.js`, `src/server/passwords.js`, `src/server/httpSecurity.js`, `scripts/harness/security-check.sh`, `scripts/harness/production-gate.sh` | Partial executable gates |
+| Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md`, `src/server/sessionToken.js`, `src/server/passwords.js`, `src/server/httpSecurity.js`, `src/server/productionSafety.js`, `scripts/harness/security-check.sh`, `scripts/harness/production-gate.sh` | Partial executable gates |
 | Filesystem storage concurrency boundary | `docs/STORAGE_CONCURRENCY_DECISION.md` defines single-process limits and DB migration triggers | Accepted local/staging constraint |
 | Observability dashboard or log ingestion | Structured logs exist and credential/token redaction is covered; no dashboard or retention plan | Partial |
 
@@ -90,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 269 Node tests, and the baseline browser E2E
+The latest full test run passed 273 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -153,21 +153,23 @@ cryptographic randomness, new local user passwords are stored as PBKDF2 hashes,
 and `scripts/harness/security-check.sh --strict` can fail deployment checks when
 default seed or legacy plaintext passwords remain. `scripts/harness/production-gate.sh`
 now combines strict identity checks with production-mode, dedicated data-root,
-and explicit filesystem-boundary acceptance checks. A dry-run-first identity
-password migration script exists for converting legacy plaintext local user
-files after backup. Baseline response security headers and explicit CORS
-allowlisting are now applied at the server boundary.
+and explicit filesystem-boundary acceptance checks. Server startup now applies
+the same production safety core when `MASKING_APP_MODE=production`, so unsafe
+production-mode starts fail before listening. A dry-run-first identity password
+migration script exists for converting legacy plaintext local user files after
+backup. Baseline response security headers and explicit CORS allowlisting are
+now applied at the server boundary.
 
 Open production decisions:
 
-- external identity provider or local hardened account store
+- external identity provider or explicit acceptance of the hardened local account
+  store as the first production boundary
 - password policy and reset flow
 - operator-run migration for existing plaintext `identity/users.json`
 - token lifetime and rotation
 - host-specific TLS/reverse proxy deployment
 - CSRF policy if the app moves from bearer headers to browser cookies
 - audit retention for admin/review actions
-- server startup enforcement for production-mode safety checks
 
 ### 5. Storage And Concurrency Boundary
 

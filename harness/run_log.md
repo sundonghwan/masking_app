@@ -1387,14 +1387,17 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=code-health-cadence note=checked-small-tested-cleanup-guidance-and-broad-rewrite-guardrail
 [GIT] commit=0970493 push=origin/main status=passed
 [START] task=production-gate subsystem=security,deployment,operations
-[PLAN] scope=production-gate-cli,strict-identity-check,filesystem-boundary-acceptance,docs risks=overclaiming-external-idp-or-database-readiness
+[PLAN] scope=production-gate-cli,production-startup-safety,strict-identity-check,filesystem-boundary-acceptance,docs risks=overclaiming-external-idp-or-database-readiness
 [TEST] added=tests/productionGate.test.js note=unsafe-local-defaults-fail-and-production-fixture-passes
-[CODE] added=scripts/harness/production-gate.sh,scripts/harness/production-gate.mjs note=production-mode-strict-security-dedicated-data-root-filesystem-acceptance-gate
+[TEST] added=tests/productionSafety.test.js note=production-startup-safety-skip-fail-pass
+[CODE] added=scripts/harness/production-gate.sh,scripts/harness/production-gate.mjs,src/server/securityAudit.js,src/server/productionSafety.js updated=server.js note=production-mode-strict-security-dedicated-data-root-filesystem-acceptance-gate-and-startup-enforcement
 [DOC] updated=harness/commands.md,docs/RUNBOOK_DEPLOYMENT.md,docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=production-gate-usage-and-remaining-non-goals
 [CMD] node --test tests/productionGate.test.js status=passed tests=2
+[CMD] node --test tests/productionSafety.test.js status=passed tests=4
 [CMD] scripts/harness/lint-all.sh status=passed
 [CMD] scripts/harness/typecheck-all.sh status=passed
-[CMD] scripts/harness/test-target.sh status=passed tests=269
+[CMD] scripts/harness/test-target.sh status=passed tests=273
 [CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] scripts/harness/browser-e2e.sh status=passed note=local-mode-server-startup-not-broken-by-production-safety
 [CMD] git diff --check status=passed
-[REVIEW] finding=none-blocking scope=production-gate note=checked-pre-release-gate-boundary-and-no-external-idp-tls-scheduler-or-db-overclaim
+[REVIEW] finding=none-blocking scope=production-gate note=checked-pre-release-gate-and-startup-boundary-with-no-external-idp-tls-scheduler-or-db-overclaim

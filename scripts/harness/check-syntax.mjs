@@ -33,6 +33,8 @@ export const SYNTAX_CHECK_FILES = Object.freeze([
   "src/server/imageMetadata.js",
   "src/server/maskValidation.js",
   "src/server/passwords.js",
+  "src/server/productionSafety.js",
+  "src/server/securityAudit.js",
   "src/server/sessionStore.js",
   "src/server/sessionToken.js",
   "src/server/storage.js",

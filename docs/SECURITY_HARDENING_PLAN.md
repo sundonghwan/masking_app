@@ -53,7 +53,9 @@ For local or controlled staging:
 ### 1. Remove Default Password Risk
 
 - Force password reset or admin-created credentials on first run. Pending.
-- Add a startup warning when default passwords are detected. Pending.
+- Add startup enforcement when production mode still has default or invalid
+  local identity state. Implemented baseline:
+  `src/server/productionSafety.js`.
 - Add a verifier check that can fail deployment if default passwords remain.
   Implemented baseline: `scripts/harness/security-check.sh --strict`.
 - Add a production gate that combines deployment-profile checks, strict
@@ -84,9 +86,10 @@ For local or controlled staging:
 - Define allowed deployment hosts and set `MASKING_APP_ALLOWED_ORIGINS` only
   for those browser origins.
 - Put TLS termination and reverse proxy details in the deployment host config.
-- Reject unsafe public-root or data-root settings at startup when in production
-  mode. Baseline pre-release coverage exists in `production-gate.sh`; server
-  startup enforcement remains pending.
+- Reject unsafe data-root settings at startup when in production mode.
+  Implemented baseline: `src/server/productionSafety.js` rejects production
+  startup when `MASKING_APP_DATA_DIR` is inside the repository or filesystem
+  production acceptance is missing.
 
 ### 5. Audit And Retention
 

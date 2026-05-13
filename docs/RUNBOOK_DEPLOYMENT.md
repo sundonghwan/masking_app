@@ -252,6 +252,11 @@ the filesystem metadata boundary documented in
 `docs/STORAGE_CONCURRENCY_DECISION.md`. The gate still does not install TLS,
 reverse proxy rules, or a scheduler; those remain host responsibilities.
 
+When `MASKING_APP_MODE=production`, the server also runs the production safety
+check during startup and fails before listening if the data root is inside the
+repository, filesystem production acceptance is missing, or strict local
+identity checks fail.
+
 ## Current Production Constraints
 
 - Local bearer-token sessions are still MVP identity, not hardened production
