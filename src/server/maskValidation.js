@@ -1,4 +1,4 @@
-import { inflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -172,14 +172,7 @@ export function validateBinaryMaskPixels(maskPngBuffer, maskMeta = parsePngHeade
   }
 
   try {
-    const chunks = parsePngChunks(maskPngBuffer);
-    const idat = Buffer.concat(chunks.filter((chunk) => chunk.type === "IDAT").map((chunk) => chunk.data));
-    if (idat.length === 0) {
-      return { valid: false, status: "failed", reason: MASK_VALIDATION_REASONS.PNG_IDAT_NOT_FOUND };
-    }
-
-    const inflated = inflateSync(idat);
-    const pixels = unfilterGrayscale8(inflated, maskMeta.width, maskMeta.height);
+    const pixels = decodeGrayscale8PngPixels(maskPngBuffer, maskMeta);
     let foregroundPixels = 0;
 
     for (const value of pixels) {
@@ -221,6 +214,53 @@ export function validateBinaryMaskPixels(maskPngBuffer, maskMeta = parsePngHeade
   }
 }
 
+export function decodeGrayscale8PngPixels(maskPngBuffer, maskMeta = parsePngHeader(maskPngBuffer)) {
+  if (!maskMeta.valid) throw new Error(maskMeta.reason);
+  if (maskMeta.bitDepth !== 8 || maskMeta.colorType !== 0) {
+    throw new Error(MASK_VALIDATION_REASONS.MASK_NOT_8BIT_GRAYSCALE);
+  }
+  if (maskMeta.interlaceMethod !== 0) {
+    throw new Error(MASK_VALIDATION_REASONS.PNG_INTERLACE_UNSUPPORTED);
+  }
+  const chunks = parsePngChunks(maskPngBuffer);
+  const idat = Buffer.concat(chunks.filter((chunk) => chunk.type === "IDAT").map((chunk) => chunk.data));
+  if (idat.length === 0) {
+    throw new Error(MASK_VALIDATION_REASONS.PNG_IDAT_NOT_FOUND);
+  }
+  return unfilterGrayscale8(inflateSync(idat), maskMeta.width, maskMeta.height);
+}
+
+export function createGrayscale8Png({ width, height, pixels }) {
+  if (!isPositiveInteger(Number(width)) || !isPositiveInteger(Number(height))) {
+    throw new Error("width and height must be positive integers");
+  }
+  const source = Buffer.from(pixels || []);
+  if (source.length !== Number(width) * Number(height)) {
+    throw new Error("pixel buffer length must match width * height");
+  }
+
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(Number(width), 0);
+  ihdrData.writeUInt32BE(Number(height), 4);
+  ihdrData.writeUInt8(8, 8);
+  ihdrData.writeUInt8(0, 9);
+  ihdrData.writeUInt8(0, 10);
+  ihdrData.writeUInt8(0, 11);
+  ihdrData.writeUInt8(0, 12);
+
+  const rows = [];
+  for (let row = 0; row < Number(height); row += 1) {
+    rows.push(Buffer.from([0, ...source.subarray(row * Number(width), (row + 1) * Number(width))]));
+  }
+
+  return Buffer.concat([
+    PNG_SIGNATURE,
+    createPngChunk("IHDR", ihdrData),
+    createPngChunk("IDAT", deflateSync(Buffer.concat(rows))),
+    createPngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
 export function createMinimalPngHeader({ width, height, bitDepth = 8, colorType = 0 }) {
   const buffer = Buffer.alloc(33);
   PNG_SIGNATURE.copy(buffer, 0);
@@ -257,6 +297,16 @@ function parsePngChunks(buffer) {
     if (type === "IEND") break;
   }
   return chunks;
+}
+
+function createPngChunk(type, data) {
+  const typeBytes = Buffer.from(type, "ascii");
+  const chunk = Buffer.alloc(12 + data.length);
+  chunk.writeUInt32BE(data.length, 0);
+  typeBytes.copy(chunk, 4);
+  data.copy(chunk, 8);
+  chunk.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])), 8 + data.length);
+  return chunk;
 }
 
 function unfilterGrayscale8(inflated, width, height) {
@@ -320,4 +370,15 @@ function colorTypeName(colorType) {
     4: "grayscale-alpha",
     6: "truecolor-alpha",
   }[colorType] || "unknown";
+}
+
+function crc32(data) {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = crc & 1 ? 0xedb88320 ^ (crc >>> 1) : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }

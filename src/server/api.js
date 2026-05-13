@@ -1,4 +1,5 @@
 import { createZipBlob } from "../export/zip.js";
+import { createIndexedMaskArtifact } from "../export/indexedMask.js";
 import { createTrainingSetZipEntries } from "../export/trainingSet.js";
 import { createAiCapabilities, createAiServingResponse } from "./aiServing.js";
 import { publicDeploymentProfile } from "./deploymentProfile.js";
@@ -1515,6 +1516,7 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       { path: "annotations.json", data: serializeJson(annotations) },
       { path: "export_summary.json", data: serializeJson(summary) },
     ];
+    const indexedMaskInputs = new Map();
 
     for (const [index, image] of images.entries()) {
       const item = validationSummary.items[index];
@@ -1524,8 +1526,53 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
     }
 
     for (const annotation of annotations.annotations) {
-      const sourceMaskPath = annotation.source_mask_path || (manifest.images || []).find((image) => image.id === annotation.image_id)?.current_mask_path || "";
-      entries.push({ path: annotation.mask_path, data: await storage.readProjectFile(projectId, sourceMaskPath) });
+      const image = images.find((item) => item.id === annotation.image_id) || (manifest.images || []).find((item) => item.id === annotation.image_id);
+      const sourceMaskPath = annotation.source_mask_path || image?.current_mask_path || "";
+      const data = await storage.readProjectFile(projectId, sourceMaskPath);
+      entries.push({ path: annotation.mask_path, data });
+      if (annotation.class_id && data instanceof Uint8Array && image) {
+        const current = indexedMaskInputs.get(annotation.image_id) || { image, annotations: [] };
+        current.annotations.push({ ...annotation, maskBuffer: data });
+        indexedMaskInputs.set(annotation.image_id, current);
+      }
+    }
+
+    const indexedMasks = [];
+    for (const { image, annotations: indexedAnnotations } of indexedMaskInputs.values()) {
+      if (indexedAnnotations.length === 0) continue;
+      let artifact = null;
+      try {
+        artifact = createIndexedMaskArtifact({ image, annotations: indexedAnnotations });
+      } catch (error) {
+        logger?.warn("export.indexed_mask.skipped", {
+          request_id: context.requestId,
+          project_id: projectId,
+          image_id: image.id,
+          reason: error instanceof Error ? error.message : "unknown indexed mask error",
+        });
+        continue;
+      }
+      entries.push({ path: artifact.path, data: artifact.png });
+      indexedMasks.push({
+        image_id: image.id,
+        path: artifact.path,
+        width: Number(image.width),
+        height: Number(image.height),
+        overlap_policy: artifact.overlap_policy,
+        class_map: artifact.class_map,
+      });
+    }
+    if (indexedMasks.length > 0) {
+      entries.push({
+        path: "indexed_masks/indexed_masks.json",
+        data: serializeJson({
+          version: 1,
+          generated_at: new Date().toISOString(),
+          mask_format: "8-bit grayscale indexed PNG",
+          background_value: 0,
+          masks: indexedMasks,
+        }),
+      });
     }
 
     const zip = await createZipBlob(entries);

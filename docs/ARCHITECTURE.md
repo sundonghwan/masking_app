@@ -182,6 +182,12 @@ Current foundation implemented:
   allowed class IDs, validates returned predictions against the project label
   schema, and imports valid masks as editable draft annotations with
   `source=ai` and `score`.
+- Server project ZIP export now derives optional `indexed_masks/*.png` files and
+  `indexed_masks/indexed_masks.json` from class-labeled binary masks. The
+  derived PNG uses 8-bit grayscale pixel values where `0` is background and
+  positive pixel values are `class_id`; class overlaps use
+  `higher_class_id_wins`. This is an export artifact only, not the editor or
+  storage source of truth.
 
 Still pending:
 
@@ -201,7 +207,8 @@ Rationale:
 - polygon masks can lose internal holes and irregular pixel-level regions
 - the current editor already produces reliable binary mask PNGs
 - one binary mask per class preserves overlap and keeps editing simple
-- indexed masks can be derived later for training formats that require them
+- indexed masks are derived during server export for training formats that
+  require them
 
 Target image shape:
 

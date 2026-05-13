@@ -94,14 +94,15 @@
 - [x] Class-aware mask save/load upserts `image.annotations[]` and stores per-class mask blobs/paths
 - [x] Class-aware export and training-set metadata emit per-class annotation records and mask paths
 - [x] AI prediction import contract for `class_id + mask_data_url` draft annotations
+- [x] Derived indexed-mask server export from class-labeled binary masks
 
 ## In Progress
 
 - Multi-class mask annotation foundation implementation:
   - design source: `docs/superpowers/specs/2026-05-13-multi-class-mask-annotation-design.md`
   - implementation plan: `docs/superpowers/plans/2026-05-13-multi-class-mask-annotation-plan.md`
-  - completed slice: visible workbench label selector, user-defined project label schema, local label-schema state, annotation record utilities, selected-label mask overlay color, class-aware mask save/load, class-aware export/training-set metadata, AI prediction import contract
-  - next slice: indexed-mask derived export or real AI model adapter only after dataset need is confirmed
+  - completed slice: visible workbench label selector, user-defined project label schema, local label-schema state, annotation record utilities, selected-label mask overlay color, class-aware mask save/load, class-aware export/training-set metadata, AI prediction import contract, derived indexed-mask server export
+  - next slice: real AI model adapter only after dataset need is confirmed
 
 ## Remaining
 
@@ -124,7 +125,7 @@
 
 ## Future Hardening
 
-- [ ] Derived indexed-mask export generated from class-labeled binary masks.
+- [x] Derived indexed-mask export generated from class-labeled binary masks.
 - [ ] AI-backed segmentation model integration behind the magic-click tool after local edge-aware selection reaches its limit.
 - [x] Add full user/account administration UI for creating, disabling, and rotating local accounts.
 - [x] Add project settings edit screen for changing upload formats and limits after project creation.

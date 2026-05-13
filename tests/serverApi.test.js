@@ -1116,6 +1116,48 @@ test("project export includes each class annotation mask file", async () => {
   assert.match(response.text, /scratch-mask/);
 });
 
+test("project export includes derived indexed masks for class annotations", async () => {
+  const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "admin");
+  await storage.ensureProject("project-1", { name: "Project 1" });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    id: "submitted-1",
+    original_file_name: "submitted.png",
+    image_path: "images/submitted_source.png",
+    current_mask_path: "",
+    width: 2,
+    height: 2,
+    status: "submitted",
+    mask_values_valid: true,
+    annotations: [
+      {
+        annotation_id: "ann_submitted-1_class_1",
+        class_id: 1,
+        class_name: "crack",
+        mask_path: "masks/submitted_class_1_crack_mask.png",
+      },
+      {
+        annotation_id: "ann_submitted-1_class_2",
+        class_id: 2,
+        class_name: "scratch",
+        mask_path: "masks/submitted_class_2_scratch_mask.png",
+      },
+    ],
+  });
+  storage.files.set("project-1/images/submitted_source.png", "submitted-image");
+  storage.files.set("project-1/masks/submitted_class_1_crack_mask.png", createGrayscalePng({ width: 2, height: 2, pixels: [0, 255, 0, 0] }));
+  storage.files.set("project-1/masks/submitted_class_2_scratch_mask.png", createGrayscalePng({ width: 2, height: 2, pixels: [0, 0, 255, 0] }));
+
+  const response = await callRoute(route, "GET", "/api/projects/project-1/export", null, headers);
+
+  assert.equal(response.statusCode, 200);
+  assert.match(response.text, /indexed_masks\/submitted-1_indexed_mask\.png/);
+  assert.match(response.text, /indexed_masks\/indexed_masks\.json/);
+  assert.match(response.text, /higher_class_id_wins/);
+  assert.match(response.text, /"class_id": 2/);
+});
+
 test("project export approved-only query excludes submitted images", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "admin");

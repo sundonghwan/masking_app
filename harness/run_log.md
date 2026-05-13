@@ -1127,3 +1127,21 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=ai-prediction-import-contract note=checked-no-auto-approval-class-id-validation-and-stub-provider-boundary
 [CLOSE] status=ready-for-commit
+[GIT] commit=980e671 push=origin/main status=passed
+[START] task=derived-indexed-mask-export subsystem=server-export,mask-validation,training-artifacts
+[PLAN] scope=server-derived-indexed-png,indexed-mask-metadata,png-decode-encode risks=overlap-policy,class-id-overflow,invalid-mask-payloads
+[IMPACT] status=validated chain=exportProject->createIndexedMaskArtifact->createZipBlob
+[IMPACT] status=validated chain=validateBinaryMaskPixels->decodeGrayscale8PngPixels->createGrayscale8Png
+[IMPACT_DROP] chain=browser-local-indexed-export reason=would-require-browser-zlib-png-encoder-and-is-not-needed-for-trusted-server-artifacts
+[FIX] scope=mask-validation note=exposed-grayscale-png-decode-and-encode-helpers-with-valid-crc-chunks
+[FIX] scope=server-export note=project-zip-now-adds-indexed-mask-png-and-indexed-mask-metadata-when-valid-class-mask-buffers-exist
+[FIX] scope=validation note=invalid-derived-input-skips-indexed-artifact-with-warning-without-dropping-binary-mask-export
+[DOC] updated=docs/FEATURE_STATUS.md,docs/ARCHITECTURE.md note=derived-indexed-mask-export-marked-complete
+[CMD] node --test tests/indexedMask.test.js tests/maskValidation.test.js tests/serverApi.test.js status=passed tests=65
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=242
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=derived-indexed-mask-export note=checked-overlap-policy-class-id-range-invalid-mask-skip-and-binary-mask-export-compatibility
+[CLOSE] status=ready-for-commit
