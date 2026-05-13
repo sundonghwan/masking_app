@@ -46,6 +46,7 @@ export const SYNTAX_CHECK_FILES = Object.freeze([
   "src/server/userDirectory.js",
   "scripts/harness/browser-e2e.mjs",
   "scripts/harness/storage-verify.mjs",
+  "scripts/harness/audit-verify.mjs",
   "scripts/harness/deployment-check.mjs",
   "scripts/harness/security-check.mjs",
   "scripts/harness/identity-migrate-passwords.mjs",

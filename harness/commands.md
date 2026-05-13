@@ -24,6 +24,7 @@ scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh
+scripts/harness/audit-verify.sh
 scripts/harness/deployment-check.sh
 scripts/harness/security-check.sh
 scripts/harness/identity-migrate-passwords.sh
@@ -171,6 +172,26 @@ Current behavior:
   headers, hierarchy task/version manifests, and training-set metadata
 - exits non-zero when referenced files are missing or JSON/image/mask metadata
   is invalid
+
+## Audit Verification
+
+Preferred wrapper:
+
+```bash
+scripts/harness/audit-verify.sh [data-root]
+scripts/harness/audit-verify.sh --json [data-root]
+```
+
+Current behavior:
+
+- reads only; does not repair, redact, prune, or delete audit files
+- defaults to `MASKING_APP_DATA_DIR`, then `MASKING_APP_DATA_ROOT`, then `data`
+- validates `audit/events-YYYY-MM.jsonl` parseability, required audit fields,
+  ISO timestamps, `success|failure` outcomes, and unsafe metadata values
+- reports event counts by action and outcome
+- treats missing `audit/` as a warning so fresh local data roots still pass
+- exits non-zero when audit files are malformed or contain unredacted forbidden
+  metadata such as tokens, passwords, data URLs, request bodies, or payloads
 
 ## Deployment Check
 

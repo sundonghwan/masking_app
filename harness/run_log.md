@@ -1590,3 +1590,18 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=audit-event-helper-refactor note=checked-field-name-preservation-and-no-new-audit-behavior
+[GIT] commit=cbecbb8 push=origin/main status=passed
+[START] task=audit-verify-harness subsystem=security,audit,operations
+[PLAN] scope=read-only-audit-jsonl-verifier risks=malformed-evidence-hidden,forbidden-metadata-leak,retention-before-verification
+[TEST] added=tests/auditVerify.test.js note=valid-summary-and-malformed-forbidden-metadata-failure
+[CODE] added=scripts/harness/audit-verify.mjs,scripts/harness/audit-verify.sh updated=scripts/harness/check-syntax.mjs,scripts/harness/smoke-web.sh
+[DOC] updated=harness/commands.md,docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=audit-verifier-added-retention-pruning-still-pending
+[CMD] node --test tests/auditVerify.test.js status=red expected=missing-module
+[CMD] node --test tests/auditVerify.test.js status=passed tests=2
+[CMD] scripts/harness/audit-verify.sh --json data status=passed warnings=audit_dir_missing
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=303
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=audit-verify-harness note=checked-read-only-verifier-schema-timestamp-outcome-forbidden-metadata-and-fresh-data-root-warning
