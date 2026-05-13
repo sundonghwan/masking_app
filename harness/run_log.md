@@ -1724,3 +1724,14 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=project-settings-route-refactor note=checked-route-boundary-and-existing-settings-contract-preserved
+[START] task=assignment-route-refactor subsystem=backend,assignment,code-health
+[PLAN] scope=extract-assignment-target-and-update-helpers risks=reviewer-fallback,status-mutation,error-shape-drift
+[IMPACT] status=validated chain=routeImage-assignment->buildAssignmentTargets/buildAssignmentUpdate->storage.writeProjectManifest validation=serverAssignment-test,serverApi-test
+[CMD] node --test tests/serverAssignment.test.js status=passed tests=3
+[CMD] node --test tests/serverApi.test.js status=passed tests=67
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=319
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=assignment-route-refactor note=checked-error-payload-status-preservation-and-route-io-boundary

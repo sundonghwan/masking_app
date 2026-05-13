@@ -100,6 +100,7 @@
 - [x] Minimal local password policy for account creation and password rotation
 - [x] Staging evidence JSON output artifact for release records
 - [x] Project settings route normalization helper refactor
+- [x] Assignment route helper refactor
 
 ## In Progress
 

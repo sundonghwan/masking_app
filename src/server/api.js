@@ -2,6 +2,7 @@ import { createZipBlob } from "../export/zip.js";
 import { createIndexedMaskArtifact } from "../export/indexedMask.js";
 import { createTrainingSetZipEntries } from "../export/trainingSet.js";
 import { createAiCapabilities, createAiServingResponse } from "./aiServing.js";
+import { buildAssignmentRoleValidation, buildAssignmentTargets, buildAssignmentUpdate } from "./assignment.js";
 import { publicDeploymentProfile } from "./deploymentProfile.js";
 import {
   createAnnotationsJson,
@@ -975,30 +976,20 @@ export function createApiRouter({
       const image = (manifest.images || []).find((item) => item.id === imageId);
       if (!image) throw createHttpError(404, "Image not found");
 
-      const workerId = normalizeActorId(body.worker_id || image.worker_id || DEFAULT_ACTORS.worker);
-      const reviewerId = normalizeActorId(body.reviewer_id || image.reviewer_id || "");
+      const { workerId, reviewerId } = buildAssignmentTargets({ body, image });
       const workerValid = await hasUserRole(workerId, ROLES.WORKER);
       const reviewerValid = await hasUserRole(reviewerId, ROLES.REVIEWER);
-      if (!workerValid || !reviewerValid) {
+      const validation = buildAssignmentRoleValidation({ workerValid, reviewerValid });
+      if (!validation.valid) {
         return sendJson(response, 422, {
           error: "assignment_validation_failed",
           message: "Assignment target roles are invalid",
-          validation: {
-            worker_id: workerValid,
-            reviewer_id: reviewerValid,
-          },
+          validation: validation.payload,
         });
       }
 
       const now = new Date().toISOString();
-      const updated = {
-        ...image,
-        worker_id: workerId,
-        reviewer_id: reviewerId,
-        assigned_by: session.userId,
-        assigned_at: now,
-        updated_at: now,
-      };
+      const updated = buildAssignmentUpdate({ image, workerId, reviewerId, actorId: session.userId, now });
       manifest.images = manifest.images.map((item) => item.id === imageId ? updated : item);
       manifest.updated_at = now;
       await storage.writeProjectManifest(projectId, manifest);
