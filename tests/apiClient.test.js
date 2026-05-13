@@ -581,6 +581,8 @@ test("saves a mask with project id inside the JSON body", async () => {
     dataUrl: "data:image/png;base64,AAAA",
     status: "submitted",
     maskRatio: 0.42,
+    classId: 2,
+    className: "scratch",
   });
 
   assert.equal(result.validation.status, "valid");
@@ -590,6 +592,8 @@ test("saves a mask with project id inside the JSON body", async () => {
     data_url: "data:image/png;base64,AAAA",
     status: "submitted",
     mask_ratio: 0.42,
+    class_id: 2,
+    class_name: "scratch",
   });
 });
 

@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  annotationMaskBlobKey,
+  annotationMaskPath,
   createAnnotationRecord,
   createAnnotationSet,
   migrateLegacyImageAnnotations,
@@ -30,6 +32,14 @@ test("creates class-labeled binary mask annotation records", () => {
   assert.equal(annotation.mask_height, 480);
   assert.equal(annotation.mask_ratio, 0.25);
   assert.equal(annotation.updated_at, NOW);
+});
+
+test("creates deterministic class-aware mask paths and local blob keys", () => {
+  assert.equal(
+    annotationMaskPath({ imageId: "frame 001", classId: 2, className: "scratch crack" }),
+    "masks/frame_001_class_2_scratch_crack_mask.png",
+  );
+  assert.equal(annotationMaskBlobKey("frame 001", 2), "frame 001::class_2");
 });
 
 test("upserts annotations by class id without duplicating class masks", () => {

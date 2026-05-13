@@ -1052,3 +1052,24 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] live-http-smoke status=passed checks=health,app-js
 [REVIEW] finding=none-blocking scope=selected-label-mask-color note=checked-display-only-color-state-no-mask-pixel-mutation-and-no-undo-history-change
 [CLOSE] status=ready-for-commit
+[GIT] commit=ad3b5ab push=origin/main status=passed
+[START] task=class-aware-mask-save-load subsystem=frontend,api,server,annotation-contract
+[PLAN] scope=per-class-mask-save-load,annotations-upsert,api-mask-class-fields risks=label-switch-data-loss,legacy-export-compatibility,class-mask-path-collision
+[IMPACT] status=validated chain=selectClassLabel->saveEditorMaskForSelectedClass->loadSelectedClassMaskIntoEditor->selectedClassMaskDataUrlForImage
+[IMPACT] status=validated chain=saveCurrentMask-submitCurrentImage-autosaveCurrentMask->saveEditorMaskForSelectedClass->upsertAnnotationRecord->projectStore.saveMaskBlob
+[IMPACT] status=validated chain=syncMaskToBackend->apiClient.saveMask->routeApi-mask-save->storage.writeMaskBuffer
+[IMPACT_DROP] chain=full-class-aware-export-training-set reason=kept-for-next-slice-legacy-current_mask_path-remains-compatible
+[FIX] scope=annotation-contract note=added-deterministic-class-mask-paths-and-local-blob-keys
+[FIX] scope=workbench note=save-submit-autosave-upsert-selected-class-annotation-and-label-switch-loads-target-class-mask
+[FIX] scope=api-server note=mask-save-payload-accepts-class-fields-and-server-upserts-image-annotations
+[DOC] updated=docs/FEATURE_STATUS.md,docs/ARCHITECTURE.md note=class-aware-mask-save-load-marked-complete-export-metadata-left-next
+[IMPACT_VALIDATE] task=class-aware-mask-save-load chain=class-mask-save-load validation=annotationRecords-apiClient-serverApi-appContracts-passed
+[CMD] node --test tests/annotationRecords.test.js tests/apiClient.test.js tests/serverApi.test.js tests/appContracts.test.js status=passed tests=111
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=228
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health
+[REVIEW] finding=none-blocking scope=class-aware-mask-save-load note=checked-binary-mask-contract-legacy-current-mask-compatibility-and-label-switch-dirty-state
+[CLOSE] status=ready-for-commit

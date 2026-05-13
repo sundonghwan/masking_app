@@ -1,6 +1,11 @@
 import { createMaskingApiClient, normalizeApiError } from "./api/client.js";
 import { DEFAULT_LABEL_SCHEMA, labelByClassId, normalizeLabelSchema, validateClassId } from "./annotations/labels.js";
-import { migrateLegacyImageAnnotations } from "./annotations/records.js";
+import {
+  annotationMaskBlobKey,
+  annotationMaskPath,
+  migrateLegacyImageAnnotations,
+  upsertAnnotationRecord,
+} from "./annotations/records.js";
 import { createDashboardSummary } from "./dashboard/summary.js";
 import { MaskEditor, panDeltaForKey } from "./editor/maskEditor.js";
 import {
@@ -676,7 +681,8 @@ async function selectImage(imageId, options = {}) {
     setSaveState("failed", "서버 manifest만 로드됨");
     return;
   }
-  await editor.loadImage(image.objectUrl, image.maskDataUrl || image.maskObjectUrl);
+  const maskDataUrl = await selectedClassMaskDataUrlForImage(image);
+  await editor.loadImage(image.objectUrl, maskDataUrl || null);
   els.emptyState.hidden = true;
   await persistProject();
   render();
@@ -1106,21 +1112,10 @@ async function saveCurrentMask() {
   if (!image) return;
 
   setSaveState("saving", "저장 중");
-  const blob = await editor.exportMaskPngBlob();
-  image.maskDataUrl = await blobToDataUrl(blob);
-  await projectStore.saveMaskBlob(image.id, blob);
-  image.maskPath = `masks/${image.id}_mask.png`;
-  image.current_mask_path = image.maskPath;
-  image.mask_data_url = image.maskDataUrl;
-  image.mask_width = image.width;
-  image.mask_height = image.height;
-  image.mask_values_valid = true;
-  image.maskRatio = editor.getMaskRatio();
-  image.mask_ratio = image.maskRatio;
-  image.updatedAt = new Date().toISOString();
+  const { blob, dataUrl } = await saveEditorMaskForSelectedClass(image, { status: image.status });
   state.savedAt = new Date();
   await persistProject();
-  await syncMaskToBackend(image, image.maskDataUrl, image.status);
+  await syncMaskToBackend(image, dataUrl, image.status);
   render();
   downloadBlob(blob, `${image.id}_mask.png`);
   setSaveState("saved", "저장됨");
@@ -1131,23 +1126,12 @@ async function submitCurrentImage() {
   if (!image) return;
 
   setSaveState("saving", "제출 저장 중");
-  const blob = await editor.exportMaskPngBlob();
-  image.maskDataUrl = await blobToDataUrl(blob);
-  await projectStore.saveMaskBlob(image.id, blob);
-  image.maskPath = `masks/${image.id}_mask.png`;
-  image.current_mask_path = image.maskPath;
-  image.mask_data_url = image.maskDataUrl;
-  image.mask_width = image.width;
-  image.mask_height = image.height;
-  image.mask_values_valid = true;
-  image.maskRatio = editor.getMaskRatio();
-  image.mask_ratio = image.maskRatio;
-  image.status = "submitted";
+  const { dataUrl } = await saveEditorMaskForSelectedClass(image, { status: "submitted" });
   image.submittedAt = new Date().toISOString();
   image.updatedAt = image.submittedAt;
   state.savedAt = new Date();
   await persistProject();
-  await syncMaskToBackend(image, image.maskDataUrl, "submitted");
+  await syncMaskToBackend(image, dataUrl, "submitted");
   render();
   setSaveState("saved", "제출됨");
 }
@@ -1446,6 +1430,8 @@ async function syncMaskToBackend(image, dataUrl, status) {
       dataUrl,
       status,
       maskRatio: image.maskRatio ?? image.mask_ratio,
+      classId: state.selectedClassId,
+      className: selectedLabel()?.name || "",
       revisionEvent,
     });
     const updated = result.image || {};
@@ -1787,6 +1773,7 @@ function handleEditorChange() {
   }
   image.maskRatio = editor.getMaskRatio();
   image.mask_ratio = image.maskRatio;
+  image.active_mask_dirty = true;
   image.updatedAt = new Date().toISOString();
   setSaveState("dirty", "변경됨");
   scheduleAutosave();
@@ -1806,18 +1793,7 @@ async function autosaveCurrentMask() {
   if (!image) return;
 
   setSaveState("saving", "자동 저장 중");
-  const blob = await editor.exportMaskPngBlob();
-  await projectStore.saveMaskBlob(image.id, blob);
-  image.maskDataUrl = await blobToDataUrl(blob);
-  image.maskPath = `masks/${image.id}_mask.png`;
-  image.current_mask_path = image.maskPath;
-  image.mask_data_url = image.maskDataUrl;
-  image.mask_width = image.width;
-  image.mask_height = image.height;
-  image.mask_values_valid = true;
-  image.maskRatio = editor.getMaskRatio();
-  image.mask_ratio = image.maskRatio;
-  image.updatedAt = new Date().toISOString();
+  await saveEditorMaskForSelectedClass(image, { status: image.status });
   state.savedAt = new Date();
   await persistProject();
   render();
@@ -2690,10 +2666,19 @@ async function selectClassLabel(classId) {
     return;
   }
 
+  const image = getSelectedImage();
+  if (image?.objectUrl && (editor.getMaskRatio() > 0 || image.active_mask_dirty)) {
+    await saveEditorMaskForSelectedClass(image, { status: image.status, updateTimestamp: true });
+  }
   state.selectedClassId = result.label.class_id;
   state.labelMessage = `선택 라벨: ${result.label.name} / class_id=${result.label.class_id}`;
+  if (image?.objectUrl) {
+    await loadSelectedClassMaskIntoEditor(image);
+  }
   await persistProject();
   renderLabelSelector();
+  renderValidation();
+  updateStatusbar();
 }
 
 function selectedLabelAnnotation(image = getSelectedImage()) {
@@ -2718,15 +2703,63 @@ function applySelectedLabelColor() {
   els.maskColorSwatch.title = `${label.name} / class_id=${label.class_id} / ${color}`;
 }
 
+async function saveEditorMaskForSelectedClass(image, options = {}) {
+  const label = selectedLabel();
+  const classId = state.selectedClassId;
+  const blob = await editor.exportMaskPngBlob();
+  const dataUrl = await blobToDataUrl(blob);
+  const maskPath = annotationMaskPath({ imageId: image.id, classId, className: label.name });
+  const maskRatio = editor.getMaskRatio();
+  const updatedAt = new Date().toISOString();
+
+  await projectStore.saveMaskBlob(annotationMaskBlobKey(image.id, state.selectedClassId), blob);
+  await projectStore.saveMaskBlob(image.id, blob);
+
+  image.annotations = upsertAnnotationRecord(image.annotations || [], {
+    imageId: image.id,
+    classId,
+    className: label.name,
+    maskPath,
+    maskWidth: image.width,
+    maskHeight: image.height,
+    maskRatio,
+    status: options.status || image.status || "in_progress",
+    updatedAt,
+  });
+  image.maskDataUrl = dataUrl;
+  image.maskPath = maskPath;
+  image.current_mask_path = maskPath;
+  image.mask_data_url = dataUrl;
+  image.mask_width = image.width;
+  image.mask_height = image.height;
+  image.mask_values_valid = true;
+  image.maskRatio = maskRatio;
+  image.mask_ratio = maskRatio;
+  image.status = options.status || image.status;
+  image.active_mask_dirty = false;
+  if (options.updateTimestamp !== false) {
+    image.updatedAt = updatedAt;
+    image.updated_at = updatedAt;
+  }
+  return { blob, dataUrl, maskPath };
+}
+
+async function loadSelectedClassMaskIntoEditor(image) {
+  const maskDataUrl = await selectedClassMaskDataUrlForImage(image);
+  await editor.loadImage(image.objectUrl, maskDataUrl || null);
+  applySelectedLabelColor();
+  return Boolean(maskDataUrl);
+}
+
 function selectedImageAnnotations(image = getSelectedImage()) {
   if (!image) return [];
   if (Array.isArray(image.annotations) && image.annotations.length > 0) {
     return image.annotations;
   }
-  const selectedLabel = labelByClassId(activeLabelSchema(), state.selectedClassId);
+  const defaultLabel = labelByClassId(activeLabelSchema(), DEFAULT_LABEL_SCHEMA[0].class_id);
   return migrateLegacyImageAnnotations(image, {
-    classId: state.selectedClassId,
-    className: selectedLabel?.name || "target",
+    classId: DEFAULT_LABEL_SCHEMA[0].class_id,
+    className: defaultLabel?.name || "target",
   });
 }
 
@@ -3362,7 +3395,10 @@ function previousMaskSourceImage() {
 }
 
 function hasExistingMask(image = {}) {
+  const annotation = imageAnnotationForClass(image, state.selectedClassId);
   return Boolean(
+    annotation?.mask_path ||
+    annotation?.mask_ratio > 0 ||
     image.maskDataUrl ||
     image.mask_data_url ||
     image.maskObjectUrl ||
@@ -3374,12 +3410,42 @@ function hasExistingMask(image = {}) {
 }
 
 async function maskDataUrlForImage(image) {
+  const selectedClassMask = await selectedClassMaskDataUrlForImage(image);
+  if (selectedClassMask) return selectedClassMask;
   if (image.maskDataUrl || image.mask_data_url) return image.maskDataUrl || image.mask_data_url;
   const stored = await maskDataUrlFromStore(image.id);
   if (stored) return stored;
   if (image.current_mask_path && state.projectId) {
     await restoreServerMaskBlob(image);
     return image.maskDataUrl || image.mask_data_url || "";
+  }
+  return "";
+}
+
+async function selectedClassMaskDataUrlForImage(image, classId = state.selectedClassId) {
+  if (!image) return "";
+  const annotation = imageAnnotationForClass(image, classId);
+  const stored = await maskDataUrlFromStore(annotationMaskBlobKey(image.id, classId));
+  if (stored) return stored;
+  if (annotation?.mask_path && state.projectId) {
+    try {
+      const blob = await apiClient.getProjectFileBlob(state.projectId, annotation.mask_path);
+      await projectStore.saveMaskBlob(annotationMaskBlobKey(image.id, classId), blob);
+      return blobToDataUrl(blob);
+    } catch (error) {
+      const normalized = normalizeApiError(error);
+      logger.warn("server_restore.annotation_mask.failed", {
+        project_id: state.projectId,
+        image_id: image.id,
+        class_id: classId,
+        error: normalized,
+      });
+    }
+  }
+  if (Number(classId) === Number(DEFAULT_LABEL_SCHEMA[0].class_id)) {
+    if (image.maskDataUrl || image.mask_data_url) return image.maskDataUrl || image.mask_data_url;
+    const legacyStored = await maskDataUrlFromStore(image.id);
+    if (legacyStored) return legacyStored;
   }
   return "";
 }
@@ -3760,6 +3826,7 @@ function toSerializableImage(image) {
     maskObjectUrl,
     maskDataUrl,
     mask_data_url,
+    active_mask_dirty,
     ...serializable
   } = image;
   return {

@@ -91,21 +91,19 @@
 - [x] Class-labeled annotation record utility foundation
 - [x] User-defined project label schema create/settings UI/API
 - [x] Selected label color drives the mask overlay and brush color swatch
+- [x] Class-aware mask save/load upserts `image.annotations[]` and stores per-class mask blobs/paths
 
 ## In Progress
 
 - Multi-class mask annotation foundation implementation:
   - design source: `docs/superpowers/specs/2026-05-13-multi-class-mask-annotation-design.md`
   - implementation plan: `docs/superpowers/plans/2026-05-13-multi-class-mask-annotation-plan.md`
-  - completed slice: visible workbench label selector, user-defined project label schema, local label-schema state, annotation record utilities, selected-label mask overlay color
-  - next slice: class-aware mask save/load and export metadata
+  - completed slice: visible workbench label selector, user-defined project label schema, local label-schema state, annotation record utilities, selected-label mask overlay color, class-aware mask save/load
+  - next slice: class-aware export/training-set metadata
 
 ## Remaining
 
 - Multi-class mask annotation foundation:
-  - mask save/load upsert into image `annotations[]` with `class_id + mask_path`
-  - per-class mask switching in editor state
-  - class-aware previous-frame mask copy
   - class-aware export/training-set metadata
   - AI prediction import contract with `class_id + mask_data_url`
 - AI-backed segmentation adapter remains optional hardening after the generic AI serving contract and local edge-aware magic tool reach real dataset limits.

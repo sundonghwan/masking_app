@@ -818,6 +818,44 @@ test("valid mask save updates current mask and submitted status without claiming
   assert.equal(storage.maskWrites.length, 1);
 });
 
+test("class-aware mask save upserts annotation metadata and writes class mask path", async () => {
+  const { route, storage } = createApiHarness();
+  const headers = await loginHeaders(route, "worker");
+  await storage.ensureProject("project-1", {
+    name: "Project 1",
+    label_schema: [
+      { class_id: 1, name: "target", color: "#EF4444" },
+      { class_id: 2, name: "scratch", color: "#F59E0B" },
+    ],
+  });
+  await storage.addImage("project-1", {
+    ...baseImage(),
+    id: "image-1",
+    current_mask_path: "",
+    status: "in_progress",
+  });
+
+  const response = await callJson(route, "PUT", "/api/images/image-1/mask", {
+    project_id: "project-1",
+    data_url: VALID_MASK_DATA_URL,
+    status: "in_progress",
+    mask_ratio: 0.5,
+    class_id: 2,
+    class_name: "scratch",
+  }, headers);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.image.current_mask_path, "masks/image-1_class_2_scratch_mask.png");
+  assert.equal(response.body.image.annotations.length, 1);
+  assert.equal(response.body.image.annotations[0].class_id, 2);
+  assert.equal(response.body.image.annotations[0].class_name, "scratch");
+  assert.equal(response.body.image.annotations[0].mask_path, "masks/image-1_class_2_scratch_mask.png");
+
+  const manifest = await storage.readProjectManifest("project-1");
+  assert.equal(manifest.images[0].annotations[0].mask_path, "masks/image-1_class_2_scratch_mask.png");
+  assert.equal(storage.maskWrites[0].relativePath, "masks/image-1_class_2_scratch_mask.png");
+});
+
 test("mask save can append submitted revision audit event", async () => {
   const { route, storage } = createApiHarness();
   const headers = await loginHeaders(route, "worker");
@@ -1817,8 +1855,8 @@ function createMemoryStorage() {
         mimeType: "image/png",
       };
     },
-    async writeMaskBuffer(projectId, imageId, buffer) {
-      const relativePath = `masks/${imageId}_mask.png`;
+    async writeMaskBuffer(projectId, imageId, buffer, options = {}) {
+      const relativePath = `masks/${options.fileName || `${imageId}_mask.png`}`;
       maskWrites.push({ projectId, imageId, relativePath, buffer });
       return {
         buffer,

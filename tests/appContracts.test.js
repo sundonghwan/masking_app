@@ -253,6 +253,10 @@ test("workbench exposes class label selection for mask tools", () => {
   assert.match(app, /function selectClassLabel\(/);
   assert.match(app, /function selectedLabelAnnotation\(/);
   assert.match(app, /function applySelectedLabelColor\(/);
+  assert.match(app, /function saveEditorMaskForSelectedClass\(/);
+  assert.match(app, /function loadSelectedClassMaskIntoEditor\(/);
+  assert.match(app, /annotationMaskBlobKey\(image\.id, state\.selectedClassId\)/);
+  assert.match(app, /upsertAnnotationRecord\(image\.annotations/);
   assert.match(app, /editor\.setOverlayColor\(color\)/);
   assert.match(app, /els\.maskColorSwatch\.style\.backgroundColor = color/);
   assert.match(app, /normalizeLabelSchema\(manifest\.label_schema/);

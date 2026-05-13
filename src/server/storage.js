@@ -580,7 +580,8 @@ export function createFileStorage({ rootDir = "data" } = {}) {
     async writeMaskBuffer(projectId, imageId, buffer, options = {}) {
       const safeProjectId = sanitizeSegment(projectId, "projectId");
       const safeImageId = sanitizeSegment(imageId, "imageId");
-      const relativePath = toArchivePath("masks", `${safeImageId}_mask.png`);
+      const fileName = options.fileName ? sanitizeSegment(options.fileName, "maskFileName") : `${safeImageId}_mask.png`;
+      const relativePath = toArchivePath("masks", fileName);
       const safeBuffer = Buffer.from(buffer || []);
       const mimeType = options.mimeType || "image/png";
       const absolutePath = safeJoin(projectPath(safeProjectId), relativePath);

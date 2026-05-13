@@ -17,7 +17,8 @@ import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimens
 import { validateMaskContract } from "./maskValidation.js";
 import { applyReviewTransition } from "../review/policy.js";
 import { repairProjectManifestRecord } from "./storage.js";
-import { normalizeLabelSchema } from "../annotations/labels.js";
+import { labelByClassId, normalizeLabelSchema } from "../annotations/labels.js";
+import { annotationMaskPath, upsertAnnotationRecord } from "../annotations/records.js";
 import { UPLOAD_REASONS, normalizeUploadPolicy, validateImageDataUrlUpload, validateUploadCandidate } from "../upload/policy.js";
 import {
   DEFAULT_ACTORS,
@@ -730,7 +731,16 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
           validation,
         });
       }
-      const written = await storage.writeMaskBuffer(projectId, imageId, decoded.buffer, { mimeType: decoded.mimeType });
+      const classId = Number(body.class_id || body.classId || 0);
+      const label = classId ? labelByClassId(manifest.label_schema || [], classId) : null;
+      const className = String(body.class_name || body.className || label?.name || "").trim();
+      const classMaskPath = classId
+        ? annotationMaskPath({ imageId, classId, className: className || `class_${classId}` })
+        : "";
+      const written = await storage.writeMaskBuffer(projectId, imageId, decoded.buffer, {
+        mimeType: decoded.mimeType,
+        fileName: classMaskPath ? classMaskPath.split("/").at(-1) : undefined,
+      });
 
       const updated = {
         ...image,
@@ -743,6 +753,19 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
         status: body.status || image.status,
         updated_at: new Date().toISOString(),
       };
+      if (classId) {
+        updated.annotations = upsertAnnotationRecord(image.annotations || [], {
+          imageId,
+          classId,
+          className: className || label?.name || `class_${classId}`,
+          maskPath: written.relativePath,
+          maskWidth: validation.mask.width,
+          maskHeight: validation.mask.height,
+          maskRatio: updated.mask_ratio,
+          status: updated.status,
+          updatedAt: updated.updated_at,
+        });
+      }
       const revisionEvent = normalizeRevisionEvent(body.revision_event, {
         fromStatus: image.status,
         toStatus: updated.status,

@@ -165,11 +165,15 @@ Current foundation implemented:
   `label_schema`; defaults are fallback values for legacy/empty manifests only.
 - The selected label color drives the editor overlay and brush-panel color
   swatch as display state; saved masks remain binary grayscale PNGs.
+- Mask save/load now upserts selected-class records into `image.annotations[]`
+  with `class_id + class_name + mask_path`, stores local mask blobs by
+  `image_id::class_id`, and keeps legacy `current_mask_path` mirrored to the
+  currently selected class for existing export compatibility.
 
 Still pending:
 
-- class-aware mask save/load that upserts `image.annotations[]`
-- class-aware previous-frame copy and export/training-set metadata
+- class-aware export/training-set metadata
+- AI prediction import with `class_id + mask_data_url`
 
 Target model:
 

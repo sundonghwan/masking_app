@@ -323,6 +323,8 @@ export function createMaskingApiClient(options = {}) {
           data_url: input.dataUrl || input.data_url,
           status: input.status,
           mask_ratio: input.maskRatio ?? input.mask_ratio,
+          class_id: input.classId ?? input.class_id,
+          class_name: input.className || input.class_name,
           revision_event: input.revisionEvent || input.revision_event,
         },
       });

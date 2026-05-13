@@ -25,6 +25,23 @@ export function createAnnotationRecord(input = {}, options = {}) {
   };
 }
 
+export function annotationMaskPath(input = {}) {
+  const imageId = normalizeText(input.imageId || input.image_id);
+  const classId = toPositiveInt(input.classId ?? input.class_id);
+  if (!imageId) throw new Error("image_id is required");
+  if (!classId) throw new Error("class_id must be a positive integer");
+  const className = safeFileToken(input.className || input.class_name || `class_${classId}`);
+  return `masks/${safeFileToken(imageId)}_class_${classId}_${className}_mask.png`;
+}
+
+export function annotationMaskBlobKey(imageId, classId) {
+  const normalizedImageId = normalizeText(imageId);
+  const normalizedClassId = toPositiveInt(classId);
+  if (!normalizedImageId) throw new Error("image_id is required");
+  if (!normalizedClassId) throw new Error("class_id must be a positive integer");
+  return `${normalizedImageId}::class_${normalizedClassId}`;
+}
+
 export function upsertAnnotationRecord(annotations = [], input = {}, options = {}) {
   const next = createAnnotationRecord(input, options);
   const records = Array.isArray(annotations) ? annotations.map((annotation) => ({ ...annotation })) : [];
@@ -83,6 +100,15 @@ function sortAnnotations(annotations) {
 
 function normalizeText(value) {
   return String(value || "").trim();
+}
+
+function safeFileToken(value) {
+  const safe = normalizeText(value)
+    .replace(/[\\/]+/g, "_")
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/^[._-]+|[._-]+$/g, "")
+    .replace(/_{2,}/g, "_");
+  return safe || "mask";
 }
 
 function toPositiveInt(value) {
