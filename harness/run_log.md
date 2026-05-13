@@ -1299,3 +1299,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=role-browser-e2e note=checked-session-logout-surface-stable-project-selector-role-journey-doc-consistency
+[GIT] commit=93b7870 push=origin/main status=passed
+[START] task=data-root-backup-cli subsystem=storage,operations,harness
+[PLAN] scope=backup-cli,retention,docs,smoke risks=backup-inside-data-root,over-deleting-retention,transactional-overclaim
+[TEST] added=tests/backupDataRoot.test.js note=archive-creation-retention-nested-output-rejection
+[CODE] added=scripts/harness/backup-data-root.sh,scripts/harness/backup-data-root.mjs note=tar-backup-json-sidecar-retention-guard
+[DOC] updated=docs/RUNBOOK_BACKUP_RESTORE.md,harness/commands.md,docs/PRODUCTION_READINESS_AUDIT.md note=backup-command-retention-scheduler-contract
+[CMD] node --test tests/backupDataRoot.test.js status=passed tests=3
+[CMD] scripts/harness/backup-data-root.sh data /tmp/masking-app-backup-smoke status=passed
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=255
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=data-root-backup-cli note=checked-output-outside-data-root-retention-scope-test-coverage-and-transactional-limit-language

@@ -53,25 +53,59 @@ and identity files must stay together.
 
 ## Backup Procedure
 
-Use an archive name that includes the environment and timestamp.
+Use the harness backup command instead of hand-writing `tar` commands during
+normal operation:
 
 ```bash
-DATA_ROOT="${MASKING_APP_DATA_DIR:-data}"
-BACKUP_DIR="/tmp/masking-app-backups"
-STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-mkdir -p "$BACKUP_DIR"
-tar -czf "$BACKUP_DIR/masking-app-data-$STAMP.tgz" -C "$(dirname "$DATA_ROOT")" "$(basename "$DATA_ROOT")"
+scripts/harness/backup-data-root.sh "${MASKING_APP_DATA_DIR:-data}" "/tmp/masking-app-backups"
 ```
 
-Verify the archive can be listed:
+The command creates two files:
+
+- `masking-app-data-YYYYMMDDTHHMMSSZ.tgz`
+- `masking-app-data-YYYYMMDDTHHMMSSZ.json`
+
+The JSON sidecar records the source data root, archive path, creation time, and
+retention count used for that run.
+
+Verify the archive can be listed when needed:
 
 ```bash
-tar -tzf "$BACKUP_DIR/masking-app-data-$STAMP.tgz" | head
+tar -tzf "/tmp/masking-app-backups/masking-app-data-YYYYMMDDTHHMMSSZ.tgz" | head
 ```
 
 Keep the archive outside the active data root. Do not store backups under
 `$DATA_ROOT/exports` because project purge or cleanup work may later remove
 files under the data root.
+
+## Scheduled Backup
+
+This repository does not install a scheduler, because cron, launchd, systemd
+timers, and managed platform schedulers are host-specific. The supported
+scheduling contract is to run the harness command with explicit paths.
+
+Example cron-style command:
+
+```bash
+MASKING_APP_BACKUP_RETENTION_COUNT=14 \
+/Users/polaris/Documents/sundonghwan/masking_app/scripts/harness/backup-data-root.sh \
+  /path/to/masking-app-data \
+  /path/to/masking-app-backups
+```
+
+Recommended starting policy:
+
+- run once per day during a quiet labeling window
+- keep the latest 14 successful archives for local/staging operation
+- keep backups outside the app data root and outside project export folders
+- run `storage-verify.sh` before backup when a quiet window is available
+- rehearse restore after the first scheduled backup and after changing storage
+  hierarchy behavior
+
+Count-based retention is available through
+`MASKING_APP_BACKUP_RETENTION_COUNT`. It deletes the oldest
+`masking-app-data-*.tgz` archives and their matching JSON sidecars after a new
+backup succeeds.
 
 ## Restore Procedure
 
@@ -170,8 +204,9 @@ until the mask is regenerated or restored from an earlier backup.
 
 ## Open Constraints
 
-- There is no scheduled backup service in this repository.
-- There is no retention policy yet.
+- There is no installed scheduled backup service in this repository; use cron,
+  launchd, systemd timers, or a managed scheduler to call the harness command.
+- Retention is count-based, not age-based or remote-replicated.
 - There is no transaction boundary across all filesystem writes.
 - Multi-user production should revisit SQLite/PostgreSQL or object storage when
   concurrent write pressure increases.

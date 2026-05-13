@@ -24,10 +24,10 @@ it is **not yet fully production-ready**.
 
 Production completion is still blocked by security hardening. Storage and
 concurrency limits are now explicitly accepted for local/staging only. Baseline
-browser E2E, backup/restore verification, and deployment health/runbook coverage
-now exist, including role-specific admin/worker/reviewer coverage. Visual
-regression, process supervision, and scheduled/retained backup operations can
-still be expanded. These are not
+browser E2E, executable backup/restore verification, and deployment health/runbook
+coverage now exist, including role-specific admin/worker/reviewer coverage.
+Visual regression, process supervision, and host-installed scheduled backup
+operations can still be expanded. These are not
 cosmetic gaps; they affect whether a team can safely operate the tool with real
 labeling data over time.
 
@@ -69,7 +69,7 @@ For this repository, "production-level" means the following are true:
 | Git-backed task history | `harness/tasks/`, `harness/run_log.md` | Implemented |
 | Production identity provider | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing |
 | Database-backed metadata storage | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing / intentionally deferred |
-| Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh` | Implemented baseline |
+| Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh`, `scripts/harness/backup-data-root.sh` | Implemented baseline |
 | Production deployment packaging | `docs/RUNBOOK_DEPLOYMENT.md`, `scripts/harness/deployment-check.sh`, `src/server/deploymentProfile.js` | Implemented baseline |
 | Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with admin, worker, and reviewer roles via `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist; `scripts/harness/capacity-profile.sh` reports data-root capacity and strict threshold warnings | Partial capacity gate |
@@ -90,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 252 Node tests, and the baseline browser E2E
+The latest full test run passed 255 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -111,19 +111,21 @@ Remaining follow-up:
 
 ### 2. Backup And Restore Runbook
 
-The app uses filesystem storage by default. A baseline runbook and read-only
-verification command now cover:
+The app uses filesystem storage by default. A baseline runbook, read-only
+verification command, and executable backup command now cover:
 
 - what path is the data root
 - what files must be backed up
 - how to restore a project
 - how to verify restored image/mask/export consistency
 - how archive/purge operations interact with backups
+- backup archive creation outside the active data root
+- count-based local/staging backup retention
 
 Remaining follow-up:
 
-- scheduled backup automation
-- retention policy
+- host scheduler installation such as cron, launchd, systemd timer, or managed
+  platform scheduler
 - restore rehearsal evidence for a real staging data root
 
 ### 3. Deployment Runbook

@@ -28,6 +28,7 @@ scripts/harness/deployment-check.sh
 scripts/harness/security-check.sh
 scripts/harness/identity-migrate-passwords.sh
 scripts/harness/capacity-profile.sh
+scripts/harness/backup-data-root.sh
 ```
 
 ## Install / Bootstrap
@@ -239,6 +240,32 @@ Current behavior:
 - reports the largest manifest file
 - relaxed mode warns when default local/staging thresholds are exceeded
 - strict mode exits non-zero when warning thresholds are exceeded
+
+## Data Root Backup
+
+Preferred wrapper:
+
+```bash
+scripts/harness/backup-data-root.sh [data-root] [backup-dir]
+scripts/harness/backup-data-root.sh --json [data-root] [backup-dir]
+```
+
+Package alias:
+
+```bash
+npm run backup:data-root -- [data-root] [backup-dir]
+```
+
+Current behavior:
+
+- creates a timestamped `masking-app-data-*.tgz` archive of the whole data root
+- writes a sibling `masking-app-data-*.json` manifest for the backup run
+- refuses to place backups inside the active data root
+- defaults backup output to `MASKING_APP_BACKUP_DIR` or `backups`
+- applies optional count-based retention with
+  `MASKING_APP_BACKUP_RETENTION_COUNT`
+- uses the system `tar` command and should be scheduled by cron, launchd, or
+  another host-level scheduler
 
 Manual browser smoke:
 
