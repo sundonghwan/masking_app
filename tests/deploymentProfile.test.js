@@ -10,6 +10,7 @@ test("resolves local deployment defaults with explicit env overrides", () => {
     MASKING_APP_DATA_DIR: "/tmp/masking-data",
     MASKING_APP_LOG_LEVEL: "debug",
     MASKING_APP_PUBLIC_ROOT: "/tmp/public",
+    MASKING_APP_SESSION_TTL_MS: "120000",
   }, { cwd: "/repo" });
 
   assert.equal(profile.mode, "local");
@@ -18,6 +19,7 @@ test("resolves local deployment defaults with explicit env overrides", () => {
   assert.equal(profile.dataRoot, "/tmp/masking-data");
   assert.equal(profile.publicRoot, "/tmp/public");
   assert.equal(profile.logLevel, "debug");
+  assert.equal(profile.sessionTtlMs, 120000);
   assert.equal(profile.aiServing.enabled, false);
 });
 
@@ -43,5 +45,9 @@ test("deployment profile rejects invalid port and mode values", () => {
   assert.throws(
     () => resolveDeploymentProfile({ MASKING_APP_MODE: "prod shell" }, { cwd: "/repo" }),
     /MASKING_APP_MODE contains unsupported characters/,
+  );
+  assert.throws(
+    () => resolveDeploymentProfile({ MASKING_APP_SESSION_TTL_MS: "0" }, { cwd: "/repo" }),
+    /MASKING_APP_SESSION_TTL_MS must be a positive integer/,
   );
 });

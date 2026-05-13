@@ -7,13 +7,14 @@ import { createSessionToken } from "./sessionToken.js";
 const DEFAULT_ROOT_DIR = process.env.MASKING_APP_DATA_DIR || process.env.MASKING_APP_DATA_ROOT || "data";
 const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
 
-export function createSessionStore({ rootDir = DEFAULT_ROOT_DIR } = {}) {
+export function createSessionStore({ rootDir = DEFAULT_ROOT_DIR, defaultTtlMs = process.env.MASKING_APP_SESSION_TTL_MS } = {}) {
   const sessionsDir = path.join(path.resolve(rootDir), "identity", "sessions");
+  const configuredTtlMs = normalizeSessionTtlMs(defaultTtlMs, DEFAULT_TTL_MS);
 
   return {
     async createSession(input = {}) {
       const now = input.now instanceof Date ? input.now : new Date();
-      const ttlMs = Number.isFinite(Number(input.ttlMs)) ? Number(input.ttlMs) : DEFAULT_TTL_MS;
+      const ttlMs = Number.isFinite(Number(input.ttlMs)) ? Number(input.ttlMs) : configuredTtlMs;
       const userId = normalizeActorId(input.userId || input.user_id || DEFAULT_ACTORS.admin);
       const role = normalizeRole(input.role, ROLES.WORKER);
       const session = {
@@ -123,4 +124,10 @@ function normalizeSession(session = {}) {
 function isExpired(session, now) {
   const expires = Date.parse(session.expires_at);
   return Number.isFinite(expires) && expires <= now.getTime();
+}
+
+function normalizeSessionTtlMs(value, fallback) {
+  if (value === undefined || value === null || value === "") return fallback;
+  const ttlMs = Number(value);
+  return Number.isFinite(ttlMs) && ttlMs > 0 ? ttlMs : fallback;
 }

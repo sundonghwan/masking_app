@@ -68,7 +68,8 @@ For local or controlled staging:
 
 - Replace `Math.random()` token generation with cryptographic randomness.
   Implemented baseline: `src/server/sessionToken.js`.
-- Make session TTL configurable.
+- Make session TTL configurable. Implemented baseline:
+  `MASKING_APP_SESSION_TTL_MS`.
 - Add session rotation on login and explicit cleanup guidance.
 - Consider HttpOnly cookies only when CSRF strategy is also decided.
 

@@ -11,6 +11,7 @@ export function resolveDeploymentProfile(env = process.env, options = {}) {
   const dataRoot = path.resolve(cwd, env.MASKING_APP_DATA_DIR || env.MASKING_APP_DATA_ROOT || "data");
   const publicRoot = path.resolve(cwd, env.MASKING_APP_PUBLIC_ROOT || cwd);
   const logLevel = normalizeLogLevel(env.MASKING_APP_LOG_LEVEL || "info");
+  const sessionTtlMs = normalizePositiveInteger(env.MASKING_APP_SESSION_TTL_MS || 24 * 60 * 60 * 1000, "MASKING_APP_SESSION_TTL_MS");
   const aiEnabled = parseBoolean(env.MASKING_APP_AI_SERVING);
 
   return {
@@ -20,6 +21,7 @@ export function resolveDeploymentProfile(env = process.env, options = {}) {
     dataRoot,
     publicRoot,
     logLevel,
+    sessionTtlMs,
     aiServing: {
       enabled: aiEnabled,
       provider: String(env.MASKING_APP_AI_PROVIDER || "stub").trim() || "stub",
@@ -35,6 +37,7 @@ export function publicDeploymentProfile(profile = {}) {
     port: Number(profile.port || DEFAULT_PORT),
     data_root_configured: Boolean(profile.dataRoot),
     public_root_configured: Boolean(profile.publicRoot),
+    session_ttl_ms: Number(profile.sessionTtlMs || 0),
   };
 }
 

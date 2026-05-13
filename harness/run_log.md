@@ -1250,3 +1250,15 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=identity-password-migration note=checked-dry-run-default-backup-before-write-and-no-active-data-mutation
 [CLOSE] status=ready-for-commit
+[GIT] commit=9f8313e push=origin/main status=passed
+[START] task=session-ttl-config subsystem=auth,security,deployment
+[PLAN] scope=session-store-default-ttl,deployment-profile-health-field risks=changing-default-session-behavior,invalid-ttl,token-exposure
+[CODE] changed=src/server/sessionStore.js note=default-session-ttl-now-configurable-via-option-or-MASKING_APP_SESSION_TTL_MS
+[CODE] changed=src/server/deploymentProfile.js note=deployment-profile-validates-and-exposes-session_ttl_ms
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=249
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=session-ttl-config note=checked-default-preserved-invalid-ttl-rejected-no-token-exposure
+[CLOSE] status=ready-for-commit

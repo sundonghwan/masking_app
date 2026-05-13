@@ -64,6 +64,7 @@ MASKING_APP_HOST=127.0.0.1
 MASKING_APP_MODE=local
 MASKING_APP_DATA_DIR=/tmp/masking-app-data
 MASKING_APP_PUBLIC_ROOT=/Users/polaris/Documents/sundonghwan/masking_app
+MASKING_APP_SESSION_TTL_MS=86400000
 MASKING_APP_AI_SERVING=1
 MASKING_APP_AI_TASKS=detection,segmentation,classification
 npm run dev

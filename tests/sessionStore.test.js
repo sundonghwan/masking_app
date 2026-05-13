@@ -66,6 +66,15 @@ test("filesystem session store cleanup removes expired sessions only", async () 
   assert.equal((await store.readSession(active.token)).user_id, "admin");
 });
 
+test("filesystem session store accepts a configurable default session ttl", async () => {
+  const { store } = await createTempSessionStore({ defaultTtlMs: 2_000 });
+  const now = new Date("2026-05-13T00:00:00.000Z");
+
+  const session = await store.createSession({ user_id: "worker", role: ROLES.WORKER, now });
+
+  assert.equal(session.expires_at, "2026-05-13T00:00:02.000Z");
+});
+
 test("filesystem session store exposes module-level integration helpers", () => {
   assert.equal(typeof createSession, "function");
   assert.equal(typeof readSession, "function");
@@ -73,10 +82,10 @@ test("filesystem session store exposes module-level integration helpers", () => 
   assert.equal(typeof cleanupExpiredSessions, "function");
 });
 
-async function createTempSessionStore() {
+async function createTempSessionStore(options = {}) {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), "masking-sessions-test-"));
   return {
     rootDir,
-    store: createSessionStore({ rootDir }),
+    store: createSessionStore({ rootDir, defaultTtlMs: options.defaultTtlMs }),
   };
 }
