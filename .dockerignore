@@ -1,0 +1,7 @@
+data/
+backups/
+node_modules/
+.git/
+.playwright-cli/
+*.log
+npm-debug.log*

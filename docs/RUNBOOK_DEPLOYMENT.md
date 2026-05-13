@@ -21,8 +21,9 @@ npm run dev
 `server.js` serves static app files and routes `/api/*` requests to the backend
 API. Runtime settings are resolved by `src/server/deploymentProfile.js`.
 
-This runbook does not add process supervision, TLS, reverse proxying, Docker, or
-database storage. Those remain separate production-hardening decisions.
+This runbook includes a baseline Docker/Compose packaging path for local or
+staging operation. TLS, reverse proxying, and database storage remain separate
+production-hardening decisions.
 
 ## Required Runtime Variables
 
@@ -75,6 +76,45 @@ database storage. Those remain separate production-hardening decisions.
    ```bash
    scripts/harness/browser-e2e.sh
    ```
+
+## Docker Compose Procedure
+
+Use this path when the target host should restart the app process automatically
+and keep runtime data outside the image.
+
+1. Build and start:
+
+   ```bash
+   docker compose up --build -d
+   ```
+
+2. Verify the container is running:
+
+   ```bash
+   docker compose ps
+   ```
+
+3. Verify health from the host:
+
+   ```bash
+   scripts/harness/deployment-check.sh http://127.0.0.1:4173
+   ```
+
+4. Inspect logs:
+
+   ```bash
+   docker compose logs --tail=100 masking-app
+   ```
+
+5. Stop without deleting the named data volume:
+
+   ```bash
+   docker compose down
+   ```
+
+The default Compose file mounts a named volume, `masking_app_data`, at
+`/app/data`. Do not rely on files under the repository `data/` directory when
+running through Compose unless you intentionally replace the volume mapping.
 
 ## Health Check
 
@@ -163,11 +203,19 @@ scripts/harness/deployment-check.sh http://127.0.0.1:4173
 `browser-e2e.sh` starts its own temporary server/data root. `deployment-check.sh`
 checks the server you point it at.
 
+For Docker packaging changes, also run:
+
+```bash
+node --test tests/deploymentPackaging.test.js
+```
+
 ## Current Production Constraints
 
 - Local bearer-token sessions are still MVP identity, not hardened production
   auth.
 - No TLS or reverse proxy policy is included here.
-- No process manager is configured in this repository.
+- Docker Compose is the current packaged process runner. Host-native launchd,
+  systemd, and managed platform service definitions are not installed here.
 - No database or object storage backend exists yet.
-- Backup scheduling and retention are not automated.
+- Backup scheduling is host-managed; the repository provides the backup command
+  and retention option but does not install a scheduler.

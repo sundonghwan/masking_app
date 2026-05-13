@@ -1,0 +1,19 @@
+services:
+  masking-app:
+    build:
+      context: .
+    image: masking-app:local
+    ports:
+      - "4173:4173"
+    environment:
+      - MASKING_APP_MODE=staging
+      - MASKING_APP_HOST=0.0.0.0
+      - MASKING_APP_PORT=4173
+      - MASKING_APP_DATA_DIR=/app/data
+      - MASKING_APP_PUBLIC_ROOT=/app
+    volumes:
+      - masking_app_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  masking_app_data:

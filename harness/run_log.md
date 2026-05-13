@@ -1313,3 +1313,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=data-root-backup-cli note=checked-output-outside-data-root-retention-scope-test-coverage-and-transactional-limit-language
+[GIT] commit=c46863a push=origin/main status=passed
+[START] task=docker-deployment-packaging subsystem=deployment,operations
+[PLAN] scope=Dockerfile,compose,dockerignore,runbook,audit risks=image-includes-runtime-data,root-container,overclaiming-staging-evidence
+[TEST] added=tests/deploymentPackaging.test.js note=checks-nonroot-healthcheck-volume-compose-env-dockerignore
+[CODE] added=Dockerfile,docker-compose.yml,.dockerignore note=nonroot-node-container-compose-named-data-volume-healthcheck
+[DOC] updated=docs/RUNBOOK_DEPLOYMENT.md,docs/PRODUCTION_READINESS_AUDIT.md note=docker-compose-procedure-and-packaging-evidence
+[CMD] node --test tests/deploymentPackaging.test.js status=passed tests=3
+[CMD] docker compose config status=passed
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=258
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=docker-deployment-packaging note=checked-nonroot-volume-healthcheck-compose-config-dockerignore-and-staging-evidence-boundary

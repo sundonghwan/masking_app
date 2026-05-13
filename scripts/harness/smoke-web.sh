@@ -24,6 +24,9 @@ require_file harness/commands.md
 require_file harness/checklists/review.md
 require_file index.html
 require_file package.json
+require_file Dockerfile
+require_file docker-compose.yml
+require_file .dockerignore
 require_file server.js
 require_file src/app.js
 require_file src/api/client.js
@@ -68,6 +71,7 @@ fi
 
 echo "smoke-web: planning/design/harness references are present."
 echo "smoke-web: backend/static MVP app files are present."
+echo "smoke-web: Docker deployment packaging files are present."
 echo "smoke-web: browser E2E harness entrypoint is present."
 echo "smoke-web: storage verification entrypoint is present."
 echo "smoke-web: deployment check entrypoint is present."
