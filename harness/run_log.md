@@ -1857,3 +1857,9 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=refresh-revisioned-release-artifacts note=evidence-remains-local-staging-not-final-production-host
+[GIT] commit=5ae5a3e push=origin/main status=passed
+[CMD] staging-evidence refresh status=passed artifact=release-artifacts/staging-evidence-20260513-after-identity-migration.json source_revision=5ae5a3e
+[CMD] start-production-server port=4183 data_root=/tmp/masking-app-staging-data-20260513 status=passed note=approved-escalated-local-listen
+[CMD] deployment-check refresh status=passed artifact=release-artifacts/deployment-check-20260513-production-local.json source_revision=5ae5a3e
+[CMD] stop-production-server port=4183 status=passed
+[CMD] scripts/harness/release-candidate-gate.sh --json status=expected-failed reason=boundary_decisions_undecided artifact_revision_errors=0
