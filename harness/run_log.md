@@ -1327,3 +1327,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=docker-deployment-packaging note=checked-nonroot-volume-healthcheck-compose-config-dockerignore-and-staging-evidence-boundary
+[GIT] commit=ef88792 push=origin/main status=passed
+[START] task=http-security-boundary subsystem=server,security,deployment
+[PLAN] scope=security-headers,cors-allowlist,preflight,docs risks=csp-breakage,cors-overexposure,tls-csrf-overclaim
+[TEST] added=tests/httpSecurity.test.js note=checks-security-headers-allowed-origin-and-preflight-rejection
+[CODE] added=src/server/httpSecurity.js updated=server.js note=baseline-security-headers-cors-allowlist-options-preflight
+[DOC] updated=docs/RUNBOOK_DEPLOYMENT.md,docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=same-origin-default-allowed-origin-env-tls-external-boundary
+[CMD] node --test tests/httpSecurity.test.js status=passed tests=3
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=261
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] scripts/harness/browser-e2e.sh status=passed note=csp-did-not-break-browser-workflow
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=http-security-boundary note=checked-default-same-origin-cors-allowlist-csp-browser-e2e-and-tls-csrf-boundary

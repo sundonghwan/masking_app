@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { createLogger, createRequestId } from "./src/observability/logger.js";
 import { createApiRouter } from "./src/server/api.js";
 import { resolveDeploymentProfile } from "./src/server/deploymentProfile.js";
+import { applyHttpSecurityHeaders, createHttpSecurityPolicy, handleCorsPreflight } from "./src/server/httpSecurity.js";
 import { createHttpError, sendJson } from "./src/server/httpUtils.js";
 import { createSessionStore } from "./src/server/sessionStore.js";
 import { createFileStorage } from "./src/server/storage.js";
@@ -24,6 +25,7 @@ const storage = createFileStorage({ rootDir: DATA_ROOT });
 const userDirectory = createUserDirectory({ rootDir: DATA_ROOT });
 const sessionStore = createSessionStore({ rootDir: DATA_ROOT });
 const routeApi = createApiRouter({ storage, logger, userDirectory, sessionStore, deploymentProfile });
+const httpSecurityPolicy = createHttpSecurityPolicy(process.env);
 
 const server = createServer(async (request, response) => {
   const startedAt = performance.now();
@@ -37,6 +39,8 @@ const server = createServer(async (request, response) => {
 
   try {
     const url = new URL(request.url || "/", `http://${request.headers.host || "localhost"}`);
+    applyHttpSecurityHeaders(response, request, httpSecurityPolicy);
+    if (handleCorsPreflight(request, response, httpSecurityPolicy)) return;
 
     if (url.pathname.startsWith("/api/")) {
       await routeApi(request, response, url, { requestId });

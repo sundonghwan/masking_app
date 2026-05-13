@@ -39,6 +39,8 @@ production-hardening decisions.
 | `MASKING_APP_AI_PROVIDER` | `stub` | AI provider label |
 | `MASKING_APP_AI_TASKS` | `detection,segmentation,classification` | Advertised AI task capabilities |
 | `MASKING_APP_AI_MAX_IMAGE_BYTES` | `5242880` | AI request image byte limit |
+| `MASKING_APP_ALLOWED_ORIGINS` | empty | Comma-separated CORS allowlist. Empty means same-origin only. |
+| `MASKING_APP_CONTENT_SECURITY_POLICY` | built-in baseline | Optional override for the response Content-Security-Policy header. |
 
 ## Start Procedure
 
@@ -150,6 +152,32 @@ Use the harness wrapper for automated checks:
 scripts/harness/deployment-check.sh --json http://127.0.0.1:4173
 ```
 
+## HTTP Security Boundary
+
+The server applies baseline browser security headers to all responses:
+
+- `Content-Security-Policy`
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Referrer-Policy: same-origin`
+- `Cross-Origin-Resource-Policy: same-origin`
+
+CORS is denied by default. Only origins listed in
+`MASKING_APP_ALLOWED_ORIGINS` receive `Access-Control-Allow-Origin`. This keeps
+the local/staging default same-origin and avoids accidentally opening bearer
+token APIs to arbitrary browser origins.
+
+Example:
+
+```bash
+MASKING_APP_ALLOWED_ORIGINS=https://label.example.com,https://review.example.com \
+npm run dev
+```
+
+TLS is still expected to terminate before the Node server, either in a reverse
+proxy or managed platform. Do not expose the Node process directly on a shared
+network without TLS termination.
+
 ## Logs
 
 Runtime logs are structured JSON lines written to stdout/stderr by the Node
@@ -213,7 +241,8 @@ node --test tests/deploymentPackaging.test.js
 
 - Local bearer-token sessions are still MVP identity, not hardened production
   auth.
-- No TLS or reverse proxy policy is included here.
+- TLS termination is still external to the Node server and must be configured in
+  the deployment host or reverse proxy.
 - Docker Compose is the current packaged process runner. Host-native launchd,
   systemd, and managed platform service definitions are not installed here.
 - No database or object storage backend exists yet.

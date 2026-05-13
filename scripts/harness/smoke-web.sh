@@ -36,6 +36,7 @@ require_file src/export/zip.js
 require_file src/storage/projectStore.js
 require_file src/observability/logger.js
 require_file src/server/api.js
+require_file src/server/httpSecurity.js
 require_file src/server/httpUtils.js
 require_file src/server/maskValidation.js
 require_file src/server/passwords.js

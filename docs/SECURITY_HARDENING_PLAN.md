@@ -30,8 +30,10 @@ Do not expose this app directly to the public internet while these are true:
 - default seeded passwords are still enabled
 - passwords are stored as plaintext in `identity/users.json`
 - sessions are bearer tokens in local filesystem JSON files
-- there is no TLS/reverse proxy policy
-- there is no CSRF/CORS policy for browser deployment beyond same-origin local
+- TLS termination remains external to the Node server and must be configured in
+  the deployment host or reverse proxy
+- default browser deployment is same-origin only; explicit CORS allowlists are
+  available through `MASKING_APP_ALLOWED_ORIGINS`
   operation
 - there is no password reset, lockout, rotation, or audit retention policy
 
@@ -75,8 +77,9 @@ For local or controlled staging:
 
 ### 4. Network Boundary
 
-- Define allowed deployment hosts and CORS behavior.
-- Put TLS termination and reverse proxy policy in the deployment runbook.
+- Define allowed deployment hosts and set `MASKING_APP_ALLOWED_ORIGINS` only
+  for those browser origins.
+- Put TLS termination and reverse proxy details in the deployment host config.
 - Reject unsafe public-root or data-root settings at startup when in production
   mode.
 
