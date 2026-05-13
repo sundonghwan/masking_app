@@ -89,10 +89,19 @@
 
 ## In Progress
 
-- None.
+- Multi-class mask annotation foundation planning:
+  - design source: `docs/superpowers/specs/2026-05-13-multi-class-mask-annotation-design.md`
+  - implementation plan: `docs/superpowers/plans/2026-05-13-multi-class-mask-annotation-plan.md`
 
 ## Remaining
 
+- Multi-class mask annotation foundation:
+  - project label schema
+  - image `annotations[]` records with `class_id + mask_path`
+  - workbench selected-label editing
+  - class-aware previous-frame mask copy
+  - class-aware export/training-set metadata
+  - AI prediction import contract with `class_id + mask_data_url`
 - AI-backed segmentation adapter remains optional hardening after the generic AI serving contract and local edge-aware magic tool reach real dataset limits.
 - Production identity provider remains out of MVP scope.
 - Database-backed storage remains out of MVP scope until filesystem operation becomes a bottleneck.
@@ -111,6 +120,7 @@
 
 ## Future Hardening
 
+- [ ] Derived indexed-mask export generated from class-labeled binary masks.
 - [ ] AI-backed segmentation model integration behind the magic-click tool after local edge-aware selection reaches its limit.
 - [x] Add full user/account administration UI for creating, disabling, and rotating local accounts.
 - [x] Add project settings edit screen for changing upload formats and limits after project creation.

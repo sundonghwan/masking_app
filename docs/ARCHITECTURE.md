@@ -148,6 +148,61 @@ Current enforcement is split:
 Do not record backend `mask_values_valid=true` unless backend pixel decode or
 another trusted validation path confirms binary mask pixels.
 
+### Planned Multi-Class Annotation Contract
+
+The next product direction is **class-labeled binary masks**, not polygon
+segmentation and not indexed masks as the editor source of truth.
+
+Target model:
+
+```text
+one image -> many annotations[]
+one annotation -> class_id + binary mask PNG
+model output -> predictions[].class_id + predictions[].mask_data_url
+```
+
+Rationale:
+
+- polygon masks can lose internal holes and irregular pixel-level regions
+- the current editor already produces reliable binary mask PNGs
+- one binary mask per class preserves overlap and keeps editing simple
+- indexed masks can be derived later for training formats that require them
+
+Target image shape:
+
+```json
+{
+  "id": "image_001",
+  "annotations": [
+    {
+      "annotation_id": "ann_image_001_class_1",
+      "class_id": 1,
+      "class_name": "crack",
+      "mask_path": "masks/image_001_class_1_crack_mask.png",
+      "mask_width": 1280,
+      "mask_height": 720,
+      "mask_ratio": 0.032,
+      "source": "manual"
+    }
+  ]
+}
+```
+
+Compatibility rule:
+
+- legacy `current_mask_path`, `mask_data_url`, and `mask_ratio` remain readable
+  during migration
+- new class-aware save/export paths should prefer `annotations[]`
+- legacy masks can be migrated into default `class_id=1`, `name=target`
+
+Implementation detail:
+
+- the `MaskEditor` should remain a binary mask editor for the selected
+  annotation
+- selected label state lives in the app/workbench controller
+- previous-frame mask copy should match annotations by `class_id`
+- class overlap is allowed in raw multi-mask export
+
 ### Upload Contract
 
 Current backend upload uses JSON data URLs:

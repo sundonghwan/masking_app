@@ -978,3 +978,16 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=resolved-before-closeout scope=remaining-hardening-batch note=repair-normalizer-no-longer-preserves-invalid-legacy-maskPath
 [CLOSE] status=ready-for-commit server=http://127.0.0.1:4173
 [GIT] commit=e17c905 push=origin/main status=passed
+[START] task=multi-class-mask-annotation-planning subsystem=annotation-contract,editor-labels,ai-output,export
+[PLAN] scope=design-and-implementation-plan-for-class-id-plus-mask-output risks=binary-mask-contract,indexed-mask-overreach,ai-prediction-approval-boundary
+[DECISION] task=multi-class-mask-annotation-planning note=user-confirmed-B-one-image-many-class-labeled-masks
+[DECISION] task=multi-class-mask-annotation-planning note=mask-images-are-source-of-truth-to-avoid-polygon-hole-and-empty-region-issues
+[DOC] created=docs/superpowers/specs/2026-05-13-multi-class-mask-annotation-design.md note=class-labeled-binary-mask-design
+[DOC] created=docs/superpowers/plans/2026-05-13-multi-class-mask-annotation-plan.md note=tdd-implementation-plan
+[DOC] updated=docs/FEATURE_STATUS.md,docs/ARCHITECTURE.md note=multi-class-mask-annotation-added-to-current-direction
+[IMPACT_VALIDATE] task=multi-class-mask-annotation-planning chain=project-intent-to-design-to-plan validation=rg-inspection-smoke-web-diffcheck-passed
+[CMD] rg class_id,mask_data_url,annotations,label_schema status=passed
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=multi-class-mask-annotation-planning note=plan-keeps-binary-mask-editor-and-defers-indexed-export
+[CLOSE] status=ready-for-commit
