@@ -1367,3 +1367,15 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=syntax-check-harness-refactor note=checked-coverage-retained-and-typecheck-syntax-level-language
+[GIT] commit=5322644 push=origin/main status=passed
+[START] task=html-escape-refactor subsystem=frontend,ui,refactor
+[PLAN] scope=extract-escape-html,unit-test,syntax-coverage risks=escaping-semantics-change,syntax-list-miss
+[CODE] added=src/ui/html.js updated=src/app.js,scripts/harness/check-syntax.mjs note=escape-html-extracted-from-large-app-controller
+[TEST] added=tests/html.test.js note=html-sensitive-character-escaping-and-ordinary-text
+[CMD] node --test tests/html.test.js status=passed tests=2
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=267
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=html-escape-refactor note=checked-semantics-preserved-and-new-ui-helper-in-syntax-coverage

@@ -31,6 +31,7 @@ import {
 import { createProjectStore } from "./storage/projectStore.js";
 import { UPLOAD_POLICY, formatBytes, normalizeUploadPolicy, uploadReasonLabel, validateBrowserUploadFile } from "./upload/policy.js";
 import { DEFAULT_ACTORS, DEFAULT_SESSION, ROLES, normalizeRole } from "./config/runtimeDefaults.js";
+import { escapeHtml } from "./ui/html.js";
 
 const SCREENS = {
   LOGIN: "login",
@@ -4090,16 +4091,6 @@ function statusLabel(status) {
 
 function normalizeActorId(value) {
   return String(value || "").trim();
-}
-
-function escapeHtml(value) {
-  return value.replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "\"": "&quot;",
-    "'": "&#039;",
-  }[char]));
 }
 
 function blobToDataUrl(blob) {
