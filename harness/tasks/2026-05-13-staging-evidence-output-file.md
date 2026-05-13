@@ -65,3 +65,4 @@
 - Code review found no blocking issue. Remaining risk: the feature only enables
   artifact capture; real representative staging evidence still has to be
   collected and archived before release handoff.
+- Commit `beb12c1` pushed to `origin/main`.

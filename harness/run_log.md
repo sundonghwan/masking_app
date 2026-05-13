@@ -1712,3 +1712,4 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=staging-evidence-output-file note=checked-output-preserves-failed-evidence-and-docs-do-not-overclaim-production-readiness
+[GIT] commit=beb12c1 push=origin/main status=passed
