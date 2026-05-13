@@ -182,8 +182,9 @@ Open production decisions:
   assignment update, successful review transition, saved training-set lifecycle,
   and export routes are wired. Audit verification exists through
   `scripts/harness/audit-verify.sh`, and explicit dry-run-first whole-month
-  pruning exists through `scripts/harness/audit-retention.sh`. Host scheduling
-  and staged evidence for running retention remain pending
+  pruning exists through `scripts/harness/audit-retention.sh`. The staging
+  evidence bundle now runs both audit verification and audit retention dry-run.
+  Host scheduling for recurring retention remains pending
 - host-managed runtime log rotation and retention target
 
 ### 5. Storage And Concurrency Boundary

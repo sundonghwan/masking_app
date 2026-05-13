@@ -8,6 +8,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 
 const REQUIRED_STEPS = Object.freeze([
   "storage_verify",
+  "audit_verify",
+  "audit_retention",
   "capacity_profile",
   "backup_data_root",
   "restore_verify",
@@ -53,6 +55,8 @@ export async function collectStagingEvidence(options = {}) {
   };
 
   await runStep(result, runCommand, "storage_verify", nodeCommand(cwd, ["scripts/harness/storage-verify.mjs", "--json", dataRoot]), env);
+  await runStep(result, runCommand, "audit_verify", nodeCommand(cwd, ["scripts/harness/audit-verify.mjs", "--json", dataRoot]), env);
+  await runStep(result, runCommand, "audit_retention", nodeCommand(cwd, ["scripts/harness/audit-retention.mjs", "--json", dataRoot]), env);
   await runStep(result, runCommand, "capacity_profile", nodeCommand(cwd, ["scripts/harness/capacity-profile.mjs", "--json", dataRoot]), env);
   await runStep(result, runCommand, "backup_data_root", nodeCommand(cwd, ["scripts/harness/backup-data-root.mjs", "--json", dataRoot, backupDir]), env);
 

@@ -392,8 +392,9 @@ scripts/harness/staging-evidence.sh --json --base-url http://127.0.0.1:4173 [dat
 
 Current behavior:
 
-- runs `storage-verify`, `capacity-profile`, `backup-data-root`,
-  `restore-verify`, and `production-gate` in JSON mode
+- runs `storage-verify`, `audit-verify`, `audit-retention` dry-run,
+  `capacity-profile`, `backup-data-root`, `restore-verify`, and
+  `production-gate` in JSON mode
 - uses the backup archive created by the same run for restore rehearsal
 - records every sub-check result and exits non-zero when any required step fails
 - runs `deployment-check` only when `--base-url` is supplied

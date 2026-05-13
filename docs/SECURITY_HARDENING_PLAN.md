@@ -110,6 +110,8 @@ For local or controlled staging:
   counts, and unredacted forbidden metadata. `scripts/harness/audit-retention.sh`
   provides explicit dry-run-first retention pruning for whole monthly audit
   files, and only deletes evidence when the operator passes `--apply`.
+  `scripts/harness/staging-evidence.sh` includes audit verification and
+  retention dry-run as required staging evidence steps.
 - Do not log passwords, tokens, image bytes, mask bytes, or data URLs.
 - Add a reviewer/admin activity export for incident review if needed.
 

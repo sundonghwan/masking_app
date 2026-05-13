@@ -26,6 +26,8 @@ test("collectStagingEvidence runs core checks and restores the created backup ar
   assert.equal(result.ok, true);
   assert.deepEqual(result.required_steps, [
     "storage_verify",
+    "audit_verify",
+    "audit_retention",
     "capacity_profile",
     "backup_data_root",
     "restore_verify",
@@ -34,6 +36,8 @@ test("collectStagingEvidence runs core checks and restores the created backup ar
   assert.equal(result.optional_steps[0], "deployment_check");
   assert.equal(result.evidence.backup_data_root.archive_file, "/tmp/backups/masking-app-data-test.tgz");
   assert.equal(calls.find((call) => call.step === "restore_verify").command.args.at(-1), "/tmp/backups/masking-app-data-test.tgz");
+  assert.deepEqual(calls.find((call) => call.step === "audit_verify").command.args.slice(-2), ["--json", "/tmp/data-root"]);
+  assert.deepEqual(calls.find((call) => call.step === "audit_retention").command.args.slice(-2), ["--json", "/tmp/data-root"]);
   assert.equal(calls.find((call) => call.step === "deployment_check").command.args.at(-1), "http://127.0.0.1:4173");
   assert.equal(calls.find((call) => call.step === "production_gate").command.env.MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION, "1");
 });

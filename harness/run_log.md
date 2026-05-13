@@ -1645,3 +1645,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=server-api-audit-test-helper-refactor note=checked-test-only-change-json-deep-copy-preserved-and-throwing-audit-store-left-local
 [GIT] commit=0c12204 push=origin/main status=passed
+[START] task=staging-evidence-audit-steps subsystem=security,audit,staging-evidence
+[PLAN] scope=add-audit-verify-and-audit-retention-dry-run-to-staging-evidence risks=destructive-retention,optional-audit-failure,empty-audit-dir-warning
+[TEST] updated=tests/stagingEvidence.test.js note=expected-required-audit-verify-and-audit-retention-steps
+[CODE] updated=scripts/harness/staging-evidence.mjs note=required-audit-verify-and-dry-run-audit-retention-steps-added-before-capacity-and-backup
+[DOC] updated=harness/commands.md,docs/SECURITY_HARDENING_PLAN.md,docs/PRODUCTION_READINESS_AUDIT.md note=staging-evidence-now-includes-audit-verify-and-retention-dry-run
+[CMD] node --test tests/stagingEvidence.test.js status=red expected=required-audit-steps-missing
+[CMD] node --test tests/stagingEvidence.test.js status=passed tests=3
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=307
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=staging-evidence-audit-steps note=checked-audit-steps-required-retention-dry-run-only-and-deployment-check-still-optional
