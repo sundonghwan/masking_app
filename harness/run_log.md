@@ -1188,3 +1188,12 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=deployment-runbook,deployment-check note=checked-health-payload-validation-runtime-env-docs-rollback-constraints
 [CLOSE] status=ready-for-commit
+[GIT] commit=21abe7d push=origin/main status=passed
+[START] task=security-hardening-plan subsystem=auth,security,operations
+[PLAN] scope=current-security-boundary,hard-stops,hardening-order,production-acceptance risks=overclaiming-mvp-auth
+[DOC] created=docs/SECURITY_HARDENING_PLAN.md note=documents-default-password-plaintext-session-network-boundary-and-idp-followups
+[CMD] scripts/harness/test-target.sh status=passed tests=243
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=security-hardening-plan note=checked-no-overclaim-default-password-plaintext-session-cors-csrf-tls-gaps
+[CLOSE] status=ready-for-commit
