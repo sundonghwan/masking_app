@@ -90,7 +90,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 285 Node tests, and the baseline browser E2E
+The latest full test run passed 286 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -151,7 +151,8 @@ operation. They are not a production identity system. The hardening plan now
 documents the current hard stops and minimum sequence before shared network
 deployment. The first executable gates are implemented: session tokens use
 cryptographic randomness, new local user passwords are stored as PBKDF2 hashes,
-and `scripts/harness/security-check.sh --strict` can fail deployment checks when
+new/rotated local passwords have a minimum local policy, and
+`scripts/harness/security-check.sh --strict` can fail deployment checks when
 default seed or legacy plaintext passwords remain. `scripts/harness/production-gate.sh`
 now combines strict identity checks with production-mode, dedicated data-root,
 explicit filesystem-boundary acceptance, and explicit local-identity production
@@ -168,7 +169,7 @@ Open production decisions:
   hardened local account store now requires
   `MASKING_APP_ACCEPT_LOCAL_IDENTITY_PRODUCTION=1` as an explicit first-boundary
   acceptance
-- password policy and reset flow
+- password reset, lockout, and stronger organization-level password policy
 - operator-run migration for existing plaintext `identity/users.json`
 - token lifetime and rotation
 - host-specific TLS/reverse proxy deployment

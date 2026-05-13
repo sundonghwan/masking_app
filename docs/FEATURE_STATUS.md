@@ -97,6 +97,7 @@
 - [x] Derived indexed-mask server export from class-labeled binary masks
 - [x] Global logout action available from project list, dashboard, and workbench screens
 - [x] Role-specific browser E2E smoke across admin, worker, and reviewer journeys
+- [x] Minimal local password policy for account creation and password rotation
 
 ## In Progress
 

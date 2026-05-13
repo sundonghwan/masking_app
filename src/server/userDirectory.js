@@ -55,6 +55,7 @@ export function createUserDirectory({ rootDir = DEFAULT_ROOT_DIR } = {}) {
       if (!String(input.password || input.password_hash || "").trim()) {
         throw userDirectoryError("password_required", "Password is required", 400);
       }
+      if (Object.hasOwn(input, "password")) validatePasswordPolicy(input.password);
       const user = normalizeStoredUser({ ...input, user_id: userId, role });
       if (file.users.some((item) => item.user_id === user.user_id)) {
         throw userDirectoryError("user_already_exists", "User already exists", 409);
@@ -189,6 +190,7 @@ function normalizeUpdatedUser(existing, input = {}) {
   if (Object.hasOwn(input, "password")) {
     const password = String(input.password || "");
     if (!password) throw userDirectoryError("password_required", "Password is required", 400);
+    validatePasswordPolicy(password);
     updated.password = password;
     updated.password_hash = "";
   }
@@ -202,6 +204,19 @@ function normalizeUpdatedUser(existing, input = {}) {
 function normalizePasswordHash(value) {
   const passwordHash = String(value || "");
   return isPasswordHash(passwordHash) ? passwordHash : "";
+}
+
+function validatePasswordPolicy(value) {
+  const password = String(value || "");
+  const hasLetter = /[A-Za-z]/.test(password);
+  const hasNumberOrSymbol = /[0-9]/.test(password) || /[^A-Za-z0-9\s]/.test(password);
+  if (password.length < 8 || !hasLetter || !hasNumberOrSymbol) {
+    throw userDirectoryError(
+      "weak_password",
+      "Password must be at least 8 characters and include letters plus a number or symbol",
+      400,
+    );
+  }
 }
 
 function publicUser(user = {}) {

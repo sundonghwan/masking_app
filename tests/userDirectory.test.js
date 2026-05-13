@@ -101,6 +101,38 @@ test("user directory creates users without returning stored passwords", async ()
   assert.match(storedUser.password_hash, /^pbkdf2_sha256\$/);
 });
 
+test("user directory rejects weak passwords for new and rotated local users", async () => {
+  const { directory } = await createTempUserDirectory();
+
+  await assert.rejects(
+    () => directory.createUser({
+      user_id: "weak-worker",
+      role: ROLES.WORKER,
+      password: "password",
+    }),
+    (error) => error.code === "weak_password" && error.statusCode === 400,
+  );
+  await assert.rejects(
+    () => directory.createUser({
+      user_id: "space-worker",
+      role: ROLES.WORKER,
+      password: "weak pass",
+    }),
+    (error) => error.code === "weak_password" && error.statusCode === 400,
+  );
+
+  await directory.createUser({
+    user_id: "reviewer-weak-check",
+    role: ROLES.REVIEWER,
+    password: "valid-pass",
+  });
+
+  await assert.rejects(
+    () => directory.updateUser("reviewer-weak-check", { password: "short" }),
+    (error) => error.code === "weak_password" && error.statusCode === 400,
+  );
+});
+
 test("user directory updates profile fields and rotates passwords", async () => {
   const { directory } = await createTempUserDirectory();
   await directory.createUser({

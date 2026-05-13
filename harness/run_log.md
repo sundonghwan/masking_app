@@ -1471,3 +1471,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=local-identity-production-acceptance note=checked-local-mode-skip-production-gate-failure-path-doc-commands-and-no-external-idp-overclaim
+[GIT] commit=1a0519a push=origin/main status=passed
+[START] task=local-password-policy subsystem=security,identity,user-directory
+[PLAN] scope=password-policy-for-create-and-rotation,tests,docs risks=blocking-bootstrap-credentials,overclaiming-password-management
+[TEST] updated=tests/userDirectory.test.js note=weak-password-rejection-for-create-and-rotation
+[CODE] updated=src/server/userDirectory.js note=minimum-local-password-policy-before-hashing-new-or-rotated-passwords
+[DOC] updated=docs/SECURITY_HARDENING_PLAN.md,docs/RUNBOOK_DEPLOYMENT.md,docs/PRODUCTION_READINESS_AUDIT.md,docs/FEATURE_STATUS.md note=local-password-policy-boundary-and-test-count-286
+[CMD] node --test tests/userDirectory.test.js status=passed tests=9
+[CMD] node --test tests/serverApi.test.js status=passed tests=54
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=286
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=local-password-policy note=checked-seed-compatibility-account-admin-path-and-no-password-management-overclaim

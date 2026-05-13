@@ -35,7 +35,7 @@ Do not expose this app directly to the public internet while these are true:
 - default browser deployment is same-origin only; explicit CORS allowlists are
   available through `MASKING_APP_ALLOWED_ORIGINS`
   operation
-- there is no password reset, lockout, rotation, or audit retention policy
+- there is no password reset, lockout, or audit retention policy
 
 ## Minimum Safe Local/Staging Rules
 
@@ -69,6 +69,8 @@ For local or controlled staging:
   and rotated local users through `src/server/passwords.js`.
 - Use a modern password hashing algorithm available in the deployment runtime.
   Current baseline: PBKDF2-SHA256 with per-password salt.
+- Enforce a minimal local password policy for admin-created and rotated users:
+  at least 8 characters with letters plus a number or symbol.
 - Keep a one-time migration path from current plaintext local files. Implemented
   baseline: `scripts/harness/identity-migrate-passwords.sh --apply`.
 
@@ -114,6 +116,7 @@ Production identity can be considered acceptable only when:
 - no default credentials are valid
 - stored passwords are hashed or delegated to an external provider
 - token generation uses cryptographic randomness
+- new or rotated local passwords pass the minimum local password policy
 - session lifetime and cleanup are configured
 - role checks are covered by automated tests and browser smoke
 - TLS/reverse proxy/CORS/CSRF decisions are documented

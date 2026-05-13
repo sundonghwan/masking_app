@@ -283,7 +283,8 @@ identity acceptance/checks fail.
 
 - Local bearer-token sessions are still MVP identity, not hardened production
   auth. `production-gate.sh` blocks default seed passwords and plaintext
-  passwords, but it is not an external identity provider.
+  passwords, and account creation/rotation enforces a minimal local password
+  policy, but it is not an external identity provider.
 - TLS termination is still external to the Node server and must be configured in
   the deployment host or reverse proxy.
 - `MASKING_APP_LOG_FILE` writes JSONL runtime logs, but log rotation and
