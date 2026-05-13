@@ -1,4 +1,6 @@
 import { createMaskingApiClient, normalizeApiError } from "./api/client.js";
+import { DEFAULT_LABEL_SCHEMA, labelByClassId, normalizeLabelSchema, validateClassId } from "./annotations/labels.js";
+import { migrateLegacyImageAnnotations } from "./annotations/records.js";
 import { createDashboardSummary } from "./dashboard/summary.js";
 import { MaskEditor, panDeltaForKey } from "./editor/maskEditor.js";
 import {
@@ -42,6 +44,9 @@ const state = {
   filter: "all",
   imageSearch: "",
   queueMode: QUEUE_MODES.ALL,
+  labelSchema: normalizeLabelSchema(DEFAULT_LABEL_SCHEMA),
+  selectedClassId: DEFAULT_LABEL_SCHEMA[0].class_id,
+  labelMessage: "",
   savedAt: null,
   autosaveTimer: null,
   backendProjectReady: false,
@@ -169,6 +174,9 @@ const els = {
   reviseButton: document.querySelector("#reviseButton"),
   submitButton: document.querySelector("#submitButton"),
   exportButton: document.querySelector("#exportButton"),
+  labelSelector: document.querySelector("#labelSelector"),
+  imageAnnotationList: document.querySelector("#imageAnnotationList"),
+  labelMessage: document.querySelector("#labelMessage"),
   copyPreviousMaskButton: document.querySelector("#copyPreviousMaskButton"),
   maskTransferMessage: document.querySelector("#maskTransferMessage"),
   clearProjectButton: document.querySelector("#clearProjectButton"),
@@ -1809,6 +1817,7 @@ function render() {
   renderAssignmentPanel();
   renderReviewPanel();
   renderReviewIdentity();
+  renderLabelSelector();
   renderMaskTransferPanel();
   renderExportPolicy();
   renderTrainingSourcePicker();
@@ -2400,6 +2409,8 @@ function setActiveProjectFromManifest(manifest = {}, options = {}) {
   state.projectName = manifest.name || manifest.project_name || options.fallbackName || state.projectId;
   state.projectDescription = manifest.description || state.projectDescription || "";
   state.uploadPolicy = normalizeUploadPolicy(manifest.upload_policy || manifest.uploadPolicy || state.uploadPolicy);
+  state.labelSchema = normalizeLabelSchema(manifest.label_schema || manifest.labelSchema || state.labelSchema);
+  ensureSelectedClassId();
   const magicPreset = manifest.magic_tool_preset || manifest.magicToolPreset || {};
   state.settingsMagicTolerance = Number(magicPreset.color_tolerance || magicPreset.colorTolerance || state.settingsMagicTolerance);
   state.settingsMagicEdge = Number(magicPreset.edge_threshold || magicPreset.edgeThreshold || state.settingsMagicEdge);
@@ -2543,6 +2554,142 @@ function getReviewActorId() {
   if (!state.sessionAuthenticated) return "";
   if (state.sessionRole !== ROLES.REVIEWER && state.sessionRole !== ROLES.ADMIN) return "";
   return normalizeReviewerId(state.sessionUserId);
+}
+
+function renderLabelSelector() {
+  const labels = activeLabelSchema();
+  ensureSelectedClassId();
+  const image = getSelectedImage();
+  const selectedAnnotation = selectedLabelAnnotation(image);
+  const rows = labels.map((label) => renderLabelOption(label, image));
+
+  els.labelSelector.replaceChildren(...rows);
+  els.imageAnnotationList.replaceChildren(...renderImageAnnotationRows(image));
+
+  const selected = labelByClassId(labels, state.selectedClassId);
+  const baseMessage = selected ? `선택 라벨: ${selected.name} / class_id=${selected.class_id}` : "라벨을 선택하세요.";
+  els.labelMessage.textContent = state.labelMessage || (selectedAnnotation ? `${baseMessage} / 저장된 마스크 있음` : baseMessage);
+  els.labelMessage.classList.toggle("warning", !selected || !image);
+}
+
+function renderLabelOption(label, image) {
+  const annotation = imageAnnotationForClass(image, label.class_id);
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "label-option";
+  button.dataset.classId = String(label.class_id);
+  button.setAttribute("role", "option");
+  button.setAttribute("aria-selected", String(label.class_id === state.selectedClassId));
+  button.disabled = label.enabled === false;
+  button.addEventListener("click", () => {
+    void selectClassLabel(label.class_id);
+  });
+
+  const swatch = document.createElement("span");
+  swatch.className = "label-swatch";
+  swatch.style.backgroundColor = label.color;
+
+  const text = document.createElement("span");
+  text.className = "label-text";
+  text.textContent = label.name;
+
+  const meta = document.createElement("span");
+  meta.className = "label-meta";
+  meta.textContent = annotation ? "mask" : `#${label.class_id}`;
+
+  button.replaceChildren(swatch, text, meta);
+  return button;
+}
+
+function renderImageAnnotationRows(image) {
+  if (!image) {
+    const row = document.createElement("div");
+    row.className = "annotation-empty";
+    row.textContent = "이미지 선택 전";
+    return [row];
+  }
+
+  const annotations = selectedImageAnnotations(image);
+  if (annotations.length === 0) {
+    const row = document.createElement("div");
+    row.className = "annotation-empty";
+    row.textContent = "현재 이미지에 저장된 라벨 마스크 없음";
+    return [row];
+  }
+
+  const labels = activeLabelSchema();
+  return annotations.map((annotation) => {
+    const label = labelByClassId(labels, annotation.class_id);
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "annotation-row";
+    row.dataset.classId = String(annotation.class_id);
+    row.addEventListener("click", () => {
+      void selectClassLabel(annotation.class_id);
+    });
+
+    const swatch = document.createElement("span");
+    swatch.className = "label-swatch";
+    swatch.style.backgroundColor = label?.color || "#7C8792";
+
+    const name = document.createElement("span");
+    name.textContent = label?.name || annotation.class_name || `class ${annotation.class_id}`;
+
+    const ratio = document.createElement("span");
+    ratio.className = "label-meta";
+    ratio.textContent = `${Math.round(Number(annotation.mask_ratio || 0) * 1000) / 10}%`;
+
+    row.replaceChildren(swatch, name, ratio);
+    return row;
+  });
+}
+
+async function selectClassLabel(classId) {
+  const result = validateClassId(activeLabelSchema(), classId);
+  if (!result.valid) {
+    state.labelMessage = result.reason === "disabled_class_id" ? "비활성 라벨입니다." : "알 수 없는 라벨입니다.";
+    renderLabelSelector();
+    return;
+  }
+
+  state.selectedClassId = result.label.class_id;
+  state.labelMessage = `선택 라벨: ${result.label.name} / class_id=${result.label.class_id}`;
+  await persistProject();
+  renderLabelSelector();
+}
+
+function selectedLabelAnnotation(image = getSelectedImage()) {
+  return imageAnnotationForClass(image, state.selectedClassId);
+}
+
+function selectedImageAnnotations(image = getSelectedImage()) {
+  if (!image) return [];
+  if (Array.isArray(image.annotations) && image.annotations.length > 0) {
+    return image.annotations;
+  }
+  const selectedLabel = labelByClassId(activeLabelSchema(), state.selectedClassId);
+  return migrateLegacyImageAnnotations(image, {
+    classId: state.selectedClassId,
+    className: selectedLabel?.name || "target",
+  });
+}
+
+function imageAnnotationForClass(image, classId) {
+  return selectedImageAnnotations(image).find((annotation) => Number(annotation.class_id) === Number(classId)) || null;
+}
+
+function activeLabelSchema() {
+  state.labelSchema = normalizeLabelSchema(state.labelSchema);
+  return state.labelSchema;
+}
+
+function ensureSelectedClassId() {
+  const labels = normalizeLabelSchema(state.labelSchema);
+  const selected = labelByClassId(labels, state.selectedClassId);
+  if (!selected || selected.enabled === false) {
+    state.selectedClassId = labels.find((label) => label.enabled !== false)?.class_id || DEFAULT_LABEL_SCHEMA[0].class_id;
+  }
+  state.labelSchema = labels;
 }
 
 function renderMaskTransferPanel() {
@@ -3347,6 +3494,8 @@ async function persistProject() {
     assignmentReviewerId: state.assignmentReviewerId,
     uploadRejections: state.uploadRejections || [],
     uploadPolicy: state.uploadPolicy,
+    labelSchema: state.labelSchema,
+    selectedClassId: state.selectedClassId,
     taskId: state.taskId,
     versionId: state.versionId,
     versionRevision: state.versionRevision,
@@ -3392,6 +3541,9 @@ async function restoreProject() {
     state.assignmentReviewerId = normalizeActorId(saved.assignmentReviewerId) || state.assignmentReviewerId;
     state.uploadRejections = Array.isArray(saved.uploadRejections) ? saved.uploadRejections : [];
     state.uploadPolicy = normalizeUploadPolicy(saved.uploadPolicy || {}, UPLOAD_POLICY);
+    state.labelSchema = normalizeLabelSchema(saved.labelSchema || state.labelSchema);
+    state.selectedClassId = Number(saved.selectedClassId || state.selectedClassId);
+    ensureSelectedClassId();
     state.taskId = sanitizeUiId(saved.taskId) || state.taskId;
     state.versionId = sanitizeUiId(saved.versionId) || state.versionId;
     state.versionRevision = Number(saved.versionRevision || 0);
@@ -3441,6 +3593,9 @@ async function clearProject() {
   state.assignmentReviewerId = DEFAULT_ACTORS.reviewer;
   state.uploadRejections = [];
   state.uploadPolicy = { ...UPLOAD_POLICY };
+  state.labelSchema = normalizeLabelSchema(DEFAULT_LABEL_SCHEMA);
+  state.selectedClassId = DEFAULT_LABEL_SCHEMA[0].class_id;
+  state.labelMessage = "";
   state.projectCreateId = "";
   state.projectCreateName = "";
   state.projectSearch = "";
@@ -3472,6 +3627,9 @@ async function closeActiveProjectContext() {
   state.assignmentReviewerId = DEFAULT_ACTORS.reviewer;
   state.uploadRejections = [];
   state.uploadPolicy = { ...UPLOAD_POLICY };
+  state.labelSchema = normalizeLabelSchema(DEFAULT_LABEL_SCHEMA);
+  state.selectedClassId = DEFAULT_LABEL_SCHEMA[0].class_id;
+  state.labelMessage = "";
   state.taskId = DEFAULT_TASK_ID;
   state.versionId = DEFAULT_VERSION_ID;
   state.taskSummaries = [];

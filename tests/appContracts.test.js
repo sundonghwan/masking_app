@@ -237,6 +237,22 @@ test("workbench exposes version settings account and training operations", () =>
   assert.match(app, /apiClient\.updateUser/);
 });
 
+test("workbench exposes class label selection for mask tools", () => {
+  const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");
+
+  assert.match(html, /id="labelSelector"/);
+  assert.match(html, /id="imageAnnotationList"/);
+  assert.match(html, /id="labelMessage"/);
+  assert.match(app, /selectedClassId/);
+  assert.match(app, /labelSchema/);
+  assert.match(app, /function renderLabelSelector\(/);
+  assert.match(app, /function selectClassLabel\(/);
+  assert.match(app, /function selectedLabelAnnotation\(/);
+  assert.match(app, /normalizeLabelSchema\(manifest\.label_schema/);
+  assert.match(app, /labelSchema: state\.labelSchema/);
+});
+
 test("project management exposes edit archive restore and purge controls", () => {
   const html = fs.readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const app = fs.readFileSync(new URL("../src/app.js", import.meta.url), "utf8");

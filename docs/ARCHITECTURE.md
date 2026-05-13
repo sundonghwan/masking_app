@@ -153,6 +153,21 @@ another trusted validation path confirms binary mask pixels.
 The next product direction is **class-labeled binary masks**, not polygon
 segmentation and not indexed masks as the editor source of truth.
 
+Current foundation implemented:
+
+- `src/annotations/labels.js` normalizes the default and manifest-provided label
+  schema.
+- `src/annotations/records.js` defines class-labeled binary mask annotation
+  records.
+- The workbench inspector exposes a visible class/label selector and persists
+  the selected `class_id` in local project recovery.
+
+Still pending:
+
+- project settings UI/API for editing `label_schema`
+- class-aware mask save/load that upserts `image.annotations[]`
+- class-aware previous-frame copy and export/training-set metadata
+
 Target model:
 
 ```text

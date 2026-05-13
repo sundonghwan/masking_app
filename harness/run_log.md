@@ -992,3 +992,23 @@ chains in `harness/tasks/`; keep this file short.
 [REVIEW] finding=none-blocking scope=multi-class-mask-annotation-planning note=plan-keeps-binary-mask-editor-and-defers-indexed-export
 [CLOSE] status=ready-for-commit
 [GIT] commit=fc4f04f push=origin/main status=passed
+[START] task=label-selector-foundation subsystem=annotation-contract,workbench-ui
+[PLAN] scope=default-label-schema,annotation-record-utils,workbench-label-selector risks=label-state-mismatch,legacy-mask-ambiguity,ui-overclaiming-multiclass-storage
+[IMPACT] status=validated chain=render->renderLabelSelector->selectClassLabel
+[IMPACT] status=validated chain=setActiveProjectFromManifest->normalizeLabelSchema
+[IMPACT] status=validated chain=persistProject->restoreProject->normalizeLabelSchema
+[FIX] scope=workbench-ui note=added-visible-label-selector-annotation-list-and-label-status-message
+[FIX] scope=annotation-contract note=added-label-schema-and-class-labeled-annotation-record-utilities
+[DOC] updated=docs/FEATURE_STATUS.md,docs/ARCHITECTURE.md note=label-selector-foundation-marked-complete-and-remaining-class-aware-save-export-kept-open
+[IMPACT_VALIDATE] task=label-selector-foundation chain=render-label-selector-state validation=appContracts-label-schema-annotation-record-tests-passed
+[IMPACT_VALIDATE] task=label-selector-foundation chain=manifest-snapshot-label-schema validation=lint-typecheck-full-test-target-passed
+[CMD] node --test tests/labelSchema.test.js tests/annotationRecords.test.js status=passed tests=8
+[CMD] node --test tests/appContracts.test.js status=passed tests=27
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=225
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[CMD] live-http-smoke status=passed checks=health,index,app-js note=stale-dev-server-restarted-after-initial-static-empty-reply
+[REVIEW] finding=none-blocking scope=label-selector-foundation note=checked-visible-ui-contract-state-persistence-legacy-mask-display-and-remaining-storage-gap
+[CLOSE] status=ready-for-commit

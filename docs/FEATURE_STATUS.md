@@ -86,19 +86,24 @@
 - [x] Deployment profile for explicit local/staging runtime configuration
 - [x] Legacy project manifest repair preview/apply API
 - [x] Generic AI API serving contract for detection, segmentation, and classification stubs
+- [x] Default multi-class label schema utilities
+- [x] Workbench class/label selector UI
+- [x] Class-labeled annotation record utility foundation
 
 ## In Progress
 
-- Multi-class mask annotation foundation planning:
+- Multi-class mask annotation foundation implementation:
   - design source: `docs/superpowers/specs/2026-05-13-multi-class-mask-annotation-design.md`
   - implementation plan: `docs/superpowers/plans/2026-05-13-multi-class-mask-annotation-plan.md`
+  - completed slice: visible workbench label selector, local label-schema state, annotation record utilities
+  - next slice: class-aware mask save/load and export metadata
 
 ## Remaining
 
 - Multi-class mask annotation foundation:
-  - project label schema
-  - image `annotations[]` records with `class_id + mask_path`
-  - workbench selected-label editing
+  - project label schema settings UI/API
+  - mask save/load upsert into image `annotations[]` with `class_id + mask_path`
+  - per-class mask switching in editor state
   - class-aware previous-frame mask copy
   - class-aware export/training-set metadata
   - AI prediction import contract with `class_id + mask_data_url`
