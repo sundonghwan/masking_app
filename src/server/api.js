@@ -270,10 +270,8 @@ export function createApiRouter({
       await storage.writeProjectManifest(project.id, manifest);
       await recordAuditEvent({
         action: "project.create",
-        actor_id: session.userId,
-        actor_role: session.role,
-        resource_type: "project",
-        resource_id: project.id,
+        ...auditActor(session),
+        ...auditResource("project", project.id),
         project_id: project.id,
         outcome: "success",
         metadata: {
@@ -348,10 +346,8 @@ export function createApiRouter({
           });
       await recordAuditEvent({
         action: "project.archive",
-        actor_id: session.userId,
-        actor_role: session.role,
-        resource_type: "project",
-        resource_id: projectId,
+        ...auditActor(session),
+        ...auditResource("project", projectId),
         project_id: projectId,
         outcome: "success",
         reason: project.delete_reason || body.delete_reason || body.deleteReason || body.reason || "",
@@ -372,10 +368,8 @@ export function createApiRouter({
         : await updateProjectArchiveState(projectId, manifest, { mode: "restore" });
       await recordAuditEvent({
         action: "project.restore",
-        actor_id: session.userId,
-        actor_role: session.role,
-        resource_type: "project",
-        resource_id: projectId,
+        ...auditActor(session),
+        ...auditResource("project", projectId),
         project_id: projectId,
         outcome: "success",
       }, context);
@@ -416,10 +410,8 @@ export function createApiRouter({
       const purge = await storage.purgeProject(projectId);
       await recordAuditEvent({
         action: "project.purge",
-        actor_id: session.userId,
-        actor_role: session.role,
-        resource_type: "project",
-        resource_id: projectId,
+        ...auditActor(session),
+        ...auditResource("project", projectId),
         project_id: projectId,
         outcome: "success",
         metadata: {
@@ -791,10 +783,8 @@ export function createApiRouter({
       });
       await recordAuditEvent({
         action: "image.delete",
-        actor_id: session.userId,
-        actor_role: session.role,
-        resource_type: "image",
-        resource_id: imageId,
+        ...auditActor(session),
+        ...auditResource("image", imageId),
         project_id: projectId,
         image_id: imageId,
         outcome: "success",
@@ -820,10 +810,8 @@ export function createApiRouter({
       });
       await recordAuditEvent({
         action: "image.restore",
-        actor_id: session.userId,
-        actor_role: session.role,
-        resource_type: "image",
-        resource_id: imageId,
+        ...auditActor(session),
+        ...auditResource("image", imageId),
         project_id: projectId,
         image_id: imageId,
         outcome: "success",
@@ -971,10 +959,8 @@ export function createApiRouter({
       });
       await recordAuditEvent({
         action: `review.${result.validation.action}`,
-        actor_id: session.userId,
-        actor_role: session.role,
-        resource_type: "image",
-        resource_id: imageId,
+        ...auditActor(session),
+        ...auditResource("image", imageId),
         project_id: projectId,
         image_id: imageId,
         outcome: "success",
@@ -1133,6 +1119,20 @@ export function createApiRouter({
   function auditUserUpdateAction(body = {}) {
     if (Object.hasOwn(body, "active")) return body.active === false ? "user.deactivate" : "user.reactivate";
     return "user.update";
+  }
+
+  function auditActor(session = {}) {
+    return {
+      actor_id: session.userId || session.user_id || "",
+      actor_role: session.role || "",
+    };
+  }
+
+  function auditResource(resourceType, resourceId) {
+    return {
+      resource_type: resourceType,
+      resource_id: resourceId,
+    };
   }
 
   function bearerToken(request) {
@@ -1702,10 +1702,8 @@ export function createApiRouter({
     });
     await recordAuditEvent({
       action: "project.export",
-      actor_id: options.session?.userId || "",
-      actor_role: options.session?.role || "",
-      resource_type: "project",
-      resource_id: projectId,
+      ...auditActor(options.session),
+      ...auditResource("project", projectId),
       project_id: projectId,
       outcome: "success",
       metadata: {
@@ -1751,10 +1749,8 @@ export function createApiRouter({
     });
     await recordAuditEvent({
       action: "training_set.export",
-      actor_id: options.session?.userId || "",
-      actor_role: options.session?.role || "",
-      resource_type: "training_set",
-      resource_id: "ad_hoc",
+      ...auditActor(options.session),
+      ...auditResource("training_set", "ad_hoc"),
       outcome: "success",
       metadata: {
         approved_only: body.approved_only === true || body.approvedOnly === true,
@@ -1806,10 +1802,8 @@ export function createApiRouter({
     });
     await recordAuditEvent({
       action: "training_set.saved_export",
-      actor_id: options.session?.userId || "",
-      actor_role: options.session?.role || "",
-      resource_type: "training_set",
-      resource_id: manifest.training_set_id || "",
+      ...auditActor(options.session),
+      ...auditResource("training_set", manifest.training_set_id || ""),
       outcome: "success",
       metadata: {
         approved_only: manifest.approved_only === true,

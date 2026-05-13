@@ -1579,3 +1579,14 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=review-export-audit-events note=checked-actor-propagation-payload-free-export-metadata-and-failed-review-policy-left-open
+[GIT] commit=e02722b push=origin/main status=passed
+[START] task=audit-event-helper-refactor subsystem=code-health,audit
+[PLAN] scope=deduplicate-audit-actor-resource-field-construction risks=actor-or-resource-field-drift,no-new-audit-behavior
+[CODE] updated=src/server/api.js note=added-auditActor-and-auditResource-helpers-for-existing-route-audit-events
+[CMD] node --test tests/serverApi.test.js status=passed tests=64
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=301
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=audit-event-helper-refactor note=checked-field-name-preservation-and-no-new-audit-behavior
