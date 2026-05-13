@@ -27,6 +27,7 @@ Medium:
 
 Expensive:
 
+- `scripts/harness/browser-e2e.sh`
 - Playwright/Cypress browser journeys
 - visual regression screenshots
 - production build
@@ -39,6 +40,7 @@ scripts/harness/lint-all.sh
 scripts/harness/typecheck-all.sh
 scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
+scripts/harness/browser-e2e.sh
 ```
 
 ## Change-to-Validation Mapping
@@ -54,6 +56,7 @@ scripts/harness/smoke-web.sh
 | export | fixture export test, archive structure check |
 | database migration | migration apply/reset check |
 | auth/session | auth playbook checks and protected route smoke |
+| critical labeling journey | `scripts/harness/browser-e2e.sh` |
 
 ## Impact Chain Validation
 

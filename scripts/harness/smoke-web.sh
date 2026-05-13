@@ -37,6 +37,8 @@ require_file src/server/httpUtils.js
 require_file src/server/maskValidation.js
 require_file src/server/storage.js
 require_file src/styles.css
+require_file scripts/harness/browser-e2e.sh
+require_file scripts/harness/browser-e2e.mjs
 
 require_file docs/design/screens-v2/01-main-mask-editor.png
 require_file docs/design/screens-v2/02-dataset-upload.png
@@ -52,3 +54,4 @@ fi
 
 echo "smoke-web: planning/design/harness references are present."
 echo "smoke-web: backend/static MVP app files are present."
+echo "smoke-web: browser E2E harness entrypoint is present."

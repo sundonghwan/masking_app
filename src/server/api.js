@@ -15,7 +15,7 @@ import {
 } from "../export/exporter.js";
 import { createHttpError, methodNotAllowed, notFound, readJsonBody, readRawBody, sendBuffer, sendJson } from "./httpUtils.js";
 import { parseImageMetadata, parseImageMetadataFromDataUrl, validateClientDimensions } from "./imageMetadata.js";
-import { validateMaskContract } from "./maskValidation.js";
+import { normalizeMaskPngForStorage, validateMaskContract } from "./maskValidation.js";
 import { applyReviewTransition } from "../review/policy.js";
 import { repairProjectManifestRecord } from "./storage.js";
 import { labelByClassId, normalizeLabelSchema } from "../annotations/labels.js";
@@ -714,9 +714,10 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       if (!image) throw createHttpError(404, "Image not found");
 
       const decoded = storage.decodeMaskDataUrl(body.data_url);
+      const normalizedMask = normalizeMaskPngForStorage(decoded.buffer);
       const validation = validateMaskContract({
         imageMeta: image,
-        maskPngBuffer: decoded.buffer,
+        maskPngBuffer: normalizedMask.buffer,
       });
       if (!validation.valid) {
         logger?.warn("mask.validation.failed", {
@@ -738,8 +739,8 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
       const classMaskPath = classId
         ? annotationMaskPath({ imageId, classId, className: className || `class_${classId}` })
         : "";
-      const written = await storage.writeMaskBuffer(projectId, imageId, decoded.buffer, {
-        mimeType: decoded.mimeType,
+      const written = await storage.writeMaskBuffer(projectId, imageId, normalizedMask.buffer, {
+        mimeType: "image/png",
         fileName: classMaskPath ? classMaskPath.split("/").at(-1) : undefined,
       });
 
@@ -793,6 +794,7 @@ export function createApiRouter({ storage, logger = null, userDirectory = null, 
         status: updated.status,
         mask_path: updated.current_mask_path,
         pixel_validation: updated.mask_pixel_validation,
+        normalized_from_color_type: normalizedMask.normalized ? normalizedMask.source.colorTypeName : null,
       });
       return sendJson(response, 200, { image: updated, validation });
     }

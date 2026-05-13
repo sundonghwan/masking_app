@@ -22,10 +22,12 @@ can be implemented while the product still lacks production operation gates.
 The app is a strong local-first MVP with many production-shaped workflows, but
 it is **not yet fully production-ready**.
 
-Production completion is blocked by deployment, operational backup/restore,
-security hardening, browser end-to-end validation, and storage/concurrency
-decisions. These are not cosmetic gaps; they affect whether a team can safely
-operate the tool with real labeling data over time.
+Production completion is still blocked by deployment, operational
+backup/restore, security hardening, and storage/concurrency decisions. The
+baseline browser end-to-end journey now exists, but role-specific and visual
+regression coverage can still be expanded. These are not cosmetic gaps; they
+affect whether a team can safely operate the tool with real labeling data over
+time.
 
 ## Success Criteria
 
@@ -67,7 +69,7 @@ For this repository, "production-level" means the following are true:
 | Database-backed metadata storage | `docs/FEATURE_STATUS.md` hardcoded debt table | Missing / intentionally deferred |
 | Backup and restore procedure for filesystem data root | No dedicated runbook found | Missing |
 | Production deployment packaging | `src/server/deploymentProfile.js` exists, but no deployment runbook or service definition | Partial |
-| Browser end-to-end smoke for login, upload, edit, submit, review, export | Current `scripts/harness/smoke-web.sh` checks files only | Missing |
+| Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with `playwright-cli` | Implemented baseline |
 | Performance/load limits for large datasets | Upload limits exist, but no benchmark or capacity profile | Missing |
 | Security hardening beyond local bearer sessions | Local sessions and RBAC exist; no CSRF/CORS/session rotation policy documented | Partial |
 | Observability dashboard or log ingestion | Structured logs exist; no dashboard or retention plan | Missing |
@@ -81,28 +83,28 @@ scripts/harness/lint-all.sh
 scripts/harness/typecheck-all.sh
 scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
+scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 242 Node tests. This is strong evidence for
-module/API contracts, but it is not enough to claim production readiness because
-the current smoke script does not exercise the browser workflow end to end.
+The latest full test run passed 243 Node tests, and the baseline browser E2E
+journey passed against an isolated data root. This is strong evidence for
+module/API contracts and the critical browser labeling workflow, but it is not
+enough to claim production readiness while backup/restore, deployment,
+security, and storage/concurrency decisions remain unresolved.
 
 ## Production Blockers
 
 ### 1. Browser E2E Coverage
 
-Current smoke only verifies required files and static references. Production
-readiness needs an automated browser journey that logs in, opens or creates a
-project, uploads an image, paints or imports a mask, saves, submits, reviews,
-and exports.
+The baseline browser journey now logs in, creates a project, uploads an image,
+selects a project label, verifies label-driven brush color, paints a mask,
+submits, approves, and exports.
 
-Recommended next artifact:
+Remaining follow-up:
 
-- `scripts/harness/browser-e2e.sh`
-- a lightweight Playwright or browser automation test if dependencies are
-  accepted
-- fixture image/mask data under a test-only location
+- add screenshots or trace artifacts if the smoke becomes flaky
+- add role-specific worker/reviewer journeys once production identity is chosen
 
 ### 2. Backup And Restore Runbook
 

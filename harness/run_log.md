@@ -1150,3 +1150,16 @@ chains in `harness/tasks/`; keep this file short.
 [PLAN] scope=production-success-criteria,evidence-map,blocker-list,next-development-order risks=overclaiming-production-readiness,proxy-test-confidence
 [DOC] created=docs/PRODUCTION_READINESS_AUDIT.md note=objective-restated-as-verifiable-production-deliverables-with-current-evidence-and-blockers
 [FINDING] status=not-production-ready blockers=browser-e2e,backup-restore-runbook,deployment-runbook,security-hardening,storage-concurrency-decision
+[GIT] commit=25f411a push=origin/main status=passed
+[START] task=browser-e2e-smoke subsystem=frontend,backend,harness,testing
+[PLAN] scope=browser-critical-journey-smoke,temporary-data-root,playwright-cli-driver risks=false-positive-ui-bypass,download-session-close,canvas-mask-format
+[FINDING] browser-e2e initial=status=failed reason=browser-canvas-png-saves-as-truecolor-alpha-server-expected-8bit-grayscale
+[FIX] normalized=truecolor-alpha-binary-mask-to-8bit-grayscale-before-server-validation-storage
+[CMD] scripts/harness/browser-e2e.sh status=passed journey=login,create-project,upload,label-color,paint,submit,approve,export
+[CMD] scripts/harness/test-target.sh status=passed tests=243
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=browser-e2e-smoke,rgba-mask-normalization note=checked-temp-data-root,download-capture,validation-before-storage,grayscale-output-contract
+[CLOSE] status=ready-for-commit

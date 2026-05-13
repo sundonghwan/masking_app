@@ -227,7 +227,60 @@ export function decodeGrayscale8PngPixels(maskPngBuffer, maskMeta = parsePngHead
   if (idat.length === 0) {
     throw new Error(MASK_VALIDATION_REASONS.PNG_IDAT_NOT_FOUND);
   }
-  return unfilterGrayscale8(inflateSync(idat), maskMeta.width, maskMeta.height);
+  return unfilterPngRows(inflateSync(idat), maskMeta.width, maskMeta.height, 1);
+}
+
+export function normalizeMaskPngForStorage(maskPngBuffer) {
+  const source = Buffer.from(maskPngBuffer || []);
+  const maskMeta = parsePngHeader(source);
+  if (!maskMeta.valid || (maskMeta.bitDepth === 8 && maskMeta.colorType === 0)) {
+    return { buffer: source, normalized: false, source: maskMeta };
+  }
+  if (maskMeta.bitDepth !== 8 || maskMeta.colorType !== 6 || maskMeta.interlaceMethod !== 0) {
+    return { buffer: source, normalized: false, source: maskMeta };
+  }
+
+  try {
+    const rgba = decodeTruecolorAlpha8PngPixels(source, maskMeta);
+    const pixels = Buffer.alloc(maskMeta.width * maskMeta.height);
+    for (let index = 0; index < pixels.length; index += 1) {
+      const offset = index * 4;
+      const red = rgba[offset];
+      const green = rgba[offset + 1];
+      const blue = rgba[offset + 2];
+      const alpha = rgba[offset + 3];
+      if (alpha === 0 || (red === 0 && green === 0 && blue === 0)) {
+        pixels[index] = 0;
+      } else if (red === 255 && green === 255 && blue === 255) {
+        pixels[index] = 255;
+      } else {
+        return { buffer: source, normalized: false, source: maskMeta };
+      }
+    }
+    return {
+      buffer: createGrayscale8Png({ width: maskMeta.width, height: maskMeta.height, pixels }),
+      normalized: true,
+      source: maskMeta,
+    };
+  } catch {
+    return { buffer: source, normalized: false, source: maskMeta };
+  }
+}
+
+export function decodeTruecolorAlpha8PngPixels(maskPngBuffer, maskMeta = parsePngHeader(maskPngBuffer)) {
+  if (!maskMeta.valid) throw new Error(maskMeta.reason);
+  if (maskMeta.bitDepth !== 8 || maskMeta.colorType !== 6) {
+    throw new Error(MASK_VALIDATION_REASONS.MASK_NOT_8BIT_GRAYSCALE);
+  }
+  if (maskMeta.interlaceMethod !== 0) {
+    throw new Error(MASK_VALIDATION_REASONS.PNG_INTERLACE_UNSUPPORTED);
+  }
+  const chunks = parsePngChunks(maskPngBuffer);
+  const idat = Buffer.concat(chunks.filter((chunk) => chunk.type === "IDAT").map((chunk) => chunk.data));
+  if (idat.length === 0) {
+    throw new Error(MASK_VALIDATION_REASONS.PNG_IDAT_NOT_FOUND);
+  }
+  return unfilterPngRows(inflateSync(idat), maskMeta.width, maskMeta.height, 4);
 }
 
 export function createGrayscale8Png({ width, height, pixels }) {
@@ -309,14 +362,14 @@ function createPngChunk(type, data) {
   return chunk;
 }
 
-function unfilterGrayscale8(inflated, width, height) {
-  const stride = width;
+function unfilterPngRows(inflated, width, height, bytesPerPixel) {
+  const stride = width * bytesPerPixel;
   const expected = (stride + 1) * height;
   if (inflated.length < expected) {
     throw new Error("PNG scanline data is shorter than expected");
   }
 
-  const pixels = Buffer.alloc(width * height);
+  const pixels = Buffer.alloc(stride * height);
   let sourceOffset = 0;
   let targetOffset = 0;
   let previousRow = Buffer.alloc(stride);
@@ -329,9 +382,9 @@ function unfilterGrayscale8(inflated, width, height) {
     const current = Buffer.alloc(stride);
 
     for (let column = 0; column < stride; column += 1) {
-      const left = column > 0 ? current[column - 1] : 0;
+      const left = column >= bytesPerPixel ? current[column - bytesPerPixel] : 0;
       const up = previousRow[column] || 0;
-      const upLeft = column > 0 ? previousRow[column - 1] : 0;
+      const upLeft = column >= bytesPerPixel ? previousRow[column - bytesPerPixel] : 0;
       current[column] = (raw[column] + filterPredictor(filter, left, up, upLeft)) & 0xff;
     }
 

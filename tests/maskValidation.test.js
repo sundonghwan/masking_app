@@ -4,6 +4,8 @@ import { deflateSync } from "node:zlib";
 
 import {
   MASK_VALIDATION_REASONS,
+  decodeGrayscale8PngPixels,
+  normalizeMaskPngForStorage,
   parsePngHeader,
   validateBinaryMaskPixels,
   validateMaskContract,
@@ -125,6 +127,27 @@ test("marks non-8-bit-grayscale PNG masks invalid without decoding pixels", () =
   assert.equal(result.pixelValidation.status, "not_checked");
 });
 
+test("normalizes browser RGBA binary mask PNGs into 8-bit grayscale PNGs", () => {
+  const browserPng = createRgbaPng({
+    width: 2,
+    height: 2,
+    pixels: [
+      0, 0, 0, 255,
+      255, 255, 255, 255,
+      0, 0, 0, 0,
+      255, 255, 255, 255,
+    ],
+  });
+
+  const normalized = normalizeMaskPngForStorage(browserPng);
+  const header = parsePngHeader(normalized.buffer);
+  const pixels = decodeGrayscale8PngPixels(normalized.buffer, header);
+
+  assert.equal(normalized.normalized, true);
+  assert.equal(header.colorType, 0);
+  assert.deepEqual(Array.from(pixels), [0, 255, 0, 255]);
+});
+
 function createMinimalPng({ width, height, bitDepth, colorType }) {
   const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const ihdrData = Buffer.alloc(13);
@@ -156,6 +179,31 @@ function createGrayscalePng({ width, height, pixels }) {
   const rows = [];
   for (let row = 0; row < height; row += 1) {
     rows.push(Buffer.from([0, ...pixels.slice(row * width, (row + 1) * width)]));
+  }
+
+  return Buffer.concat([
+    signature,
+    createChunk("IHDR", ihdrData),
+    createChunk("IDAT", deflateSync(Buffer.concat(rows))),
+    createChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+function createRgbaPng({ width, height, pixels }) {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdrData = Buffer.alloc(13);
+  ihdrData.writeUInt32BE(width, 0);
+  ihdrData.writeUInt32BE(height, 4);
+  ihdrData.writeUInt8(8, 8);
+  ihdrData.writeUInt8(6, 9);
+  ihdrData.writeUInt8(0, 10);
+  ihdrData.writeUInt8(0, 11);
+  ihdrData.writeUInt8(0, 12);
+
+  const rows = [];
+  const stride = width * 4;
+  for (let row = 0; row < height; row += 1) {
+    rows.push(Buffer.from([0, ...pixels.slice(row * stride, (row + 1) * stride)]));
   }
 
   return Buffer.concat([

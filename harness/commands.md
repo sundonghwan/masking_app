@@ -22,6 +22,7 @@ scripts/harness/lint-all.sh
 scripts/harness/typecheck-all.sh
 scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
+scripts/harness/browser-e2e.sh
 ```
 
 ## Install / Bootstrap
@@ -123,6 +124,24 @@ Current smoke checks:
 - verifies backend/static MVP app files exist
 - verifies current architecture/development checkpoint docs exist
 
+Browser journey smoke:
+
+```bash
+scripts/harness/browser-e2e.sh
+```
+
+Current behavior:
+
+- requires `playwright-cli` on `PATH`
+- starts `npm run dev` on a temporary local port
+- uses a temporary data root outside the repository
+- logs in as the local MVP admin account
+- creates a project with a two-class label schema
+- uploads a generated fixture image
+- verifies the selected brush color follows the selected project label color
+- paints the canvas, submits the mask, approves it, and triggers approved-only
+  export
+
 Manual browser smoke:
 
 - run `npm run dev`
@@ -144,6 +163,7 @@ scripts/harness/lint-all.sh
 scripts/harness/typecheck-all.sh
 scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
+scripts/harness/browser-e2e.sh
 ```
 
 ## Updating Commands
