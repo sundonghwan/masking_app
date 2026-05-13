@@ -1274,3 +1274,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=log-redaction-hardening note=checked-credential-fields-redacted-user-id-retained
 [CLOSE] status=ready-for-commit
+[GIT] commit=9b2ff22 push=origin/main status=passed
+[START] task=capacity-profile-gate subsystem=performance,storage,operations
+[PLAN] scope=data-root-capacity-profile,strict-thresholds,commands-docs risks=confusing-static-profile-with-load-test
+[CODE] added=scripts/harness/capacity-profile.sh,scripts/harness/capacity-profile.mjs note=read-only-data-root-capacity-summary-with-strict-threshold-mode
+[TEST] added=tests/capacityProfile.test.js note=counts-byte-totals-largest-manifest-and-strict-threshold-failure
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=252
+[CMD] scripts/harness/capacity-profile.sh data status=passed manifests=6 images=202 masks=0 total_bytes=54773027 largest_manifest=rail-mask-20260513/manifest.json largest_manifest_bytes=84412
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=capacity-profile-gate note=checked-read-only-scan-strict-warning-promotion-and-audit-wording
+[CLOSE] status=ready-for-commit

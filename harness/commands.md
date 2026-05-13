@@ -27,6 +27,7 @@ scripts/harness/storage-verify.sh
 scripts/harness/deployment-check.sh
 scripts/harness/security-check.sh
 scripts/harness/identity-migrate-passwords.sh
+scripts/harness/capacity-profile.sh
 ```
 
 ## Install / Bootstrap
@@ -221,6 +222,24 @@ Current behavior:
 - does not change roles, display names, or active flags
 - should be run only after data-root backup for real deployments
 
+## Capacity Profile
+
+Preferred wrapper:
+
+```bash
+scripts/harness/capacity-profile.sh [data-root]
+scripts/harness/capacity-profile.sh --strict [data-root]
+scripts/harness/capacity-profile.sh --json [data-root]
+```
+
+Current behavior:
+
+- reads only; does not modify project data
+- reports manifest, image, mask, other-file counts and byte totals
+- reports the largest manifest file
+- relaxed mode warns when default local/staging thresholds are exceeded
+- strict mode exits non-zero when warning thresholds are exceeded
+
 Manual browser smoke:
 
 - run `npm run dev`
@@ -244,6 +263,7 @@ scripts/harness/test-target.sh
 scripts/harness/smoke-web.sh
 scripts/harness/browser-e2e.sh
 scripts/harness/storage-verify.sh "${MASKING_APP_DATA_DIR:-data}"
+scripts/harness/capacity-profile.sh "${MASKING_APP_DATA_DIR:-data}"
 scripts/harness/deployment-check.sh http://127.0.0.1:4173
 scripts/harness/security-check.sh --strict "${MASKING_APP_DATA_DIR:-data}"
 ```

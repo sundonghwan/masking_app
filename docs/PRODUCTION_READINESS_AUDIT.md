@@ -71,7 +71,7 @@ For this repository, "production-level" means the following are true:
 | Backup and restore procedure for filesystem data root | `docs/RUNBOOK_BACKUP_RESTORE.md`, `scripts/harness/storage-verify.sh` | Implemented baseline |
 | Production deployment packaging | `docs/RUNBOOK_DEPLOYMENT.md`, `scripts/harness/deployment-check.sh`, `src/server/deploymentProfile.js` | Implemented baseline |
 | Browser end-to-end smoke for login, upload, edit, submit, review, export | `scripts/harness/browser-e2e.sh` drives the real UI with `playwright-cli` | Implemented baseline |
-| Performance/load limits for large datasets | Upload limits exist, but no benchmark or capacity profile | Missing |
+| Performance/load limits for large datasets | Upload limits exist; `scripts/harness/capacity-profile.sh` reports data-root capacity and strict threshold warnings | Partial capacity gate |
 | Security hardening beyond local bearer sessions | `docs/SECURITY_HARDENING_PLAN.md`, `src/server/sessionToken.js`, `src/server/passwords.js`, `scripts/harness/security-check.sh` | Partial executable gates |
 | Filesystem storage concurrency boundary | `docs/STORAGE_CONCURRENCY_DECISION.md` defines single-process limits and DB migration triggers | Accepted local/staging constraint |
 | Observability dashboard or log ingestion | Structured logs exist and credential/token redaction is covered; no dashboard or retention plan | Partial |
@@ -89,7 +89,7 @@ scripts/harness/browser-e2e.sh
 git diff --check
 ```
 
-The latest full test run passed 243 Node tests, and the baseline browser E2E
+The latest full test run passed 250 Node tests, and the baseline browser E2E
 journey passed against an isolated data root. This is strong evidence for
 module/API contracts and the critical browser labeling workflow, but it is not
 enough to claim production readiness while security and storage/concurrency
@@ -176,6 +176,19 @@ Trigger to migrate:
 - audit/query/reporting needs exceed file scans
 - backup/restore requires transactional guarantees
 
+### 6. Performance And Capacity Boundary
+
+The app now has a read-only capacity profile command for the filesystem data
+root. It reports manifest/image/mask counts, total bytes, and the largest
+manifest so maintainers can see when file-based metadata is approaching the
+local/staging boundary.
+
+Remaining follow-up:
+
+- define the first real target dataset size
+- add browser or API load tests against that target size
+- record staging capacity evidence after a representative import
+
 ## Recommended Next Development Order
 
 1. Add browser E2E smoke for the critical labeling journey.
@@ -183,7 +196,8 @@ Trigger to migrate:
 3. Add deployment runbook for local/staging production-like operation.
 4. Add security hardening plan for identity/session/CORS/CSRF.
 5. Use the storage/concurrency decision as the DB migration gate.
-6. Add real AI model adapter only after sample datasets prove the local magic
+6. Add capacity profile evidence from a representative staging data root.
+7. Add real AI model adapter only after sample datasets prove the local magic
    tool is insufficient.
 
 ## Completion Rule
