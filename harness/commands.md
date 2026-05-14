@@ -255,8 +255,10 @@ Current behavior:
   dry-run report.
 - `object-db-verify.sh` checks PostgreSQL connectivity and the MinIO bucket.
 - `--ensure-bucket` creates the configured object bucket when it is missing.
-- The app still defaults to `MASKING_APP_STORAGE_BACKEND=filesystem` until the
-  migration/cutover slice is explicitly enabled.
+- Docker Compose defaults to `MASKING_APP_STORAGE_BACKEND=object-db`.
+  Host-native `npm run dev` still uses filesystem mode unless
+  `MASKING_APP_STORAGE_BACKEND=object-db` and the required DB/MinIO settings
+  are provided.
 
 ## Deployment Check
 

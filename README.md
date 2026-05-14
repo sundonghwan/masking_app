@@ -140,7 +140,9 @@ Read these before adding new product features:
 Current policy:
 
 - IndexedDB is the local work recovery source for this MVP slice.
-- Backend filesystem storage is a sync/export mirror.
+- Docker Compose uses object-db storage: PostgreSQL stores metadata and MinIO
+  stores image/mask bytes. Filesystem storage remains available for explicit
+  local recovery and fixtures.
 - Review, admin, auth/session, dataset packaging, manifest repair, and generic
   AI serving contracts are implemented at local-MVP depth.
 - Runtime logs use structured events for API requests, validation failures,
@@ -148,8 +150,10 @@ Current policy:
 
 ## Known Gaps
 
-- Backend storage is filesystem-based and local-only.
+- Host-native `npm run dev` still uses filesystem mode unless object-db
+  environment variables are provided.
 - Upload endpoints accept multipart form data, but not true streaming upload.
 - AI endpoints are a model-agnostic contract/stub; no real model adapter is
   configured yet.
-- Production deployment packaging and database-backed storage are not included.
+- Final target-host deployment evidence still needs to be captured after
+  storage and identity settings are accepted.

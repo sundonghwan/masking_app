@@ -105,6 +105,7 @@ For a shorter production-progress view, see
 - [x] Project settings route normalization helper refactor
 - [x] Assignment route helper refactor
 - [x] Startup server refresh for clean restored projects to avoid stale local IndexedDB pollution
+- [x] Docker default object-db runtime with Postgres metadata and MinIO image/mask object storage
 
 ## In Progress
 
@@ -119,7 +120,8 @@ For a shorter production-progress view, see
 - Multi-class mask annotation foundation: MVP slice complete.
 - AI-backed segmentation adapter remains optional hardening after the generic AI serving contract and local edge-aware magic tool reach real dataset limits.
 - Production identity provider remains out of MVP scope.
-- Database-backed storage remains out of MVP scope until filesystem operation becomes a bottleneck.
+- Docker Compose object-db runtime is now the preferred staging path. Local
+  filesystem mode remains available only as explicit recovery/development mode.
 - Real staging evidence still needs to be collected with `staging-evidence.sh --json --output` against representative staging data before a release handoff.
 
 ## Recommended Development Order
@@ -163,6 +165,7 @@ not implemented yet. They should not be treated as final architecture.
 | Magic-tool max region cap | `src/editor/maskEditor.js` | UI now controls color tolerance and edge threshold. Max-pixel cap remains an internal safety default. | Project-level tool presets if real datasets need different caps |
 | Server export vs local ZIP fallback | `src/app.js`, `src/export/exporter.js` | Local-first recovery still allows fallback export when server sync is incomplete. This is a deliberate MVP safety path. | Server-first restore/sync reconciliation before multi-user production use |
 | Legacy project-only workbench routes | `src/server/api.js`, `src/app.js` | Workbench now exposes task/version selection and version operations while keeping legacy project manifest compatibility for older project data. | Full migration tool only if legacy manifests become a support burden |
+| Local filesystem storage backend | `src/server/storage.js`, `src/server/deploymentProfile.js` | Docker Compose now defaults to object-db, but filesystem mode is kept for backup restore, local recovery, and fixtures. | Remove or restrict after object-db export/training-set parity is fully proven |
 
 ## Feature Development Items From Hardcoded Debt
 

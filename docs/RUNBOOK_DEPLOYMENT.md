@@ -89,13 +89,15 @@ and keep runtime data outside the image.
 The Compose file now starts the app plus storage dependencies:
 
 - `masking-app`
-- `postgres` for future metadata DB mode
-- `minio` for future object storage mode
+- `postgres` for metadata and workflow state
+- `minio` for original image, mask, and export objects
 - `minio-init` to create the local object bucket
 
-The app still defaults to `MASKING_APP_STORAGE_BACKEND=filesystem` until the
-DB/MinIO migration is applied and verified. That means the extra services can be
-started safely before the app cutover.
+Docker Compose now defaults the app to
+`MASKING_APP_STORAGE_BACKEND=object-db`. In this mode, PostgreSQL is the source
+of truth for project/image/annotation metadata and MinIO is the source of truth
+for image and mask bytes. Use `MASKING_APP_STORAGE_BACKEND=filesystem` only for
+explicit local recovery or fixture work.
 
 1. Build and start:
 

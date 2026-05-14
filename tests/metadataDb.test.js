@@ -48,6 +48,8 @@ test("metadata migration includes core annotation tables", () => {
   ]) {
     assert.match(sql, new RegExp(`CREATE TABLE IF NOT EXISTS ${table}`));
   }
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS deleted_by/);
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS delete_reason/);
 });
 
 test("runs metadata migrations transactionally and records applied ids", async () => {

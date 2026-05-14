@@ -2074,3 +2074,19 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/object-db-verify.sh --json --ensure-bucket status=passed checked_object_refs=211 missing=0
 [CMD] GET /api/projects/rail-mask-20260513 status=passed labels=slider,support slider_annotations=5 support_annotations=9
 [DATA] backup=backups/masking-app-data-20260514T070515Z.tgz note=post-corrected-slider-support-split
+[START] task=object-db-runtime-cutover subsystem=storage,docker,metadata-db,minio
+[PLAN] scope=runtime-storage-adapter,docker-default,docs-status risks=metadata-object-divergence,project-delete-regression,stale-filesystem-docs
+[CODE] added=src/server/objectDbStorage.js note=postgres-project-image-annotation-metadata-plus-minio-image-mask-bytes
+[CODE] updated=server.js note=MASKING_APP_STORAGE_BACKEND=object-db-selects-object-db-storage-and-closes-db-pool-on-shutdown
+[CODE] updated=src/server/metadataDb.js note=deletion-reason-metadata-migration-for-project-and-image-lifecycle
+[CODE] updated=docker-compose.yml,.env.example note=compose-and-env-default-object-db
+[DOC] updated=docs/MINIO_DB_DOCKER_STORAGE_DESIGN.md,docs/FEATURE_STATUS.md,docs/RUNBOOK_DEPLOYMENT.md,harness/commands.md,README.md,docs/REMAINING_WORK_BOARD.md note=object-db-runtime-is-docker-default-filesystem-is-explicit-recovery-mode
+[CMD] node --check src/server/objectDbStorage.js status=passed
+[CMD] node --check server.js status=passed
+[CMD] node --test tests/deploymentPackaging.test.js tests/metadataDb.test.js tests/checkSyntax.test.js status=passed tests=12
+[CMD] object-db live smoke status=passed storage_backend=object-db rail_counts=slider:5,support:9 image_bytes=359096 mask_bytes=2714
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] MASKING_APP_DATABASE_URL=... MASKING_APP_OBJECT_ENDPOINT=... scripts/harness/object-db-verify.sh --json --ensure-bucket status=passed checked_object_refs=211 missing=0
+[CMD] scripts/harness/test-target.sh status=passed tests=353
+[CMD] git diff --check status=passed

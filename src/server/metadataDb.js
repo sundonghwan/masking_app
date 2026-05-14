@@ -119,6 +119,18 @@ CREATE TABLE IF NOT EXISTS export_records (
 );
 `,
   },
+  {
+    id: "0002_deletion_reason_metadata",
+    sql: `
+ALTER TABLE IF EXISTS projects
+  ADD COLUMN IF NOT EXISTS deleted_by text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS delete_reason text NOT NULL DEFAULT '';
+
+ALTER TABLE IF EXISTS images
+  ADD COLUMN IF NOT EXISTS deleted_by text NOT NULL DEFAULT '',
+  ADD COLUMN IF NOT EXISTS delete_reason text NOT NULL DEFAULT '';
+`,
+  },
 ]);
 
 export function createMetadataDbConfig(input = {}) {

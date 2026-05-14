@@ -19,6 +19,7 @@ test("compose file exposes local staging defaults without binding the repo data 
   assert.match(compose, /MASKING_APP_MODE=staging/);
   assert.match(compose, /MASKING_APP_HOST=0\.0\.0\.0/);
   assert.match(compose, /MASKING_APP_DATA_DIR=\/app\/data/);
+  assert.match(compose, /MASKING_APP_STORAGE_BACKEND=\$\{MASKING_APP_STORAGE_BACKEND:-object-db\}/);
   assert.match(compose, /masking_app_data:\/app\/data/);
   assert.match(compose, /\$\{MASKING_APP_PORT:-4173\}:4173/);
 });
@@ -41,7 +42,7 @@ test("compose file includes Postgres metadata DB and MinIO object storage servic
 test("env example documents local storage dependency settings", async () => {
   const envExample = await readFile(".env.example", "utf8");
 
-  assert.match(envExample, /MASKING_APP_STORAGE_BACKEND=filesystem/);
+  assert.match(envExample, /MASKING_APP_STORAGE_BACKEND=object-db/);
   assert.match(envExample, /MASKING_APP_POSTGRES_DB=masking_app/);
   assert.match(envExample, /MASKING_APP_MINIO_ROOT_USER=masking/);
   assert.match(envExample, /MASKING_APP_OBJECT_BUCKET=masking-app/);

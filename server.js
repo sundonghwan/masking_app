@@ -13,7 +13,10 @@ import { applyHttpSecurityHeaders, createHttpSecurityPolicy, handleCorsPreflight
 import { createHttpError, sendJson } from "./src/server/httpUtils.js";
 import { assertProductionStartupSafety } from "./src/server/productionSafety.js";
 import { createSessionStore } from "./src/server/sessionStore.js";
+import { createMetadataDbConfig, createMetadataDbPool, runMetadataMigrations } from "./src/server/metadataDb.js";
 import { createFileStorage } from "./src/server/storage.js";
+import { createObjectStorageClient, createObjectStorageConfig, ensureObjectBucket } from "./src/server/objectStorage.js";
+import { createObjectDbStorage } from "./src/server/objectDbStorage.js";
 import { createUserDirectory } from "./src/server/userDirectory.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,7 +32,7 @@ const logger = createLogger({
     ? createJsonlFileSink({ logFile: process.env.MASKING_APP_LOG_FILE, mirrorSink: defaultSink })
     : defaultSink,
 });
-const storage = createFileStorage({ rootDir: DATA_ROOT });
+const storage = await createRuntimeStorage(deploymentProfile);
 const userDirectory = createUserDirectory({ rootDir: DATA_ROOT });
 const sessionStore = createSessionStore({ rootDir: DATA_ROOT });
 const auditStore = createAuditStore({ rootDir: DATA_ROOT });
@@ -93,6 +96,40 @@ server.listen(...listenArgs, () => {
   console.log(`Data root: ${DATA_ROOT}`);
   console.log(`Deployment mode: ${deploymentProfile.mode}`);
 });
+
+for (const signal of ["SIGINT", "SIGTERM"]) {
+  process.once(signal, () => {
+    server.close(async () => {
+      if (typeof storage.close === "function") {
+        await storage.close();
+      }
+      process.exit(0);
+    });
+  });
+}
+
+async function createRuntimeStorage(profile) {
+  if (profile.storage?.backend !== "object-db") {
+    return createFileStorage({ rootDir: DATA_ROOT });
+  }
+  const dbConfig = createMetadataDbConfig({ databaseUrl: profile.storage.databaseUrl });
+  const pool = createMetadataDbPool(dbConfig);
+  await runMetadataMigrations(pool);
+  const objectConfig = createObjectStorageConfig({
+    objectEndpoint: profile.storage.objectEndpoint,
+    objectRegion: profile.storage.objectRegion,
+    objectBucket: profile.storage.objectBucket,
+    objectAccessKey: profile.storage.objectAccessKey,
+    objectSecretKey: profile.storage.objectSecretKey,
+  });
+  const objectClient = createObjectStorageClient(objectConfig);
+  await ensureObjectBucket(objectClient, objectConfig.bucket, { region: objectConfig.region });
+  return createObjectDbStorage({
+    pool,
+    objectClient,
+    bucket: objectConfig.bucket,
+  });
+}
 
 async function serveStatic(request, response, url) {
   if (request.method !== "GET" && request.method !== "HEAD") {

@@ -107,8 +107,8 @@ MASKING_APP_OBJECT_SECRET_KEY=masking-password
 MASKING_APP_OBJECT_FORCE_PATH_STYLE=1
 ```
 
-`filesystem` remains the default until migration is verified. `object-db` is an
-explicit mode.
+`object-db` is the Docker Compose default after the 2026-05-14 runtime cutover
+slice. `filesystem` remains available as an explicit local recovery mode.
 
 ## Data Model
 
@@ -123,6 +123,8 @@ projects
   upload_policy jsonb
   revision
   deleted_at
+  deleted_by
+  delete_reason
   created_at
   updated_at
 
@@ -159,6 +161,8 @@ images
   worker_id
   reviewer_id
   deleted_at
+  deleted_by
+  delete_reason
   created_at
   updated_at
 
@@ -278,10 +282,14 @@ minio
 minio-init
 ```
 
-The app should depend on healthy Postgres and MinIO only when
-`MASKING_APP_STORAGE_BACKEND=object-db`.
+The app defaults to `MASKING_APP_STORAGE_BACKEND=object-db` in Compose and
+requires healthy Postgres and MinIO for that mode.
 
-Local development can still use `npm run dev` with filesystem mode.
+Local development can still use filesystem mode explicitly:
+
+```bash
+MASKING_APP_STORAGE_BACKEND=filesystem npm run dev
+```
 
 ## Verification Gates
 
@@ -331,15 +339,18 @@ scripts/harness/deployment-check.sh http://127.0.0.1:4173
 ### Slice 4: Metadata Repository Adapter
 
 - Add Postgres repository adapter.
-- Keep filesystem adapter as fallback/default.
-- Route API through the repository interface.
+- Keep filesystem adapter as an explicit fallback/recovery mode.
+- Route project list/detail, task/version reads, project file reads, image
+  upload, and class-mask save through the object-db adapter when
+  `MASKING_APP_STORAGE_BACKEND=object-db`.
 
 ### Slice 5: End-To-End Cutover
 
 - Run temp Docker stack.
 - Migrate backed-up filesystem data into DB+MinIO.
 - Verify export equivalence.
-- Switch compose app to `MASKING_APP_STORAGE_BACKEND=object-db`.
+- Switch compose app to `MASKING_APP_STORAGE_BACKEND=object-db`. Done for the
+  Compose default; export equivalence remains a release gate.
 
 ## Open Risks
 
