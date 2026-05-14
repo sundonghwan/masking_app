@@ -2,6 +2,7 @@ import path from "node:path";
 
 const DEFAULT_PORT = 4173;
 const DEFAULT_AI_TASKS = ["detection", "segmentation", "classification"];
+const STORAGE_BACKENDS = ["filesystem", "object-db"];
 
 export function resolveDeploymentProfile(env = process.env, options = {}) {
   const cwd = options.cwd || process.cwd();
@@ -13,6 +14,7 @@ export function resolveDeploymentProfile(env = process.env, options = {}) {
   const logLevel = normalizeLogLevel(env.MASKING_APP_LOG_LEVEL || "info");
   const sessionTtlMs = normalizePositiveInteger(env.MASKING_APP_SESSION_TTL_MS || 24 * 60 * 60 * 1000, "MASKING_APP_SESSION_TTL_MS");
   const aiEnabled = parseBoolean(env.MASKING_APP_AI_SERVING);
+  const storageBackend = normalizeStorageBackend(env.MASKING_APP_STORAGE_BACKEND || "filesystem");
 
   return {
     mode,
@@ -22,6 +24,16 @@ export function resolveDeploymentProfile(env = process.env, options = {}) {
     publicRoot,
     logLevel,
     sessionTtlMs,
+    storage: {
+      backend: storageBackend,
+      databaseUrl: String(env.MASKING_APP_DATABASE_URL || "").trim(),
+      objectEndpoint: String(env.MASKING_APP_OBJECT_ENDPOINT || "").trim(),
+      objectRegion: String(env.MASKING_APP_OBJECT_REGION || "us-east-1").trim() || "us-east-1",
+      objectBucket: String(env.MASKING_APP_OBJECT_BUCKET || "masking-app").trim() || "masking-app",
+      objectAccessKey: String(env.MASKING_APP_OBJECT_ACCESS_KEY || "").trim(),
+      objectSecretKey: String(env.MASKING_APP_OBJECT_SECRET_KEY || "").trim(),
+      objectForcePathStyle: parseBoolean(env.MASKING_APP_OBJECT_FORCE_PATH_STYLE),
+    },
     aiServing: {
       enabled: aiEnabled,
       provider: String(env.MASKING_APP_AI_PROVIDER || "stub").trim() || "stub",
@@ -38,6 +50,9 @@ export function publicDeploymentProfile(profile = {}) {
     data_root_configured: Boolean(profile.dataRoot),
     public_root_configured: Boolean(profile.publicRoot),
     session_ttl_ms: Number(profile.sessionTtlMs || 0),
+    storage_backend: profile.storage?.backend || "filesystem",
+    database_configured: Boolean(profile.storage?.databaseUrl),
+    object_storage_configured: Boolean(profile.storage?.objectEndpoint && profile.storage?.objectBucket),
   };
 }
 
@@ -60,6 +75,14 @@ function normalizePort(value) {
 function normalizeLogLevel(value) {
   const level = String(value || "info").trim().toLowerCase();
   return ["debug", "info", "warn", "error"].includes(level) ? level : "info";
+}
+
+function normalizeStorageBackend(value) {
+  const backend = String(value || "filesystem").trim();
+  if (!STORAGE_BACKENDS.includes(backend)) {
+    throw new TypeError(`MASKING_APP_STORAGE_BACKEND must be one of: ${STORAGE_BACKENDS.join(", ")}`);
+  }
+  return backend;
 }
 
 function normalizePositiveInteger(value, label) {

@@ -20,7 +20,31 @@ test("compose file exposes local staging defaults without binding the repo data 
   assert.match(compose, /MASKING_APP_HOST=0\.0\.0\.0/);
   assert.match(compose, /MASKING_APP_DATA_DIR=\/app\/data/);
   assert.match(compose, /masking_app_data:\/app\/data/);
-  assert.match(compose, /4173:4173/);
+  assert.match(compose, /\$\{MASKING_APP_PORT:-4173\}:4173/);
+});
+
+test("compose file includes Postgres metadata DB and MinIO object storage services", async () => {
+  const compose = await readFile("docker-compose.yml", "utf8");
+
+  assert.match(compose, /postgres:/);
+  assert.match(compose, /image: postgres:16-alpine/);
+  assert.match(compose, /POSTGRES_DB=\$\{MASKING_APP_POSTGRES_DB:-masking_app\}/);
+  assert.match(compose, /masking_postgres_data:\/var\/lib\/postgresql\/data/);
+  assert.match(compose, /minio:/);
+  assert.match(compose, /image: minio\/minio:/);
+  assert.match(compose, /MASKING_APP_OBJECT_BUCKET=\$\{MASKING_APP_OBJECT_BUCKET:-masking-app\}/);
+  assert.match(compose, /masking_minio_data:\/data/);
+  assert.match(compose, /minio-init:/);
+  assert.match(compose, /mc mb --ignore-existing local\/\$\$\{MASKING_APP_OBJECT_BUCKET\}/);
+});
+
+test("env example documents local storage dependency settings", async () => {
+  const envExample = await readFile(".env.example", "utf8");
+
+  assert.match(envExample, /MASKING_APP_STORAGE_BACKEND=filesystem/);
+  assert.match(envExample, /MASKING_APP_POSTGRES_DB=masking_app/);
+  assert.match(envExample, /MASKING_APP_MINIO_ROOT_USER=masking/);
+  assert.match(envExample, /MASKING_APP_OBJECT_BUCKET=masking-app/);
 });
 
 test("dockerignore excludes runtime data and local automation artifacts", async () => {

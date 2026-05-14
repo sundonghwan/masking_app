@@ -11,9 +11,10 @@ test, or validate the project.
 
 ## Current Stack
 
-The current MVP is a dependency-free browser web app served by a Node built-in
-HTTP server. JavaScript is written as browser/server ES modules and tested with
-Node's built-in test runner.
+The current MVP is a browser web app served by a Node built-in HTTP server.
+JavaScript is written as browser/server ES modules and tested with Node's
+built-in test runner. Local object storage and metadata DB work uses the `pg`
+and `minio` packages.
 
 ## Harness Wrapper Commands
 
@@ -27,6 +28,9 @@ scripts/harness/storage-verify.sh
 scripts/harness/audit-verify.sh
 scripts/harness/audit-retention.sh
 scripts/harness/deployment-check.sh
+scripts/harness/db-migrate.sh
+scripts/harness/migrate-file-storage-to-object-db.sh
+scripts/harness/object-db-verify.sh
 scripts/harness/security-check.sh
 scripts/harness/identity-migrate-passwords.sh
 scripts/harness/capacity-profile.sh
@@ -44,8 +48,8 @@ scripts/harness/apply-boundary-decisions.sh
 npm install
 ```
 
-There are currently no third-party dependencies, so install is only needed when
-future packages are added.
+Install is required before DB/MinIO wrappers because the project uses `pg` and
+`minio`.
 
 ## Development Servers
 
@@ -216,6 +220,43 @@ Current behavior:
 - does not rewrite JSONL files or prune individual lines, so mixed cutoff-month
   evidence is preserved until the whole month becomes eligible
 - treats missing `audit/` as a warning so fresh local data roots still pass
+
+## Metadata DB And Object Storage
+
+Preferred wrappers:
+
+```bash
+scripts/harness/db-migrate.sh
+scripts/harness/db-migrate.sh --json
+scripts/harness/migrate-file-storage-to-object-db.sh --data-root data --json
+scripts/harness/migrate-file-storage-to-object-db.sh --data-root data --apply --json
+scripts/harness/object-db-verify.sh
+scripts/harness/object-db-verify.sh --json
+scripts/harness/object-db-verify.sh --ensure-bucket
+```
+
+Required environment when using the Postgres/MinIO stack:
+
+```bash
+MASKING_APP_DATABASE_URL=postgres://masking:masking-local-password@localhost:5432/masking_app
+MASKING_APP_OBJECT_ENDPOINT=http://localhost:9000
+MASKING_APP_OBJECT_BUCKET=masking-app
+MASKING_APP_OBJECT_ACCESS_KEY=masking
+MASKING_APP_OBJECT_SECRET_KEY=masking-local-password
+MASKING_APP_OBJECT_REGION=us-east-1
+```
+
+Current behavior:
+
+- `db-migrate.sh` applies the initial metadata schema.
+- `migrate-file-storage-to-object-db.sh` reads the current file storage data
+  root, uploads image/mask objects to MinIO, and upserts project/task/version,
+  image, and annotation metadata into Postgres. Without `--apply`, it is a
+  dry-run report.
+- `object-db-verify.sh` checks PostgreSQL connectivity and the MinIO bucket.
+- `--ensure-bucket` creates the configured object bucket when it is missing.
+- The app still defaults to `MASKING_APP_STORAGE_BACKEND=filesystem` until the
+  migration/cutover slice is explicitly enabled.
 
 ## Deployment Check
 

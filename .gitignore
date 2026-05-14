@@ -1,4 +1,6 @@
 data/
+backups/
 node_modules/
 .DS_Store
 .playwright-cli/
+.env

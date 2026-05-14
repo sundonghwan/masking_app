@@ -86,6 +86,17 @@ production-hardening decisions.
 Use this path when the target host should restart the app process automatically
 and keep runtime data outside the image.
 
+The Compose file now starts the app plus storage dependencies:
+
+- `masking-app`
+- `postgres` for future metadata DB mode
+- `minio` for future object storage mode
+- `minio-init` to create the local object bucket
+
+The app still defaults to `MASKING_APP_STORAGE_BACKEND=filesystem` until the
+DB/MinIO migration is applied and verified. That means the extra services can be
+started safely before the app cutover.
+
 1. Build and start:
 
    ```bash
@@ -108,6 +119,8 @@ and keep runtime data outside the image.
 
    ```bash
    docker compose logs --tail=100 masking-app
+   docker compose logs --tail=100 postgres
+   docker compose logs --tail=100 minio
    ```
 
 5. Stop without deleting the named data volume:
@@ -119,6 +132,16 @@ and keep runtime data outside the image.
 The default Compose file mounts a named volume, `masking_app_data`, at
 `/app/data`. Do not rely on files under the repository `data/` directory when
 running through Compose unless you intentionally replace the volume mapping.
+
+PostgreSQL and MinIO also use named volumes:
+
+```text
+masking_postgres_data
+masking_minio_data
+```
+
+Create a local `.env` from `.env.example` before any non-throwaway run and
+change the default passwords.
 
 ## Health Check
 

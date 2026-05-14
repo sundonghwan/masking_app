@@ -4,16 +4,78 @@ services:
       context: .
     image: masking-app:local
     ports:
-      - "4173:4173"
+      - "${MASKING_APP_PORT:-4173}:4173"
     environment:
       - MASKING_APP_MODE=staging
       - MASKING_APP_HOST=0.0.0.0
       - MASKING_APP_PORT=4173
       - MASKING_APP_DATA_DIR=/app/data
       - MASKING_APP_PUBLIC_ROOT=/app
+      - MASKING_APP_STORAGE_BACKEND=${MASKING_APP_STORAGE_BACKEND:-filesystem}
+      - MASKING_APP_DATABASE_URL=postgres://${MASKING_APP_POSTGRES_USER:-masking}:${MASKING_APP_POSTGRES_PASSWORD:-masking-local-password}@postgres:5432/${MASKING_APP_POSTGRES_DB:-masking_app}
+      - MASKING_APP_OBJECT_ENDPOINT=http://minio:9000
+      - MASKING_APP_OBJECT_REGION=${MASKING_APP_OBJECT_REGION:-us-east-1}
+      - MASKING_APP_OBJECT_BUCKET=${MASKING_APP_OBJECT_BUCKET:-masking-app}
+      - MASKING_APP_OBJECT_ACCESS_KEY=${MASKING_APP_MINIO_ROOT_USER:-masking}
+      - MASKING_APP_OBJECT_SECRET_KEY=${MASKING_APP_MINIO_ROOT_PASSWORD:-masking-local-password}
+      - MASKING_APP_OBJECT_FORCE_PATH_STYLE=1
     volumes:
       - masking_app_data:/app/data
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${MASKING_APP_POSTGRES_PORT:-5432}:5432"
+    environment:
+      - POSTGRES_DB=${MASKING_APP_POSTGRES_DB:-masking_app}
+      - POSTGRES_USER=${MASKING_APP_POSTGRES_USER:-masking}
+      - POSTGRES_PASSWORD=${MASKING_APP_POSTGRES_PASSWORD:-masking-local-password}
+    volumes:
+      - masking_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    ports:
+      - "${MASKING_APP_MINIO_PORT:-9000}:9000"
+      - "${MASKING_APP_MINIO_CONSOLE_PORT:-9001}:9001"
+    environment:
+      - MINIO_ROOT_USER=${MASKING_APP_MINIO_ROOT_USER:-masking}
+      - MINIO_ROOT_PASSWORD=${MASKING_APP_MINIO_ROOT_PASSWORD:-masking-local-password}
+    volumes:
+      - masking_minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      - MASKING_APP_OBJECT_BUCKET=${MASKING_APP_OBJECT_BUCKET:-masking-app}
+      - MASKING_APP_MINIO_ROOT_USER=${MASKING_APP_MINIO_ROOT_USER:-masking}
+      - MASKING_APP_MINIO_ROOT_PASSWORD=${MASKING_APP_MINIO_ROOT_PASSWORD:-masking-local-password}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MASKING_APP_MINIO_ROOT_USER} $${MASKING_APP_MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing local/$${MASKING_APP_OBJECT_BUCKET} &&
+      mc anonymous set none local/$${MASKING_APP_OBJECT_BUCKET}
+      "
+    restart: "no"
+
 volumes:
   masking_app_data:
+  masking_postgres_data:
+  masking_minio_data:

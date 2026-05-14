@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { resolveDeploymentProfile } from "../src/server/deploymentProfile.js";
+import { publicDeploymentProfile, resolveDeploymentProfile } from "../src/server/deploymentProfile.js";
 
 test("resolves local deployment defaults with explicit env overrides", () => {
   const profile = resolveDeploymentProfile({
@@ -20,6 +20,7 @@ test("resolves local deployment defaults with explicit env overrides", () => {
   assert.equal(profile.publicRoot, "/tmp/public");
   assert.equal(profile.logLevel, "debug");
   assert.equal(profile.sessionTtlMs, 120000);
+  assert.equal(profile.storage.backend, "filesystem");
   assert.equal(profile.aiServing.enabled, false);
 });
 
@@ -37,6 +38,31 @@ test("deployment profile enables generic AI serving without selecting a model", 
   assert.deepEqual(profile.aiServing.tasks, ["detection", "segmentation", "classification"]);
 });
 
+test("deployment profile exposes object-db storage configuration", () => {
+  const profile = resolveDeploymentProfile({
+    MASKING_APP_STORAGE_BACKEND: "object-db",
+    MASKING_APP_DATABASE_URL: "postgres://masking:secret@postgres:5432/masking_app",
+    MASKING_APP_OBJECT_ENDPOINT: "http://minio:9000",
+    MASKING_APP_OBJECT_BUCKET: "masking-app",
+    MASKING_APP_OBJECT_REGION: "ap-northeast-2",
+    MASKING_APP_OBJECT_ACCESS_KEY: "masking",
+    MASKING_APP_OBJECT_SECRET_KEY: "secret",
+    MASKING_APP_OBJECT_FORCE_PATH_STYLE: "1",
+  }, { cwd: "/repo" });
+
+  assert.equal(profile.storage.backend, "object-db");
+  assert.equal(profile.storage.databaseUrl, "postgres://masking:secret@postgres:5432/masking_app");
+  assert.equal(profile.storage.objectEndpoint, "http://minio:9000");
+  assert.equal(profile.storage.objectBucket, "masking-app");
+  assert.equal(profile.storage.objectRegion, "ap-northeast-2");
+  assert.equal(profile.storage.objectForcePathStyle, true);
+
+  const publicProfile = publicDeploymentProfile(profile);
+  assert.equal(publicProfile.storage_backend, "object-db");
+  assert.equal(publicProfile.database_configured, true);
+  assert.equal(publicProfile.object_storage_configured, true);
+});
+
 test("deployment profile rejects invalid port and mode values", () => {
   assert.throws(
     () => resolveDeploymentProfile({ PORT: "70000" }, { cwd: "/repo" }),
@@ -49,5 +75,9 @@ test("deployment profile rejects invalid port and mode values", () => {
   assert.throws(
     () => resolveDeploymentProfile({ MASKING_APP_SESSION_TTL_MS: "0" }, { cwd: "/repo" }),
     /MASKING_APP_SESSION_TTL_MS must be a positive integer/,
+  );
+  assert.throws(
+    () => resolveDeploymentProfile({ MASKING_APP_STORAGE_BACKEND: "s3-only" }, { cwd: "/repo" }),
+    /MASKING_APP_STORAGE_BACKEND must be one of/,
   );
 });

@@ -17,6 +17,13 @@
     "capacity:profile": "scripts/harness/capacity-profile.sh",
     "backup:data-root": "scripts/harness/backup-data-root.sh",
     "restore:verify": "scripts/harness/restore-verify.sh",
-    "production:gate": "scripts/harness/production-gate.sh"
+    "production:gate": "scripts/harness/production-gate.sh",
+    "db:migrate": "scripts/harness/db-migrate.sh",
+    "object-db:verify": "scripts/harness/object-db-verify.sh",
+    "object-db:migrate-files": "scripts/harness/migrate-file-storage-to-object-db.sh"
+  },
+  "dependencies": {
+    "minio": "^8.0.7",
+    "pg": "^8.20.0"
   }
 }

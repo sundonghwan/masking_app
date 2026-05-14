@@ -1926,3 +1926,22 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/test-target.sh status=passed tests=330
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=cross-resolution-mask-copy note=server-save-dimension-validation-remains-unchanged
+[START] task=minio-db-docker-storage subsystem=storage,database,docker,data-backup
+[PLAN] scope=backup-current-data-root,add-postgres-minio-compose,add-metadata-schema,add-file-storage-to-object-db-migration risks=data-loss,metadata-object-divergence,local-docker-drift
+[CMD] scripts/harness/backup-data-root.sh data status=passed archive=backups/masking-app-data-20260513T234409Z.tgz
+[CMD] scripts/harness/restore-verify.sh backups/masking-app-data-20260513T234409Z.tgz status=passed
+[DOC] created=docs/MINIO_DB_DOCKER_STORAGE_DESIGN.md note=postgres-metadata-minio-object-storage-migration-contract
+[CODE] updated=docker-compose.yml,.env.example,src/server/metadataDb.js,src/server/objectStorage.js note=postgres-minio-local-stack-and-runtime-config
+[CODE] added=src/server/fileStorageObjectDbMigration.js,scripts/harness/migrate-file-storage-to-object-db.sh note=dry-run-by-default-file-storage-to-object-db-minio-migration
+[CMD] docker compose up -d postgres minio minio-init status=passed postgres=healthy minio=healthy minio_init=exited_0
+[CMD] scripts/harness/db-migrate.sh --json status=passed applied=0001_initial_metadata
+[CMD] migrate-file-storage-to-object-db dry-run status=passed sources=3 images=197 annotations=11 objects=208 skipped=0
+[CMD] migrate-file-storage-to-object-db apply status=passed sources=3 images=197 annotations=11 uploaded_objects=208 skipped=0
+[CMD] object-db-verify --json --ensure-bucket status=passed checked_object_refs=208 missing=0
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=347
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] docker compose build masking-app status=passed image=masking-app:local
+[CMD] git diff --check status=passed
+[REVIEW] finding=remaining-risk scope=minio-db-docker-storage note=filesystem-remains-default-runtime-backend-object-db-api-cutover-not-yet-implemented
