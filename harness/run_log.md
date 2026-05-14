@@ -2126,3 +2126,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] git diff --check status=passed
 [DOC] updated=docs/FEATURE_STATUS.md,docs/REMAINING_WORK_BOARD.md note=magic-edge-band-complete-and-test-count-354
 [REVIEW] finding=none-blocking scope=magic-tool-edge-band notes=edge-band-expansion-bounded-by-radius-maxpixels-nearby-edge-and-separate-color-tolerance
+[START] task=right-click-camera-pan subsystem=editor,input-ux,viewport
+[PLAN] scope=mouse-right-button-temporary-camera-pan risks=mask-stroke-contamination,pen-eraser-conflict,context-menu-interruption
+[DOC] added=docs/superpowers/specs/2026-05-14-right-click-camera-pan-design.md note=right-click-pan-without-changing-selected-tool
+[TEST] added=tests/maskEditor.test.js note=right-click-drag-pans-without-mask-change-and-contextmenu-prevented
+[CMD] node --test tests/maskEditor.test.js status=failed expected=red reason=right-click-did-not-pan-and-contextmenu-listener-missing
+[CODE] updated=src/editor/maskEditor.js note=mouseRequestsCameraPan-and-canvas-contextmenu-prevention
+[CMD] node --test tests/maskEditor.test.js status=passed tests=24
+[DOC] updated=docs/USER_MANUAL.md,docs/FEATURE_STATUS.md,docs/REMAINING_WORK_BOARD.md note=right-click-pan-documented
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=356
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=right-click-camera-pan notes=mouse-only-right-click-pan-preserves-pen-eraser-touch-gesture-mask-and-undo-boundaries

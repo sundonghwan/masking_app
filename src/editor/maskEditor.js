@@ -627,6 +627,8 @@ export class MaskEditor {
   bindCanvasEvents() {
     this.canvas.addEventListener("pointerdown", (event) => {
       if (!this.image) return;
+      const rightClickPan = mouseRequestsCameraPan(event);
+      if (rightClickPan) preventEventDefault(event);
       this.canvas.setPointerCapture(event.pointerId);
       this.activePointers.set(event.pointerId, eventCanvasPoint(event));
       if (this.activePointers.size >= 2) {
@@ -651,7 +653,7 @@ export class MaskEditor {
       this.activePointerMode = "idle";
       this.activeStrokeTool = stylusRequestsEraser(event) ? "erase" : this.tool;
 
-      if (this.spacePanHeld || this.activeStrokeTool === "pan") {
+      if (rightClickPan || this.spacePanHeld || this.activeStrokeTool === "pan") {
         this.beginCameraPan(event);
         return;
       }
@@ -740,6 +742,9 @@ export class MaskEditor {
 
     this.canvas.addEventListener("pointerup", (event) => this.endPointer(event));
     this.canvas.addEventListener("pointercancel", (event) => this.endPointer(event));
+    this.canvas.addEventListener("contextmenu", (event) => {
+      preventEventDefault(event);
+    });
     this.canvas.addEventListener("wheel", (event) => {
       if (!this.image) return;
       event.preventDefault();
@@ -1044,6 +1049,14 @@ function touchGestureFromPointers(pointers) {
 function stylusRequestsEraser(event) {
   if (event.pointerType !== "pen") return false;
   return event.button === 5 || event.button === 2 || Boolean((event.buttons || 0) & 32) || Boolean((event.buttons || 0) & 2);
+}
+
+function mouseRequestsCameraPan(event) {
+  return event.pointerType === "mouse" && (event.button === 2 || Boolean((event.buttons || 0) & 2));
+}
+
+function preventEventDefault(event) {
+  if (typeof event.preventDefault === "function") event.preventDefault();
 }
 
 function pointerStartsDeferredPaint(event) {

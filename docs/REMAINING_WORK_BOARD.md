@@ -19,14 +19,14 @@ or production audit. This board separates:
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Core masking workflow | Done | Brush, erase, magic, pan, submit, review, export covered by unit/API/browser tests |
+| Core masking workflow | Done | Brush, erase, magic, Spacebar/right-click pan, submit, review, export covered by unit/API/browser tests |
 | Role workflow | Done | Login, admin, worker, reviewer, assignment, review, logout implemented |
 | Project operations | Done | Create, edit, archive, restore, purge, image remove/restore implemented |
 | File hierarchy | Done | Project/task/version storage and version clone/delete/restore implemented |
 | Multi-class masks | Done for MVP | Label schema, selected label color, per-class masks, class-aware export/training metadata implemented |
 | Training-set output | Done | Selected sources, saved training sets, deterministic split, re-export/archive/restore implemented |
 | AI serving | Contract done | Generic detection/segmentation/classification API contract exists; real model adapter is deferred |
-| Validation harness | Strong baseline | lint, typecheck, 354 Node tests, smoke, browser E2E entrypoint, storage/object-db verifiers, production gate, staging evidence bundle, release artifact revision checks, boundary decision apply preview |
+| Validation harness | Strong baseline | lint, typecheck, 356 Node tests, smoke, browser E2E entrypoint, storage/object-db verifiers, production gate, staging evidence bundle, release artifact revision checks, boundary decision apply preview |
 | Code health | Active cleanup | Project settings and assignment route helpers extracted; larger route blocks remain |
 | Production readiness | Not complete | Identity/storage/host evidence decisions remain |
 
@@ -64,7 +64,7 @@ need.
 
 ## Latest Verified State
 
-- Last full test count: 354 Node tests passing.
+- Last full test count: 356 Node tests passing.
 - Latest data/config cleanup evidence:
   `scripts/harness/storage-verify.sh --json data` passed with
   `images=197`, `masks=26`, `errors=[]`; object-db verification passed with

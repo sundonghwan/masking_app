@@ -50,6 +50,7 @@ For a shorter production-progress view, see
 - [x] Edge-aware magic tool using local image edge detection
 - [x] Magic tool edge-band selection for visible object borders
 - [x] Spacebar temporary pan workflow for editor efficiency
+- [x] Mouse right-click temporary pan workflow for zoomed masking
 - [x] Dashboard planning and design for operational overview
 - [x] Project/task/version file-storage hierarchy design
 - [x] Persistent local user directory seeded from MVP accounts

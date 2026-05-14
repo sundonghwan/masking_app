@@ -318,7 +318,7 @@ class_id + mask image
 | `지우개` | `E` | Remove mask pixels |
 | `매직` | `W` | Click an image region to create an edge-aware local mask |
 | `보기` | `V` | Inspect without editing |
-| `이동` | Hold `Space` | Temporarily pan camera while preserving the selected tool |
+| `이동` | Hold `Space` or right-click drag | Temporarily pan camera while preserving the selected tool |
 | `마스크 이동` | `M` | Move the current mask to align copied/shifted frames |
 
 Other controls:
@@ -333,13 +333,14 @@ Other controls:
 | `색상 허용` | Magic tool color tolerance |
 | `엣지 강도` | Magic tool edge threshold |
 
-## Spacebar Pan
+## Temporary Camera Pan
 
-Hold `Space` while dragging the canvas to move the camera. Releasing `Space`
-returns to the previous tool.
+Hold `Space` while dragging the canvas, or right-click drag with a mouse, to
+move the camera. Releasing `Space` or the right mouse button returns to the
+previous tool.
 
 This is intended for efficient zoomed editing. It should not switch the selected
-tool permanently.
+tool permanently or change mask pixels.
 
 ## iPad And Apple Pencil Canvas Controls
 

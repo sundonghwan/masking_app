@@ -61,6 +61,12 @@ class TestCanvas {
     this.listeners.set(type, listener);
   }
 
+  dispatch(type, event = {}) {
+    const listener = this.listeners.get(type);
+    assert.equal(typeof listener, "function", `missing ${type} listener`);
+    listener(event);
+  }
+
   dispatchPointer(type, event = {}) {
     const listener = this.listeners.get(type);
     assert.equal(typeof listener, "function", `missing ${type} listener`);
@@ -368,6 +374,76 @@ test("camera pan override moves viewport without changing tool, mask, onChange, 
 
     editor.setCameraPanOverride(false);
     assert.equal(editor.getState().cameraPanOverride, false);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("mouse right drag pans viewport without painting or changing tool", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    let changeCount = 0;
+    let viewportCount = 0;
+    const editor = new MaskEditor(canvas, {
+      onChange: () => { changeCount += 1; },
+      onViewportChange: () => { viewportCount += 1; },
+    });
+    editor.image = { naturalWidth: 100, naturalHeight: 80 };
+    editor.maskCanvas.width = 100;
+    editor.maskCanvas.height = 80;
+    editor.scale = 2;
+    editor.offsetX = 4;
+    editor.offsetY = 6;
+    editor.setTool("brush");
+
+    canvas.dispatchPointer("pointerdown", {
+      pointerType: "mouse",
+      button: 2,
+      buttons: 2,
+      offsetX: 20,
+      offsetY: 10,
+    });
+    canvas.dispatchPointer("pointermove", {
+      pointerType: "mouse",
+      button: 2,
+      buttons: 2,
+      offsetX: 30,
+      offsetY: 16,
+      movementX: 10,
+      movementY: 6,
+    });
+    canvas.dispatchPointer("pointerup", {
+      pointerType: "mouse",
+      button: 2,
+      buttons: 0,
+    });
+
+    assert.equal(editor.getState().tool, "brush");
+    assert.deepEqual(editor.getViewportState(), { scale: 2, offsetX: 14, offsetY: 12 });
+    assert.equal(editor.getMaskRatio(), 0);
+    assert.equal(changeCount, 0);
+    assert.equal(viewportCount, 1);
+    assert.equal(editor.getState().canUndo, false);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("canvas context menu is prevented so right-click pan is not interrupted", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    new MaskEditor(canvas);
+    let prevented = false;
+
+    canvas.dispatch("contextmenu", {
+      preventDefault: () => { prevented = true; },
+    });
+
+    assert.equal(prevented, true);
   } finally {
     restoreDocument();
   }
