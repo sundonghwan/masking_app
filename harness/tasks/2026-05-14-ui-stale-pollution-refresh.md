@@ -65,9 +65,10 @@
   project, `rail-mask-0513`, still existed with a `support` label schema. It
   had no images, but a restored browser snapshot could keep the workbench on
   that deleted project.
-- Purged `rail-mask-0513` through the admin project purge API and verified the
-  whole data root no longer contains `support`, `class_2`, or `unlabeled`
-  patterns.
+- Purged `rail-mask-0513` through the admin project purge API.
+- Correction: `support` is a valid project class and must remain in
+  `label_schema`. The clean condition is no `support` annotations/mask files
+  for the repaired slider work, not absence of the support class definition.
 
 ## Closeout
 
@@ -76,4 +77,14 @@
 - Deleted or missing restored projects now clear the local project snapshot
   while preserving the authenticated session, so stale archived projects do not
   remain in the workbench after reload.
+- Restored `support` as class `2` in `rail-mask-20260513` label schema while
+  keeping current annotations as `slider` only.
+- Final correction after user clarified the contamination direction: the
+  polluted records were support masks that had been relabeled as slider. The
+  source-of-truth pre-repair extract under
+  `/private/tmp/masking-app-pre-repair-selected` showed `slider=5` and
+  `support=9`.
+- Restored `rail-mask-20260513` to that class distribution, normalized class 2
+  to `support` with color `#FF4422`, and remigrated object-db/MinIO from the
+  corrected filesystem manifest.
 - Tests and storage/API checks passed.

@@ -2061,3 +2061,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/test-target.sh status=passed tests=353
 [DATA] backup=backups/masking-app-data-20260514T065502Z.tgz note=post-purge-clean-data-root
 [REVIEW] finding=none-blocking scope=archived-project-stale-restore note=local-session-preserved-and-project-context-cleared-for-deleted-or-404-restored-projects
+[FIXUP] task=restore-support-class-definition reason=support-is-valid-class-not-pollution
+[DATA] restored=rail-mask-20260513 label_schema=slider:1,support:2 note=support-annotations-remain-zero
+[DATA] updated=postgres projects.label_schema project=rail-mask-20260513 note=annotations-remain-slider-only-count-12
+[CMD] scripts/harness/storage-verify.sh --json data status=passed errors=0 warnings=0
+[CMD] GET /api/projects/rail-mask-20260513 status=passed labels=slider,support support_annotations=0 slider_annotations=12
+[CORRECTION] task=restore-original-slider-support-split reason=user-clarified-pollution-was-support-masks-labeled-as-slider
+[EVIDENCE] source=/private/tmp/masking-app-pre-repair-selected/data/rail-mask-20260513/manifest.json counts=slider:5,support:9
+[DATA] restored=rail-mask-20260513 filesystem counts=slider:5,support:9 note=mask-files-copied-from-pre-repair-extract-and-class_names-normalized
+[DATA] remigrated=object-db-minio project=rail-mask-20260513 annotations=14 uploaded_objects=211
+[CMD] scripts/harness/storage-verify.sh --json data status=passed errors=0 warnings=0
+[CMD] scripts/harness/object-db-verify.sh --json --ensure-bucket status=passed checked_object_refs=211 missing=0
+[CMD] GET /api/projects/rail-mask-20260513 status=passed labels=slider,support slider_annotations=5 support_annotations=9
+[DATA] backup=backups/masking-app-data-20260514T070515Z.tgz note=post-corrected-slider-support-split
