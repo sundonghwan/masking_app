@@ -435,7 +435,7 @@ function bindEvents() {
   els.refreshProjectsButton.addEventListener("click", () => void refreshProjectSummaries());
   els.workbenchProjectsButton.addEventListener("click", () => routeToScreen(SCREENS.PROJECTS));
   els.workbenchDashboardButton.addEventListener("click", () => routeToScreen(SCREENS.DASHBOARD));
-  els.refreshVersionsButton.addEventListener("click", () => void refreshVersionContext());
+  els.refreshVersionsButton.addEventListener("click", () => void refreshWorkbenchFromServer());
   els.taskSelector.addEventListener("change", () => void selectTaskContext(els.taskSelector.value));
   els.versionSelector.addEventListener("change", () => void selectVersionContext(els.versionSelector.value));
   els.cloneVersionButton.addEventListener("click", () => void cloneSelectedVersion());
@@ -751,6 +751,29 @@ async function refreshVersionContext() {
     const normalized = normalizeApiError(error);
     state.versionMessage = normalized.message;
     renderVersionContext();
+  }
+}
+
+async function refreshWorkbenchFromServer() {
+  if (!state.projectId || !state.sessionAuthenticated) return;
+  const localOnly = state.images.filter((image) => image.active_mask_dirty || hasSyncIssue(image));
+  if (localOnly.length > 0) {
+    const proceed = window.confirm(`${localOnly.length}개 항목에 로컬 전용 변경이 있습니다. 서버 데이터로 새로고침하면 이 화면의 로컬 변경이 덮어써질 수 있습니다. 계속할까요?`);
+    if (!proceed) return;
+  }
+
+  setSaveState("saving", "서버 데이터 새로고침");
+  try {
+    const manifest = await apiClient.getProject(state.projectId);
+    await restoreServerManifest(manifest);
+    await refreshVersionContext();
+    await refreshTrainingSources();
+    await refreshTrainingSets();
+    render();
+    setSaveState("saved", "서버 데이터 갱신됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    setSaveState("failed", `서버 새로고침 실패: ${normalized.message}`);
   }
 }
 

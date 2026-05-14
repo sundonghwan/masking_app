@@ -206,7 +206,7 @@ Use the topbar selectors:
 | --- | --- |
 | `Task` | Choose task scope |
 | `Version` | Choose version |
-| `↻` | Refresh task/version list |
+| `↻` | Refresh the current project from the server, including task/version context |
 | `⧉` | Clone current version, admin only |
 | `×` | Soft-delete current version, admin only |
 | `↺` | Restore deleted version, admin only |
@@ -214,6 +214,25 @@ Use the topbar selectors:
 
 Use versions when you need to revise a dataset without overwriting the previous
 state.
+
+## iPad And PC Sync
+
+The app is server-synced, not real-time browser-to-browser collaborative
+editing. The iPad and PC each keep their own browser cache, so the other device
+must pull the latest server state after work is saved.
+
+Recommended flow:
+
+1. On iPad, finish the current mask edit.
+2. Use `마스크 저장` or `제출` and wait until the save state no longer shows an
+   error.
+3. On the PC workbench, click `↻` in the topbar.
+4. Confirm the image list, selected mask, status, task/version, and sync panel
+   reflect the latest server data.
+
+If `동기화 필요` appears, use `동기화 재시도` before moving to the other device.
+If the refresh button warns that local-only changes exist, cancel unless you are
+sure those local browser changes can be replaced by the server copy.
 
 ## Upload Images
 

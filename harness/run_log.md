@@ -1975,3 +1975,17 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=workbench-text-selection-guard note=selection-remains-enabled-for-form-fields
+[START] task=cross-device-sync-refresh subsystem=frontend-sync,input-ux
+[BUG] symptom=ipad-and-pc-appear-out-of-sync root_cause=each-browser-keeps-local-indexeddb-cache-and-workbench-refresh-only-made-task-version-refresh-obvious
+[IMPACT] status=validated chain=refreshVersionsButton(index.html)->refreshWorkbenchFromServer(src/app.js)->apiClient.getProject
+[CODE] updated=index.html,src/app.js note=topbar-refresh-now-pulls-current-project-manifest-from-server-and-refreshes-task-version-training-context
+[DOC] updated=docs/USER_MANUAL.md note=ipad-pc-server-sync-flow-and-local-only-warning
+[TEST] added=tests/appContracts.test.js note=workbench-refresh-contract
+[CMD] node --check src/app.js status=passed
+[CMD] node --test tests/appContracts.test.js status=passed tests=28
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=351
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=cross-device-sync-refresh note=manual-server-pull-with-local-only-warning-no-real-time-merge-claim
