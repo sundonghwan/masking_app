@@ -84,6 +84,8 @@ test("screen flow separates login projects and workbench", () => {
   assert.match(html, /id="refreshVersionsButton"[^>]+서버 데이터 새로고침/);
   assert.match(app, /refreshVersionsButton\.addEventListener\("click", \(\) => void refreshWorkbenchFromServer\(\)\)/);
   assert.match(app, /function refreshWorkbenchFromServer\(/);
+  assert.match(app, /await refreshRestoredProjectFromServer\(\)/);
+  assert.match(app, /function refreshRestoredProjectFromServer\(/);
   assert.match(app, /function currentScreen\(/);
   assert.match(app, /function canEnterWorkbench\(/);
   assert.match(app, /function renderDashboard\(/);

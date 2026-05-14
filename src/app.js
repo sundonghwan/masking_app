@@ -296,6 +296,7 @@ async function init() {
   resizeEditorCanvas();
   await restoreProject();
   await validateRestoredSession();
+  await refreshRestoredProjectFromServer();
   routeToInitialScreen();
   bindEvents();
   if (canEnterProjects()) {
@@ -775,6 +776,25 @@ async function refreshWorkbenchFromServer() {
   } catch (error) {
     const normalized = normalizeApiError(error);
     setSaveState("failed", `서버 새로고침 실패: ${normalized.message}`);
+  }
+}
+
+async function refreshRestoredProjectFromServer() {
+  if (!state.projectId || !state.sessionAuthenticated || !state.backendProjectReady) return;
+  const localOnly = state.images.filter((image) => image.active_mask_dirty || hasSyncIssue(image));
+  if (localOnly.length > 0) return;
+
+  try {
+    const manifest = await apiClient.getProject(state.projectId);
+    await restoreServerManifest(manifest);
+    setSaveState("saved", "서버 데이터로 복구됨");
+  } catch (error) {
+    const normalized = normalizeApiError(error);
+    state.backendProjectError = normalized.message;
+    logger.warn("server_restore.project.failed", {
+      project_id: state.projectId,
+      error: normalized,
+    });
   }
 }
 

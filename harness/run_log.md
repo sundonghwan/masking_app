@@ -2036,3 +2036,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/typecheck-all.sh status=passed
 [CMD] npm test status=passed tests=353
 [REVIEW] finding=none-blocking scope=object-db-remigration-recovery note=verified-class-rows-directly-because-object-reference-verifier-alone-would-not-catch-unlabeled-class-metadata
+[START] task=ui-stale-pollution-refresh subsystem=frontend-sync,data-repair
+[BUG] symptom=ui-still-shows-polluted-data-after-server-data-clean root_cause=browser-indexeddb-restored-stale-project-snapshot-before-manual-server-refresh
+[DATA] verified=filesystem rail-mask-20260513 labels=slider annotations=12 bad_patterns=0
+[DATA] verified=api rail-mask-20260513 labels=slider annotations=12 bad_patterns=0
+[CODE] updated=src/app.js note=startup-refreshes-restored-project-from-server-after-session-validation-when-no-local-dirty-or-sync-issue-exists
+[TEST] updated=tests/appContracts.test.js note=startup-server-refresh-contract
+[CMD] node --test tests/appContracts.test.js status=passed tests=28
+[CMD] scripts/harness/storage-verify.sh --json data status=passed errors=0 warnings=0
+[CMD] authenticated GET /api/projects/rail-mask-20260513 status=passed support_annotations=0 slider_annotations=12
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=353
+[REVIEW] finding=none-blocking scope=ui-stale-pollution-refresh note=auto-refresh-does-not-overwrite-dirty-or-sync-issue-local-work

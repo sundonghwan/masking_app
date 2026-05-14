@@ -104,6 +104,7 @@ For a shorter production-progress view, see
 - [x] Staging evidence JSON output artifact for release records
 - [x] Project settings route normalization helper refactor
 - [x] Assignment route helper refactor
+- [x] Startup server refresh for clean restored projects to avoid stale local IndexedDB pollution
 
 ## In Progress
 
