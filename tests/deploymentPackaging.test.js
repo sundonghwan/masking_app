@@ -6,6 +6,8 @@ test("Dockerfile packages the app with healthcheck and writable data volume", as
   const dockerfile = await readFile("Dockerfile", "utf8");
 
   assert.match(dockerfile, /FROM node:/);
+  assert.match(dockerfile, /COPY package\.json package-lock\.json \.\//);
+  assert.match(dockerfile, /RUN npm ci --omit=dev/);
   assert.match(dockerfile, /USER masking/);
   assert.match(dockerfile, /EXPOSE 4173/);
   assert.match(dockerfile, /VOLUME \["\/app\/data"\]/);

@@ -11,11 +11,12 @@ structure, design contracts, architecture decisions, and validation entrypoints.
 
 ## Current State
 
-This repository contains a working local-first MVP for a browser-based image
-masking annotation tool. It includes product requirements, architecture,
-design-system guidance, generated UI references, the coding harness, a
-dependency-free browser editor, a Node HTTP backend, filesystem storage, local
-IndexedDB recovery, tests, and validation wrapper scripts.
+This repository contains a working browser-based image masking annotation tool.
+It includes product requirements, architecture, design-system guidance,
+generated UI references, the coding harness, a dependency-free browser editor,
+a Node HTTP backend, filesystem recovery storage, object-db runtime storage,
+local IndexedDB recovery, tests, Docker packaging, and validation wrapper
+scripts.
 
 ## Important Files
 
@@ -25,6 +26,7 @@ IndexedDB recovery, tests, and validation wrapper scripts.
 | `docs/ARCHITECTURE.md` | MVP architecture: frontend/backend responsibilities, data model, API surface, runtime flows. |
 | `docs/DEVELOPMENT_CHECKPOINTS.md` | Current checkpoint, recommended development order, and feature sequencing guardrails. |
 | `docs/LOGGING.md` | Development log vs runtime operational log policy and event naming. |
+| `docs/PROJECT_STRUCTURE_RUNTIME.md` | Current folder, data, config, verifier, and Docker runtime map. |
 | `DESIGN.md` | Design-system contract: tokens, layout rules, components, visual guardrails. |
 | `docs/DESIGN_SCREENS.md` | Screen inventory and image-generation prompts for the UI set. |
 | `docs/design/README.md` | Current design screen index. Use `screens-v2/` as implementation reference. |
@@ -41,17 +43,19 @@ IndexedDB recovery, tests, and validation wrapper scripts.
 
 ## Current Application Shape
 
-The current MVP is local-first:
+The current app keeps local recovery while Docker uses object-db runtime:
 
 - Browser editor owns interactive canvas work.
-- IndexedDB is the local recovery source.
-- Backend filesystem storage is a sync/export mirror.
+- IndexedDB is the browser-side local recovery source.
+- Host-native filesystem storage remains available for recovery and fixtures.
+- Docker Compose defaults to object-db storage: PostgreSQL stores metadata and
+  MinIO stores original image and class-mask bytes.
 - Backend validates PNG signature, dimensions, 8-bit grayscale format, decoded
   pixel values, and non-empty binary `0/255` masks for supported
   non-interlaced PNG masks.
 
-No frontend framework, backend framework, or database has been introduced. Do
-not add one unless it directly supports the next checkpoint.
+No frontend framework or backend framework has been introduced. PostgreSQL and
+MinIO are present only as storage/runtime dependencies.
 
 ## Product Workflow
 
@@ -89,7 +93,7 @@ These areas require impact chains:
 - file upload and storage paths
 - local-first/backend sync boundaries
 - auth/permission once added
-- database writes and migrations once added
+- database writes, migrations, and object-storage references
 
 ## Relevant Playbooks
 
@@ -122,15 +126,15 @@ Read `docs/DEVELOPMENT_CHECKPOINTS.md` before adding new product features.
 
 Next recommended work:
 
-1. Backend mask save contract hardening.
-2. Export policy unification.
-3. Sync policy clarification.
-4. Upload boundary upgrade when file size requires it.
-5. Review workflow MVP after the mask/export contract is reliable.
+1. Run Docker object-db staging evidence on the target host.
+2. Prove export/training-set parity against representative object-db data.
+3. Rotate local MVP credentials or record the identity boundary decision before
+   shared network use.
+4. Add a real AI model adapter only after local magic-tool limits are confirmed.
 
 ## Open Questions
 
-- Will the first MVP be local-only or multi-user over a network?
-- Should empty masks be valid in any dataset scenario?
-- What maximum image size must the first editor support?
-- When should the app switch from local-first recovery to server-first restore?
+- Which host will own the first shared Docker deployment?
+- Will local MVP identity be accepted for controlled internal use, or replaced
+  by an external provider?
+- What export/training-set smoke should become the release gate for real data?

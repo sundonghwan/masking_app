@@ -2090,3 +2090,26 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] MASKING_APP_DATABASE_URL=... MASKING_APP_OBJECT_ENDPOINT=... scripts/harness/object-db-verify.sh --json --ensure-bucket status=passed checked_object_refs=211 missing=0
 [CMD] scripts/harness/test-target.sh status=passed tests=353
 [CMD] git diff --check status=passed
+[START] task=project-structure-risk-docker-serve subsystem=ops-docs,data,config,docker
+[PLAN] scope=folder-data-config-cleanup,risk-board,docker-build-serve risks=filesystem-objectdb-divergence,docker-dependency-missing,port-conflict
+[DATA] fixed=filesystem-mask-path project=rail-mask-20260513 image=image_0001 note=created class_2_support file and removed stale class_2_slider orphan
+[CMD] scripts/harness/storage-verify.sh --json data status=passed images=197 masks=26 errors=0
+[CMD] scripts/harness/object-db-verify.sh --json --ensure-bucket status=passed checked_object_refs=211 missing=0
+[DATA] backup=backups/masking-app-data-20260514T074945Z.tgz note=post-folder-data-config-cleanup
+[DOC] added=docs/PROJECT_STRUCTURE_RUNTIME.md note=folder-data-config-runtime-map-and-risk-controls
+[DOC] updated=harness/repo_index.md,docs/ARCHITECTURE.md,docs/REMAINING_WORK_BOARD.md,README.md note=object-db-runtime-and-current-risk-state
+[BUG] symptom=docker-image-built-but-runtime-dependencies-missing root_cause=Dockerfile-copied-source-after-node_modules-ignored-without-npm-ci
+[CODE] updated=Dockerfile note=install-production-dependencies-from-package-lock
+[TEST] updated=tests/deploymentPackaging.test.js note=assert-dockerfile-npm-ci-step
+[CMD] node --test tests/deploymentPackaging.test.js status=passed tests=5
+[CMD] docker compose build masking-app status=passed image=masking-app:local
+[CMD] docker run --rm masking-app:local node import pg/minio status=passed
+[CMD] docker compose up -d status=passed app=healthy port=4173 storage=object-db
+[CMD] scripts/harness/deployment-check.sh --json --output release-artifacts/deployment-check-20260514-docker-object-db.json http://127.0.0.1:4173 status=passed storage_backend=object-db
+[CMD] docker API smoke status=passed project=rail-mask-20260513 images=101 slider=5 support=9 support_mask_bytes=2714
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=353
+[CMD] scripts/harness/storage-verify.sh --json data status=passed images=197 masks=26 errors=0
+[CMD] scripts/harness/object-db-verify.sh --json --ensure-bucket status=passed checked_object_refs=211 missing=0
+[CMD] git diff --check status=passed

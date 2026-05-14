@@ -12,6 +12,9 @@ ENV MASKING_APP_PUBLIC_ROOT=/app
 
 RUN addgroup -S masking && adduser -S masking -G masking
 
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 COPY --chown=masking:masking . .
 
 RUN mkdir -p /app/data && chown -R masking:masking /app/data

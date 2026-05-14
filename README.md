@@ -134,6 +134,7 @@ The active UI direction is a compact operational workbench, not a landing page.
 Read these before adding new product features:
 
 - `docs/ARCHITECTURE.md`
+- `docs/PROJECT_STRUCTURE_RUNTIME.md`
 - `docs/DEVELOPMENT_CHECKPOINTS.md`
 - `docs/LOGGING.md`
 

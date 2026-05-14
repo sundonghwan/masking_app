@@ -41,7 +41,9 @@ The MVP intentionally does not optimize yet for:
 ## 2. Current MVP Architecture
 
 Current implementation is a dependency-free web app served by Node's built-in
-HTTP server.
+HTTP server. Docker Compose now runs the app with PostgreSQL metadata storage
+and MinIO object storage by default. Host-native filesystem storage remains
+available as an explicit local recovery mode.
 
 ```text
 Browser App
@@ -52,9 +54,17 @@ Browser App
 Node HTTP Server
   -> Static file serving
   -> Project/image/mask/export APIs
-  -> Filesystem project storage
+  -> Object-db runtime storage in Docker Compose
+  -> Filesystem recovery storage for host-native local mode
   -> PNG header/dimension/format validation
   -> ZIP export generation
+
+PostgreSQL
+  -> Project/task/version/image/annotation/review metadata
+
+MinIO
+  -> Original image bytes
+  -> Class-specific binary mask PNG bytes
 ```
 
 ### Current Code Map
@@ -69,7 +79,10 @@ Node HTTP Server
 | `src/export/zip.js` | Dependency-free ZIP writer |
 | `src/storage/projectStore.js` | IndexedDB or memory fallback for local recovery |
 | `src/server/api.js` | Backend API routes |
-| `src/server/storage.js` | Filesystem storage and archive-relative file handling |
+| `src/server/storage.js` | Filesystem recovery storage and archive-relative file handling |
+| `src/server/objectDbStorage.js` | PostgreSQL metadata and MinIO object runtime adapter |
+| `src/server/metadataDb.js` | Metadata DB configuration, migrations, and health verification |
+| `src/server/objectStorage.js` | MinIO/S3-compatible object storage configuration and bucket verification |
 | `src/server/maskValidation.js` | PNG header parsing and mask contract checks |
 
 ### Current Runtime Flow
@@ -98,14 +111,21 @@ User exports project
 
 ### Current Source Of Truth Policy
 
-This slice is **local-first**:
+This slice is **server-runtime first with local recovery**:
 
-- IndexedDB is the primary recovery source for browser work.
-- Backend filesystem storage is a persistence/export mirror.
-- Backend export is preferred only when image and mask sync flags indicate the
-  exportable records are present on the server.
+- IndexedDB remains the browser-side recovery source for unsynced local work.
+- In Docker Compose, PostgreSQL is the source of truth for queryable project,
+  image, annotation, review, and deletion metadata.
+- In Docker Compose, MinIO is the source of truth for original image bytes and
+  class-specific binary mask PNG bytes.
+- Host-native filesystem storage remains available for local recovery,
+  fixtures, backup inspection, and emergency repair.
+- Backend export is preferred when image and mask sync flags indicate the
+  exportable records are present on the active server storage backend.
 
-This is a deliberate MVP policy, not the final multi-user architecture.
+This is a deliberate intermediate policy: object-db is the shared runtime path,
+while local recovery remains available until final target-host evidence proves
+all critical export/training-set paths.
 
 ### Current Operational Logging
 
