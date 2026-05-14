@@ -632,9 +632,14 @@ export class MaskEditor {
           this.onChange();
         }
       } else if (this.activeStrokeTool === "magic") {
-        this.activePointerMode = "magic";
         this.beforeStroke = this.snapshotMask();
         this.redoStack = [];
+        if (pointerStartsDeferredPaint(event)) {
+          this.activePointerMode = "magic_pending";
+          this.redraw();
+          return;
+        }
+        this.activePointerMode = "magic";
         const changed = this.magicSelectAt(point);
         if (changed > 0) this.onChange();
         if (changed === 0) this.beforeStroke = null;
@@ -667,6 +672,12 @@ export class MaskEditor {
 
       if (this.isPointerDown && this.activePointerMode === "mask_move") {
         this.updateMaskMove(point);
+        return;
+      }
+
+      if (this.isPointerDown && this.activePointerMode === "magic_pending") {
+        this.lastPoint = point;
+        this.redraw();
         return;
       }
 
@@ -795,6 +806,23 @@ export class MaskEditor {
 
     if (!this.isPointerDown) return;
     const finishedPointerMode = this.activePointerMode;
+    if (finishedPointerMode === "magic_pending") {
+      const changed = this.magicSelectAt(this.lastPoint);
+      if (changed > 0) {
+        this.onChange();
+        this.undoStack.push(this.beforeStroke);
+        if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
+      }
+      this.beforeStroke = null;
+      this.isPointerDown = false;
+      this.isPanning = false;
+      this.activePointerMode = "idle";
+      this.activeStrokeTool = null;
+      this.updateCanvasCursor();
+      this.releasePointer(event);
+      return;
+    }
+
     this.isPointerDown = false;
     if (finishedPointerMode === "camera_pan") {
       this.endCameraPan();

@@ -416,6 +416,74 @@ test("two finger touch gesture pans and zooms viewport without painting the mask
   }
 });
 
+test("magic tool touch waits for tap end so two finger gesture does not apply selection", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    let changeCount = 0;
+    const editor = new MaskEditor(canvas, {
+      onChange: () => { changeCount += 1; },
+    });
+    editor.image = { naturalWidth: 20, naturalHeight: 20 };
+    editor.maskCanvas.width = 20;
+    editor.maskCanvas.height = 20;
+    editor.sourceCanvas.width = 20;
+    editor.sourceCanvas.height = 20;
+    editor.scale = 1;
+    editor.offsetX = 0;
+    editor.offsetY = 0;
+    editor.setTool("magic");
+
+    canvas.dispatchPointer("pointerdown", { pointerId: 1, pointerType: "touch", offsetX: 4, offsetY: 4 });
+    assert.equal(editor.getMaskRatio(), 0);
+    canvas.dispatchPointer("pointerdown", { pointerId: 2, pointerType: "touch", offsetX: 10, offsetY: 4 });
+    canvas.dispatchPointer("pointermove", { pointerId: 1, pointerType: "touch", offsetX: 2, offsetY: 6 });
+    canvas.dispatchPointer("pointermove", { pointerId: 2, pointerType: "touch", offsetX: 14, offsetY: 6 });
+    canvas.dispatchPointer("pointerup", { pointerId: 1 });
+    canvas.dispatchPointer("pointerup", { pointerId: 2 });
+
+    assert.equal(editor.getState().tool, "magic");
+    assert.equal(editor.getMaskRatio(), 0);
+    assert.equal(changeCount, 0);
+    assert.equal(editor.getState().canUndo, false);
+    assert.equal(editor.getViewportState().scale, 2);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("magic tool touch single tap applies selection on pointer up", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    let changeCount = 0;
+    const editor = new MaskEditor(canvas, {
+      onChange: () => { changeCount += 1; },
+    });
+    editor.image = { naturalWidth: 8, naturalHeight: 8 };
+    editor.maskCanvas.width = 8;
+    editor.maskCanvas.height = 8;
+    editor.sourceCanvas.width = 8;
+    editor.sourceCanvas.height = 8;
+    editor.scale = 1;
+    editor.offsetX = 0;
+    editor.offsetY = 0;
+    editor.setTool("magic");
+
+    canvas.dispatchPointer("pointerdown", { pointerId: 1, pointerType: "touch", offsetX: 2, offsetY: 2 });
+    assert.equal(editor.getMaskRatio(), 0);
+    canvas.dispatchPointer("pointerup", { pointerId: 1 });
+
+    assert.equal(editor.getMaskRatio() > 0, true);
+    assert.equal(changeCount, 1);
+    assert.equal(editor.getState().canUndo, true);
+  } finally {
+    restoreDocument();
+  }
+});
+
 test("pen eraser button temporarily erases without changing the selected brush tool", async () => {
   const restoreDocument = installCanvasDocument();
   try {

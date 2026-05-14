@@ -1957,3 +1957,13 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/test-target.sh status=passed tests=349
 [CMD] git diff --check status=passed
 [REVIEW] finding=remaining-risk scope=ipad-canvas-gestures note=hardware-apple-pencil-double-tap-not-reliably-exposed-by-browser-standard-pen-button-signals-supported
+[START] task=ipad-magic-gesture-fix subsystem=frontend,editor,input-ux
+[BUG] symptom=magic-tool-two-finger-ipad-gesture-applies-mask-before-pan-zoom root_cause=magic-select-ran-on-first-touch-pointerdown-before-second-pointer-could-enter-gesture
+[CODE] updated=src/editor/maskEditor.js note=defer-touch-magic-until-pointerup-and-cancel-pending-magic-when-two-finger-gesture-starts
+[TEST] added=tests/maskEditor.test.js note=magic-touch-two-finger-no-selection-and-single-touch-tap-still-selects
+[CMD] node --test tests/maskEditor.test.js status=passed tests=20
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=351
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=ipad-magic-gesture-fix note=mouse-pen-magic-remains-immediate-touch-magic-commits-on-pointerup
