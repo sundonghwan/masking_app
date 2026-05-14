@@ -83,6 +83,46 @@ test("creates DB rows and object keys for images and class masks", () => {
   assert.equal(plan.objects.length, 2);
 });
 
+test("creates class masks from current image annotations", () => {
+  const plan = createSourceMigrationPlan({
+    projectId: "demo",
+    taskId: "task-a",
+    versionId: "v2",
+    baseDir: "/tmp/demo",
+    manifest: {
+      project_id: "demo",
+      name: "Demo",
+      label_schema: [
+        { class_id: 1, name: "slider" },
+        { class_id: 2, name: "support" },
+      ],
+      images: [{
+        id: "image_0001",
+        original_file_name: "a.png",
+        image_path: "images/a.png",
+        width: 10,
+        height: 20,
+        annotations: [{
+          class_id: 2,
+          class_name: "support",
+          mask_path: "masks/a-class-2.png",
+          mask_width: 10,
+          mask_height: 20,
+          mask_ratio: 0.25,
+          source: "manual",
+        }],
+      }],
+    },
+  });
+
+  assert.equal(plan.annotations.length, 1);
+  assert.equal(plan.annotations[0].class_id, 2);
+  assert.equal(plan.annotations[0].class_name, "support");
+  assert.equal(plan.annotations[0].mask_object_key, "projects/demo/tasks/task-a/versions/v2/masks/a-class-2.png");
+  assert.equal(plan.annotations[0].mask_ratio, 0.25);
+  assert.equal(plan.objects.length, 2);
+});
+
 test("dry run counts sources without requiring DB or object clients", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "masking-migration-"));
   await mkdir(path.join(root, "demo", "images"), { recursive: true });

@@ -361,7 +361,12 @@ async function putFileObject(client, bucket, objectKey, filePath) {
 
 function imageAnnotations(image, labelSchema) {
   const annotations = [];
-  for (const annotation of Array.isArray(image.class_annotations) ? image.class_annotations : []) {
+  const sourceAnnotations = Array.isArray(image.annotations)
+    ? image.annotations
+    : Array.isArray(image.class_annotations)
+      ? image.class_annotations
+      : [];
+  for (const annotation of sourceAnnotations) {
     const label = labelSchema.find((item) => Number(item.class_id) === Number(annotation.class_id));
     annotations.push({
       class_id: annotation.class_id,

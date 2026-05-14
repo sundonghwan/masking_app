@@ -2014,3 +2014,25 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] curl -sS http://127.0.0.1:4173/api/health status=passed storage_backend=filesystem
 [CMD] authenticated GET /api/projects/rail-mask-20260513 status=passed support_annotations=0 slider_annotations=12
 [REVIEW] finding=remaining-risk scope=misclassified-support-mask-recovery note=browser-indexeddb-may-remain-stale-until-server-refresh-object-db-copy-not-active-and-not-repaired
+[START] task=object-db-remigration-recovery subsystem=data-repair,object-db,minio,metadata-db
+[BUG] symptom=app-created-mask-data-became-unlabeled-or-wrongly-named-during-minio-management root_cause=fileStorageObjectDbMigration-read-class_annotations-but-current-manifests-store-annotations
+[PLAN] scope=fix-migration-preserve-filesystem-source-delete-only-object-db-copy-remigrate-rail-mask-20260513 risks=filesystem-source-loss,class-semantic-ambiguity,object-reference-proxy-verification
+[DATA] backup=backups/masking-app-data-20260514T060633Z.tgz note=pre-recovery-current-data-root
+[DATA] backup=backups/masking_app_before_remigrate_rail_mask_20260513.dump note=pre-delete-postgres-object-db-dump
+[CODE] updated=src/server/fileStorageObjectDbMigration.js note=imageAnnotations-now-reads-current-image.annotations-before-legacy-class_annotations
+[TEST] added=tests/fileStorageObjectDbMigration.test.js note=current-annotations-preserve-class-id-name-and-mask-object-key
+[CMD] node --test tests/fileStorageObjectDbMigration.test.js status=passed tests=5
+[CMD] migrate-file-storage-to-object-db dry-run status=passed sources=3 images=197 annotations=13 objects=210 skipped=0
+[DATA] deleted=postgres rail-mask-20260513 project/export/review rows note=tasks-versions-images-annotations-cascade-under-project
+[DATA] deleted=minio prefix=masking-app/projects/rail-mask-20260513 note=filesystem-data-root-preserved
+[CMD] migrate-file-storage-to-object-db --apply status=passed sources=3 images=197 annotations=13 uploaded_objects=210 skipped=0
+[CMD] postgres annotation check status=passed project=rail-mask-20260513 slider=7 support=6 unlabeled=0
+[CMD] minio mask filename check status=passed names=slider,support support_ff4422=0
+[CMD] scripts/harness/object-db-verify.sh --json --ensure-bucket status=passed checked_object_refs=210 missing=0
+[CMD] scripts/harness/storage-verify.sh --json data status=passed errors=0 warnings=0
+[DATA] backup=backups/masking-app-data-20260514T061838Z.tgz note=recovered-filesystem-data-root
+[DATA] backup=backups/masking_app_recovered_rail_mask_20260513.dump note=recovered-postgres-dump
+[DATA] backup=backups/masking_app_minio_recovered_rail_mask_20260513.tgz note=recovered-minio-prefix
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] npm test status=passed tests=353
+[REVIEW] finding=none-blocking scope=object-db-remigration-recovery note=verified-class-rows-directly-because-object-reference-verifier-alone-would-not-catch-unlabeled-class-metadata
