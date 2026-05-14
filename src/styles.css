@@ -1053,6 +1053,20 @@ h2 {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
 }
 
+.workbench-screen,
+.canvas-stage,
+#editorCanvas {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.workbench-screen input,
+.workbench-screen textarea,
+.workbench-screen select {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 #editorCanvas {
   display: block;
   width: 100%;

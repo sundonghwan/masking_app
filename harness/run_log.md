@@ -1967,3 +1967,11 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/test-target.sh status=passed tests=351
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=ipad-magic-gesture-fix note=mouse-pen-magic-remains-immediate-touch-magic-commits-on-pointerup
+[START] task=workbench-text-selection-guard subsystem=frontend,editor,input-ux
+[BUG] symptom=dragging-workbench-text-selects-labels-and-page-turns-blue root_cause=workbench-had-touch-action-for-canvas-but-no-user-select-guard-for-non-input-ui-text
+[CODE] updated=src/styles.css note=disabled-user-select-on-workbench-canvas-area-and-restored-text-selection-for-input-textarea-select
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=none-blocking scope=workbench-text-selection-guard note=selection-remains-enabled-for-form-fields
