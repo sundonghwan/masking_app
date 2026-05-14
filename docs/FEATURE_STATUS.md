@@ -48,6 +48,7 @@ For a shorter production-progress view, see
 - [x] Zoomed image pan/camera movement controls
 - [x] Magic-click assisted mask tool for local region selection
 - [x] Edge-aware magic tool using local image edge detection
+- [x] Magic tool edge-band selection for visible object borders
 - [x] Spacebar temporary pan workflow for editor efficiency
 - [x] Dashboard planning and design for operational overview
 - [x] Project/task/version file-storage hierarchy design

@@ -263,6 +263,35 @@ test("selectEdgeAwareRegionFromImageData stops at strong image edges", async () 
   assert.equal(region.some((pixel) => pixel.x >= 4), false);
 });
 
+test("selectEdgeAwareRegionFromImageData includes adjacent border edge band", async () => {
+  const { selectEdgeAwareRegionFromImageData } = await import("../src/editor/maskEditor.js");
+  const imageData = new TestImageData(7, 5);
+  for (let y = 0; y < imageData.height; y += 1) {
+    for (let x = 0; x < imageData.width; x += 1) {
+      const isVerticalBorder = (x === 1 || x === 5) && y >= 1 && y <= 3;
+      const isHorizontalBorder = (y === 1 || y === 3) && x >= 1 && x <= 5;
+      const isBorder = isVerticalBorder || isHorizontalBorder;
+      const isInterior = x >= 2 && x <= 4 && y === 2;
+      const value = isInterior ? 80 : (isBorder ? 20 : 220);
+      imageData.data.set([value, value, value, 255], (y * imageData.width + x) * 4);
+    }
+  }
+
+  const region = selectEdgeAwareRegionFromImageData(imageData, { x: 3, y: 2 }, {
+    colorTolerance: 0,
+    edgeThreshold: 80,
+    edgeBandRadius: 2,
+    maxPixels: 100,
+    smoothIterations: 0,
+  });
+
+  assert.equal(region.some((pixel) => pixel.x === 3 && pixel.y === 2), true);
+  assert.equal(region.some((pixel) => pixel.x === 1 && pixel.y === 2), true);
+  assert.equal(region.some((pixel) => pixel.x === 5 && pixel.y === 2), true);
+  assert.equal(region.some((pixel) => pixel.x === 0), false);
+  assert.equal(region.some((pixel) => pixel.x === 6), false);
+});
+
 test("constructor rejects missing visible canvas", async () => {
   const { createMaskEditor } = await import("../src/editor/maskEditor.js");
 

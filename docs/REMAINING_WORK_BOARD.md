@@ -26,7 +26,7 @@ or production audit. This board separates:
 | Multi-class masks | Done for MVP | Label schema, selected label color, per-class masks, class-aware export/training metadata implemented |
 | Training-set output | Done | Selected sources, saved training sets, deterministic split, re-export/archive/restore implemented |
 | AI serving | Contract done | Generic detection/segmentation/classification API contract exists; real model adapter is deferred |
-| Validation harness | Strong baseline | lint, typecheck, 353 Node tests, smoke, browser E2E entrypoint, storage/object-db verifiers, production gate, staging evidence bundle, release artifact revision checks, boundary decision apply preview |
+| Validation harness | Strong baseline | lint, typecheck, 354 Node tests, smoke, browser E2E entrypoint, storage/object-db verifiers, production gate, staging evidence bundle, release artifact revision checks, boundary decision apply preview |
 | Code health | Active cleanup | Project settings and assignment route helpers extracted; larger route blocks remain |
 | Production readiness | Not complete | Identity/storage/host evidence decisions remain |
 
@@ -64,7 +64,7 @@ need.
 
 ## Latest Verified State
 
-- Last full test count: 353 Node tests passing.
+- Last full test count: 354 Node tests passing.
 - Latest data/config cleanup evidence:
   `scripts/harness/storage-verify.sh --json data` passed with
   `images=197`, `masks=26`, `errors=[]`; object-db verification passed with

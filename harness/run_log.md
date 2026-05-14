@@ -2113,3 +2113,16 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/storage-verify.sh --json data status=passed images=197 masks=26 errors=0
 [CMD] scripts/harness/object-db-verify.sh --json --ensure-bucket status=passed checked_object_refs=211 missing=0
 [CMD] git diff --check status=passed
+[START] task=magic-tool-edge-band subsystem=editor,magic-tool,mask-selection
+[PLAN] scope=edge-aware-region-selection risks=background-spill,threshold-sensitivity
+[DOC] added=docs/superpowers/specs/2026-05-14-magic-tool-edge-band-design.md,docs/superpowers/plans/2026-05-14-magic-tool-edge-band-plan.md note=recommended-B-edge-band-after-interior-fill
+[TEST] added=tests/maskEditor.test.js note=magic-selection-includes-adjacent-border-edge-band
+[CMD] node --test tests/maskEditor.test.js status=failed expected=red reason=border-edge-band-not-included
+[CODE] updated=src/editor/maskEditor.js note=edgeBandRadius-default-and-addEdgeBandToRegion
+[CMD] node --test tests/maskEditor.test.js status=passed tests=22
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=354
+[CMD] git diff --check status=passed
+[DOC] updated=docs/FEATURE_STATUS.md,docs/REMAINING_WORK_BOARD.md note=magic-edge-band-complete-and-test-count-354
+[REVIEW] finding=none-blocking scope=magic-tool-edge-band notes=edge-band-expansion-bounded-by-radius-maxpixels-nearby-edge-and-separate-color-tolerance

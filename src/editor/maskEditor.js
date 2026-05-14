@@ -7,6 +7,8 @@ const TOOL_TOGGLE_DOUBLE_TAP_RADIUS = 18;
 const MAGIC_DEFAULTS = {
   colorTolerance: 42,
   edgeThreshold: 55,
+  edgeBandRadius: 2,
+  edgeBandColorTolerance: 75,
   maxPixels: 70000,
   smoothIterations: 1,
 };
@@ -70,6 +72,8 @@ export function selectConnectedRegionFromImageData(imageData, start, options = {
 export function selectEdgeAwareRegionFromImageData(imageData, start, options = {}) {
   const colorTolerance = options.colorTolerance ?? options.tolerance ?? MAGIC_DEFAULTS.colorTolerance;
   const edgeThreshold = options.edgeThreshold ?? MAGIC_DEFAULTS.edgeThreshold;
+  const edgeBandRadius = options.edgeBandRadius ?? MAGIC_DEFAULTS.edgeBandRadius;
+  const edgeBandColorTolerance = options.edgeBandColorTolerance ?? MAGIC_DEFAULTS.edgeBandColorTolerance;
   const maxPixels = options.maxPixels ?? MAGIC_DEFAULTS.maxPixels;
   const smoothIterations = options.smoothIterations ?? MAGIC_DEFAULTS.smoothIterations;
   const edgeMap = createEdgeMagnitudeMap(imageData);
@@ -77,6 +81,8 @@ export function selectEdgeAwareRegionFromImageData(imageData, start, options = {
   return growRegionFromImageData(imageData, start, {
     colorTolerance,
     edgeThreshold,
+    edgeBandRadius,
+    edgeBandColorTolerance,
     edgeMap,
     maxPixels,
     useEightNeighbors: true,
@@ -125,10 +131,23 @@ function growRegionFromImageData(imageData, start, options = {}) {
     }
   }
 
-  if (options.smoothIterations > 0 && region.length > 0 && region.length < maxPixels) {
-    return smoothRegion(region, width, height, options.smoothIterations);
+  const edgeBandRegion = addEdgeBandToRegion(region, {
+    data,
+    seed,
+    edgeMap: options.edgeMap,
+    edgeThreshold,
+    edgeBandRadius: options.edgeBandRadius,
+    edgeBandColorTolerance: options.edgeBandColorTolerance,
+    colorTolerance: tolerance,
+    width,
+    height,
+    maxPixels,
+  });
+
+  if (options.smoothIterations > 0 && edgeBandRegion.length > 0 && edgeBandRegion.length < maxPixels) {
+    return smoothRegion(edgeBandRegion, width, height, options.smoothIterations);
   }
-  return region;
+  return edgeBandRegion;
 }
 
 export class MaskEditor {
@@ -1125,6 +1144,62 @@ function createBlurredGrayscale(imageData) {
   }
 
   return blurred;
+}
+
+function addEdgeBandToRegion(region, options = {}) {
+  if (!options.edgeMap || region.length === 0) return region;
+  const width = Number(options.width || 0);
+  const height = Number(options.height || 0);
+  const edgeThreshold = Number(options.edgeThreshold ?? Infinity);
+  const edgeBandRadius = Math.max(0, Math.floor(Number(options.edgeBandRadius || 0)));
+  const maxPixels = Math.max(1, Number(options.maxPixels ?? region.length));
+  const data = options.data;
+  const seed = options.seed;
+  const edgeBandColorTolerance = Math.max(
+    Number(options.colorTolerance || 0),
+    Number(options.edgeBandColorTolerance ?? MAGIC_DEFAULTS.edgeBandColorTolerance),
+  );
+  if (!width || !height || !data || !seed || !Number.isFinite(edgeThreshold) || edgeBandRadius <= 0 || region.length >= maxPixels) {
+    return region;
+  }
+
+  const selected = new Uint8Array(width * height);
+  const expanded = [...region];
+  for (const pixel of region) {
+    selected[pixel.y * width + pixel.x] = 1;
+  }
+
+  for (const pixel of region) {
+    for (let dy = -edgeBandRadius; dy <= edgeBandRadius; dy += 1) {
+      for (let dx = -edgeBandRadius; dx <= edgeBandRadius; dx += 1) {
+        if (dx === 0 && dy === 0) continue;
+        const x = pixel.x + dx;
+        const y = pixel.y + dy;
+        if (x < 0 || y < 0 || x >= width || y >= height) continue;
+        const key = y * width + x;
+        if (selected[key]) continue;
+        if (!hasNearbyStrongEdge(options.edgeMap, width, height, x, y, edgeThreshold)) continue;
+        const sourceIndex = key * 4;
+        const candidate = [data[sourceIndex], data[sourceIndex + 1], data[sourceIndex + 2]];
+        if (colorDistance(seed, candidate) > edgeBandColorTolerance) continue;
+        selected[key] = 1;
+        expanded.push({ x, y });
+        if (expanded.length >= maxPixels) return expanded;
+      }
+    }
+  }
+
+  return expanded;
+}
+
+function hasNearbyStrongEdge(edgeMap, width, height, x, y, edgeThreshold) {
+  for (const [dx, dy] of EIGHT_NEIGHBORS) {
+    const nx = x + dx;
+    const ny = y + dy;
+    if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+    if (edgeMap[ny * width + nx] > edgeThreshold) return true;
+  }
+  return edgeMap[y * width + x] > edgeThreshold;
 }
 
 function smoothRegion(region, width, height, iterations) {
