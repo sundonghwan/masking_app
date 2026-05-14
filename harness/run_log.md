@@ -1945,3 +1945,15 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] docker compose build masking-app status=passed image=masking-app:local
 [CMD] git diff --check status=passed
 [REVIEW] finding=remaining-risk scope=minio-db-docker-storage note=filesystem-remains-default-runtime-backend-object-db-api-cutover-not-yet-implemented
+[START] task=ipad-canvas-gestures subsystem=frontend,editor,input-ux
+[PLAN] scope=two-finger-pan-pinch-and-stylus-eraser-fallback risks=accidental-touch-paint,desktop-input-regression,apple-pencil-web-api-limit
+[IMPACT] status=validated chain=MaskEditor.bindCanvasEvents->touch_gesture->onViewportChange validation=maskEditor-tests-passed
+[IMPACT] status=validated chain=stylusRequestsEraser->MaskEditor.paintAt validation=pen-eraser-button-test-passed
+[CODE] updated=src/editor/maskEditor.js note=two-finger-touch-pan-pinch-deferred-touch-paint-and-pen-button-eraser
+[DOC] updated=docs/USER_MANUAL.md note=ipad-and-apple-pencil-canvas-controls
+[CMD] node --test tests/maskEditor.test.js status=passed tests=18
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=349
+[CMD] git diff --check status=passed
+[REVIEW] finding=remaining-risk scope=ipad-canvas-gestures note=hardware-apple-pencil-double-tap-not-reliably-exposed-by-browser-standard-pen-button-signals-supported

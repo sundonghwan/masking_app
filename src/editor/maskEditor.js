@@ -156,6 +156,10 @@ export class MaskEditor {
     this.isPanning = false;
     this.spacePanHeld = false;
     this.activePointerMode = "idle";
+    this.activePointers = new Map();
+    this.touchGesture = null;
+    this.activeStrokeTool = null;
+    this.deferStrokeStart = false;
     this.lastPoint = null;
     this.cursorPoint = null;
     this.beforeStroke = null;
@@ -596,28 +600,38 @@ export class MaskEditor {
     this.canvas.addEventListener("pointerdown", (event) => {
       if (!this.image) return;
       this.canvas.setPointerCapture(event.pointerId);
+      this.activePointers.set(event.pointerId, eventCanvasPoint(event));
+      if (this.activePointers.size >= 2) {
+        this.beginTouchGesture();
+        return;
+      }
+
       const point = this.eventToImagePoint(event);
       this.isPointerDown = true;
       this.lastPoint = point;
       this.activePointerMode = "idle";
+      this.activeStrokeTool = stylusRequestsEraser(event) ? "erase" : this.tool;
 
-      if (this.spacePanHeld || this.tool === "pan") {
+      if (this.spacePanHeld || this.activeStrokeTool === "pan") {
         this.beginCameraPan(event);
         return;
       }
 
-      if (this.tool === "mask_move") {
+      if (this.activeStrokeTool === "mask_move") {
         this.beginMaskMove(point);
         return;
       }
 
-      if (["brush", "erase"].includes(this.tool)) {
-        this.activePointerMode = this.tool === "erase" ? "erase" : "paint";
+      if (["brush", "erase"].includes(this.activeStrokeTool)) {
+        this.activePointerMode = this.activeStrokeTool === "erase" ? "erase" : "paint";
         this.beforeStroke = this.snapshotMask();
         this.redoStack = [];
-        this.paintAt(point);
-        this.onChange();
-      } else if (this.tool === "magic") {
+        this.deferStrokeStart = pointerStartsDeferredPaint(event);
+        if (!this.deferStrokeStart) {
+          this.paintAt(point);
+          this.onChange();
+        }
+      } else if (this.activeStrokeTool === "magic") {
         this.activePointerMode = "magic";
         this.beforeStroke = this.snapshotMask();
         this.redoStack = [];
@@ -630,6 +644,14 @@ export class MaskEditor {
 
     this.canvas.addEventListener("pointermove", (event) => {
       if (!this.image) return;
+      if (this.activePointers.has(event.pointerId)) {
+        this.activePointers.set(event.pointerId, eventCanvasPoint(event));
+      }
+      if (this.activePointerMode === "touch_gesture") {
+        this.updateTouchGesture();
+        return;
+      }
+
       const point = this.eventToImagePoint(event);
       this.cursorPoint = {
         ...point,
@@ -649,6 +671,10 @@ export class MaskEditor {
       }
 
       if (this.isPointerDown && ["paint", "erase"].includes(this.activePointerMode)) {
+        if (this.deferStrokeStart) {
+          this.paintAt(this.lastPoint);
+          this.deferStrokeStart = false;
+        }
         this.paintLine(this.lastPoint, point);
         this.lastPoint = point;
         this.onChange();
@@ -664,6 +690,56 @@ export class MaskEditor {
       event.preventDefault();
       this.zoomBy(event.deltaY < 0 ? 1.08 : 0.92, { x: event.offsetX, y: event.offsetY });
     }, { passive: false });
+  }
+
+  beginTouchGesture() {
+    if (this.beforeStroke && ["paint", "erase", "magic", "mask_move"].includes(this.activePointerMode) && !this.deferStrokeStart) {
+      this.undoStack.push(this.beforeStroke);
+      if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
+      this.maskMoveStartPoint = null;
+      this.maskMoveSource = null;
+    }
+    this.beforeStroke = null;
+    this.isPointerDown = false;
+    this.isPanning = true;
+    this.activeStrokeTool = null;
+    this.deferStrokeStart = false;
+    this.activePointerMode = "touch_gesture";
+    this.touchGesture = {
+      ...touchGestureFromPointers(this.activePointers),
+      scale: this.scale,
+      offsetX: this.offsetX,
+      offsetY: this.offsetY,
+    };
+    this.updateCanvasCursor();
+  }
+
+  updateTouchGesture() {
+    if (!this.touchGesture || this.activePointers.size < 2) return;
+    const current = touchGestureFromPointers(this.activePointers);
+    const factor = current.distance > 0 && this.touchGesture.distance > 0
+      ? current.distance / this.touchGesture.distance
+      : 1;
+    const nextScale = clamp(this.touchGesture.scale * factor, MIN_SCALE, MAX_SCALE);
+    const imageAtStartCenter = {
+      x: (this.touchGesture.center.x - this.touchGesture.offsetX) / this.touchGesture.scale,
+      y: (this.touchGesture.center.y - this.touchGesture.offsetY) / this.touchGesture.scale,
+    };
+    this.scale = nextScale;
+    this.offsetX = current.center.x - imageAtStartCenter.x * this.scale;
+    this.offsetY = current.center.y - imageAtStartCenter.y * this.scale;
+    this.redraw();
+    this.onViewportChange(this.getViewportState());
+  }
+
+  endTouchGesture() {
+    this.isPanning = false;
+    this.touchGesture = null;
+    if (this.activePointerMode === "touch_gesture") {
+      this.activePointerMode = "idle";
+    }
+    this.updateCanvasCursor();
+    this.redraw();
   }
 
   beginCameraPan(event) {
@@ -710,6 +786,13 @@ export class MaskEditor {
   }
 
   endPointer(event) {
+    this.activePointers.delete(event.pointerId);
+    if (this.activePointerMode === "touch_gesture") {
+      if (this.activePointers.size < 2) this.endTouchGesture();
+      this.releasePointer(event);
+      return;
+    }
+
     if (!this.isPointerDown) return;
     const finishedPointerMode = this.activePointerMode;
     this.isPointerDown = false;
@@ -721,20 +804,26 @@ export class MaskEditor {
       this.updateCanvasCursor();
     }
 
-    if (this.beforeStroke && ["paint", "erase", "magic", "mask_move"].includes(finishedPointerMode)) {
+    if (this.beforeStroke && ["paint", "erase", "magic", "mask_move"].includes(finishedPointerMode) && !this.deferStrokeStart) {
       this.undoStack.push(this.beforeStroke);
       if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
       this.beforeStroke = null;
     }
+    if (this.deferStrokeStart) this.beforeStroke = null;
     this.maskMoveStartPoint = null;
     this.maskMoveSource = null;
+    this.activeStrokeTool = null;
+    this.deferStrokeStart = false;
 
-    if (event.pointerId != null) {
-      try {
-        this.canvas.releasePointerCapture(event.pointerId);
-      } catch {
-        // Pointer capture may already be released by the browser.
-      }
+    this.releasePointer(event);
+  }
+
+  releasePointer(event) {
+    if (event.pointerId == null) return;
+    try {
+      this.canvas.releasePointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture may already be released by the browser.
     }
   }
 
@@ -767,7 +856,8 @@ export class MaskEditor {
     if (!inBounds(point, this.image)) return;
     const radius = this.brushSize / 2;
     this.maskCtx.save();
-    this.maskCtx.globalCompositeOperation = this.tool === "erase" ? "destination-out" : "source-over";
+    const paintTool = this.activeStrokeTool || this.tool;
+    this.maskCtx.globalCompositeOperation = paintTool === "erase" ? "destination-out" : "source-over";
     this.maskCtx.fillStyle = "rgba(255,255,255,1)";
     this.maskCtx.beginPath();
     this.maskCtx.arc(point.x, point.y, radius, 0, Math.PI * 2);
@@ -797,6 +887,8 @@ export class MaskEditor {
     if (!this.canvas?.style) return;
     if (this.activePointerMode === "camera_pan") {
       this.canvas.style.cursor = "grabbing";
+    } else if (this.activePointerMode === "touch_gesture") {
+      this.canvas.style.cursor = "grabbing";
     } else if (this.activePointerMode === "mask_move") {
       this.canvas.style.cursor = "grabbing";
     } else if (this.spacePanHeld || this.tool === "pan") {
@@ -822,6 +914,34 @@ function loadImage(url) {
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
+}
+
+function eventCanvasPoint(event) {
+  return {
+    x: Number(event.offsetX || 0),
+    y: Number(event.offsetY || 0),
+  };
+}
+
+function touchGestureFromPointers(pointers) {
+  const [first, second] = [...pointers.values()];
+  const center = {
+    x: (first.x + second.x) / 2,
+    y: (first.y + second.y) / 2,
+  };
+  return {
+    center,
+    distance: Math.hypot(second.x - first.x, second.y - first.y),
+  };
+}
+
+function stylusRequestsEraser(event) {
+  if (event.pointerType !== "pen") return false;
+  return event.button === 5 || event.button === 2 || Boolean((event.buttons || 0) & 32) || Boolean((event.buttons || 0) & 2);
+}
+
+function pointerStartsDeferredPaint(event) {
+  return event.pointerType === "touch";
 }
 
 function maskPixelActive(data, index) {

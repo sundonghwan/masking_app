@@ -97,8 +97,27 @@ class TestCanvasContext {
   translate() {}
   scale() {}
   beginPath() {}
-  arc() {}
-  fill() {}
+  arc(x, y, radius) {
+    this.lastArc = { x, y, radius };
+  }
+  fill() {
+    if (!this.lastArc) return;
+    const width = this.canvas.width;
+    const height = this.canvas.height;
+    const imageData = this.getImageData(0, 0, width, height);
+    const x = Math.max(0, Math.min(width - 1, Math.round(this.lastArc.x)));
+    const y = Math.max(0, Math.min(height - 1, Math.round(this.lastArc.y)));
+    const index = (y * width + x) * 4;
+    if (this.globalCompositeOperation === "destination-out") {
+      imageData.data[index + 3] = 0;
+    } else {
+      imageData.data[index] = 255;
+      imageData.data[index + 1] = 255;
+      imageData.data[index + 2] = 255;
+      imageData.data[index + 3] = 255;
+    }
+    this.putImageData(imageData);
+  }
   stroke() {}
   setLineDash() {}
 
@@ -353,6 +372,80 @@ test("spacebar pressed during an active brush stroke does not convert that strok
     assert.deepEqual(editor.getViewportState(), { scale: 1, offsetX: 0, offsetY: 0 });
     assert.equal(changeCount >= 2, true);
     assert.equal(viewportCount, 0);
+    assert.equal(editor.getState().canUndo, true);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("two finger touch gesture pans and zooms viewport without painting the mask", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    let changeCount = 0;
+    let viewportCount = 0;
+    const editor = new MaskEditor(canvas, {
+      onChange: () => { changeCount += 1; },
+      onViewportChange: () => { viewportCount += 1; },
+    });
+    editor.image = { naturalWidth: 100, naturalHeight: 80 };
+    editor.maskCanvas.width = 100;
+    editor.maskCanvas.height = 80;
+    editor.scale = 1;
+    editor.offsetX = 0;
+    editor.offsetY = 0;
+    editor.setTool("brush");
+
+    canvas.dispatchPointer("pointerdown", { pointerId: 1, pointerType: "touch", offsetX: 20, offsetY: 20 });
+    canvas.dispatchPointer("pointerdown", { pointerId: 2, pointerType: "touch", offsetX: 60, offsetY: 20 });
+    canvas.dispatchPointer("pointermove", { pointerId: 1, pointerType: "touch", offsetX: 10, offsetY: 30 });
+    canvas.dispatchPointer("pointermove", { pointerId: 2, pointerType: "touch", offsetX: 90, offsetY: 30 });
+    canvas.dispatchPointer("pointerup", { pointerId: 1 });
+    canvas.dispatchPointer("pointerup", { pointerId: 2 });
+
+    assert.equal(editor.getState().tool, "brush");
+    assert.equal(editor.getViewportState().scale, 2);
+    assert.deepEqual(editor.getViewportState(), { scale: 2, offsetX: -30, offsetY: -10 });
+    assert.equal(editor.getMaskRatio(), 0);
+    assert.equal(changeCount, 0);
+    assert.equal(viewportCount >= 1, true);
+    assert.equal(editor.getState().canUndo, false);
+  } finally {
+    restoreDocument();
+  }
+});
+
+test("pen eraser button temporarily erases without changing the selected brush tool", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    const editor = new MaskEditor(canvas);
+    editor.image = { naturalWidth: 10, naturalHeight: 10 };
+    editor.maskCanvas.width = 10;
+    editor.maskCanvas.height = 10;
+    editor.scale = 1;
+    editor.offsetX = 0;
+    editor.offsetY = 0;
+    const seed = new TestImageData(10, 10);
+    seed.data.set([255, 255, 255, 255], ((4 * 10 + 5) * 4));
+    editor.maskCtx.putImageData(seed, 0, 0);
+    editor.setTool("brush");
+
+    canvas.dispatchPointer("pointerdown", {
+      pointerId: 1,
+      pointerType: "pen",
+      button: 5,
+      buttons: 32,
+      offsetX: 5,
+      offsetY: 4,
+    });
+    canvas.dispatchPointer("pointerup", { pointerId: 1 });
+
+    const erased = editor.maskCtx.getImageData(0, 0, 10, 10);
+    assert.equal(erased.data[((4 * 10 + 5) * 4) + 3], 0);
+    assert.equal(editor.getState().tool, "brush");
     assert.equal(editor.getState().canUndo, true);
   } finally {
     restoreDocument();

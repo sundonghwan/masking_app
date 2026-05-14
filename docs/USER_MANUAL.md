@@ -322,6 +322,27 @@ returns to the previous tool.
 This is intended for efficient zoomed editing. It should not switch the selected
 tool permanently.
 
+## iPad And Apple Pencil Canvas Controls
+
+On iPad, open the app from the Mac LAN address instead of `localhost`.
+
+```text
+http://192.168.11.133:4173
+```
+
+Canvas controls:
+
+| Input | Action |
+| --- | --- |
+| Apple Pencil / one finger | Use the selected mask tool |
+| Two-finger drag | Move the image viewport |
+| Two-finger pinch | Zoom in or out around the gesture center |
+| Supported pen eraser/barrel button | Temporarily erase without changing the selected tool |
+
+Two-finger gestures do not paint mask pixels. If the browser does not expose a
+hardware eraser or double-tap signal for the stylus, switch to the `지우개`
+tool with `E` or the tool button.
+
 ## Magic Tool
 
 The magic tool is a local deterministic assist. It does not call a real AI model.
