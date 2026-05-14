@@ -61,9 +61,19 @@
   `bad=[]`.
 - Root cause for the user's visible UI mismatch was stale browser IndexedDB
   recovery state, not current server project data.
+- Follow-up UI check still showed pollution because an archived empty legacy
+  project, `rail-mask-0513`, still existed with a `support` label schema. It
+  had no images, but a restored browser snapshot could keep the workbench on
+  that deleted project.
+- Purged `rail-mask-0513` through the admin project purge API and verified the
+  whole data root no longer contains `support`, `class_2`, or `unlabeled`
+  patterns.
 
 ## Closeout
 
 - Added startup server refresh after restored session validation.
 - The refresh is skipped when dirty or unsynced local-only work exists.
+- Deleted or missing restored projects now clear the local project snapshot
+  while preserving the authenticated session, so stale archived projects do not
+  remain in the workbench after reload.
 - Tests and storage/API checks passed.

@@ -2049,3 +2049,15 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/typecheck-all.sh status=passed
 [CMD] scripts/harness/test-target.sh status=passed tests=353
 [REVIEW] finding=none-blocking scope=ui-stale-pollution-refresh note=auto-refresh-does-not-overwrite-dirty-or-sync-issue-local-work
+[BUG] symptom=ui-still-showed-pollution-after-hard-refresh root_cause=archived-empty-legacy-project-rail-mask-0513-still-exposed-support-label-schema-and-browser-could-restore-that-project
+[DATA] purged=rail-mask-0513 method=admin-project-purge-api note=project-had-no-images-but-contained-support-label-schema
+[CODE] updated=src/app.js note=startup-restore-clears-local-project-snapshot-when-server-project-is-deleted-or-missing-while-preserving-session
+[CMD] rg data pollution-patterns status=passed matches=0
+[CMD] GET /api/projects status=passed projects=rail-mask-20260513
+[CMD] GET /api/projects/rail-mask-0513 status=passed expected=404
+[CMD] scripts/harness/storage-verify.sh --json data status=passed errors=0 warnings=0
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=353
+[DATA] backup=backups/masking-app-data-20260514T065502Z.tgz note=post-purge-clean-data-root
+[REVIEW] finding=none-blocking scope=archived-project-stale-restore note=local-session-preserved-and-project-context-cleared-for-deleted-or-404-restored-projects

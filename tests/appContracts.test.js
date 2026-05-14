@@ -86,6 +86,8 @@ test("screen flow separates login projects and workbench", () => {
   assert.match(app, /function refreshWorkbenchFromServer\(/);
   assert.match(app, /await refreshRestoredProjectFromServer\(\)/);
   assert.match(app, /function refreshRestoredProjectFromServer\(/);
+  assert.match(app, /manifest\.deleted_at \|\| manifest\.deletedAt/);
+  assert.match(app, /function clearRestoredProjectSnapshot\(/);
   assert.match(app, /function currentScreen\(/);
   assert.match(app, /function canEnterWorkbench\(/);
   assert.match(app, /function renderDashboard\(/);

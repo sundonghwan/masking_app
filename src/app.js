@@ -786,16 +786,51 @@ async function refreshRestoredProjectFromServer() {
 
   try {
     const manifest = await apiClient.getProject(state.projectId);
+    if (manifest.deleted_at || manifest.deletedAt) {
+      await clearRestoredProjectSnapshot("삭제된 프로젝트 복구 상태를 정리함");
+      return;
+    }
     await restoreServerManifest(manifest);
     setSaveState("saved", "서버 데이터로 복구됨");
   } catch (error) {
     const normalized = normalizeApiError(error);
+    if (normalized.status === 404) {
+      await clearRestoredProjectSnapshot("서버에 없는 프로젝트 복구 상태를 정리함");
+      return;
+    }
     state.backendProjectError = normalized.message;
     logger.warn("server_restore.project.failed", {
       project_id: state.projectId,
       error: normalized,
     });
   }
+}
+
+async function clearRestoredProjectSnapshot(message) {
+  revokeImageUrls();
+  const session = {
+    userId: state.sessionUserId,
+    role: state.sessionRole,
+    token: state.sessionToken,
+    authenticated: state.sessionAuthenticated,
+  };
+  state.projectId = "";
+  state.projectName = "";
+  state.projectDescription = "";
+  state.images = [];
+  state.selectedId = null;
+  state.filter = "all";
+  state.imageSearch = "";
+  state.backendProjectReady = false;
+  state.backendProjectError = "";
+  await projectStore.clearProject();
+  state.sessionUserId = session.userId;
+  state.sessionRole = session.role;
+  state.sessionToken = session.token;
+  state.sessionAuthenticated = session.authenticated;
+  editor.clear();
+  els.emptyState.hidden = false;
+  setSaveState("saved", message);
 }
 
 async function refreshVersionSummaries() {
