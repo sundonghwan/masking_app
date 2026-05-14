@@ -2005,3 +2005,12 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=remaining-risk scope=pencil-double-tap-tool-toggle note=app-level-doubletap-fallback-not-native-apple-pencil-hardware-event
+[START] task=misclassified-support-mask-recovery subsystem=data-repair,mask-contract
+[BUG] symptom=slider-work-was-visible-as-support-masking root_cause=existing-backup-and-current-manifest-already-contained-class_id_2_support_ff4422_annotations
+[DATA] backup=backups/masking-app-data-20260514T055538Z.tgz note=pre-repair-current-data-root
+[DATA] repaired=rail-mask-20260513 migrated_support_to_slider=9 renamed_masks=7 merged_masks=2 skipped=0
+[DATA] recovery_dir=data/rail-mask-20260513/recovery/support-misclassified-20260514T055538Z note=conflicting-original-support-masks-preserved
+[CMD] scripts/harness/storage-verify.sh --json data status=passed errors=0 warnings=0
+[CMD] curl -sS http://127.0.0.1:4173/api/health status=passed storage_backend=filesystem
+[CMD] authenticated GET /api/projects/rail-mask-20260513 status=passed support_annotations=0 slider_annotations=12
+[REVIEW] finding=remaining-risk scope=misclassified-support-mask-recovery note=browser-indexeddb-may-remain-stale-until-server-refresh-object-db-copy-not-active-and-not-repaired
