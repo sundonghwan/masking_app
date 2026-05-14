@@ -2,6 +2,8 @@ const DEFAULT_OVERLAY_COLOR = "#E5484D";
 const DEFAULT_OVERLAY_RGB = [229, 72, 77];
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 12;
+const TOOL_TOGGLE_DOUBLE_TAP_MS = 320;
+const TOOL_TOGGLE_DOUBLE_TAP_RADIUS = 18;
 const MAGIC_DEFAULTS = {
   colorTolerance: 42,
   edgeThreshold: 55,
@@ -159,6 +161,10 @@ export class MaskEditor {
     this.activePointers = new Map();
     this.touchGesture = null;
     this.activeStrokeTool = null;
+    this.activePointerStart = null;
+    this.activePointerMoved = false;
+    this.activePointerEventType = "";
+    this.lastToolToggleTap = null;
     this.deferStrokeStart = false;
     this.lastPoint = null;
     this.cursorPoint = null;
@@ -171,6 +177,7 @@ export class MaskEditor {
     this.onChange = options.onChange || (() => {});
     this.onViewportChange = options.onViewportChange || (() => {});
     this.onPointerMove = options.onPointerMove || (() => {});
+    this.onToolChange = options.onToolChange || (() => {});
 
     this.bindCanvasEvents();
     this.redraw();
@@ -209,9 +216,11 @@ export class MaskEditor {
   }
 
   setTool(tool) {
+    const changed = this.tool !== tool;
     this.tool = tool;
     this.updateCanvasCursor();
     this.redraw();
+    if (changed) this.onToolChange(tool);
   }
 
   setBrushSize(size) {
@@ -606,9 +615,20 @@ export class MaskEditor {
         return;
       }
 
+      if (this.shouldToggleToolFromTap(event)) {
+        this.toggleBrushEraseTool();
+        this.lastToolToggleTap = null;
+        this.activePointers.delete(event.pointerId);
+        this.releasePointer(event);
+        return;
+      }
+
       const point = this.eventToImagePoint(event);
       this.isPointerDown = true;
       this.lastPoint = point;
+      this.activePointerStart = eventCanvasPoint(event);
+      this.activePointerMoved = false;
+      this.activePointerEventType = event.pointerType || "";
       this.activePointerMode = "idle";
       this.activeStrokeTool = stylusRequestsEraser(event) ? "erase" : this.tool;
 
@@ -658,6 +678,11 @@ export class MaskEditor {
       }
 
       const point = this.eventToImagePoint(event);
+      if (this.activePointerStart) {
+        const current = eventCanvasPoint(event);
+        const distance = Math.hypot(current.x - this.activePointerStart.x, current.y - this.activePointerStart.y);
+        if (distance > TOOL_TOGGLE_DOUBLE_TAP_RADIUS) this.activePointerMoved = true;
+      }
       this.cursorPoint = {
         ...point,
         screenX: event.offsetX,
@@ -818,6 +843,9 @@ export class MaskEditor {
       this.isPanning = false;
       this.activePointerMode = "idle";
       this.activeStrokeTool = null;
+      this.activePointerStart = null;
+      this.activePointerMoved = false;
+      this.activePointerEventType = "";
       this.updateCanvasCursor();
       this.releasePointer(event);
       return;
@@ -838,12 +866,43 @@ export class MaskEditor {
       this.beforeStroke = null;
     }
     if (this.deferStrokeStart) this.beforeStroke = null;
+    if (this.shouldRecordToolToggleTap(event, finishedPointerMode)) {
+      this.lastToolToggleTap = {
+        ...eventCanvasPoint(event),
+        timeStamp: eventTimeStamp(event),
+      };
+    } else if (finishedPointerMode !== "touch_gesture") {
+      this.lastToolToggleTap = null;
+    }
     this.maskMoveStartPoint = null;
     this.maskMoveSource = null;
     this.activeStrokeTool = null;
+    this.activePointerStart = null;
+    this.activePointerMoved = false;
+    this.activePointerEventType = "";
     this.deferStrokeStart = false;
 
     this.releasePointer(event);
+  }
+
+  shouldToggleToolFromTap(event) {
+    if (!isStylusLikePointer(event) || !["brush", "erase"].includes(this.tool)) return false;
+    if (!this.lastToolToggleTap) return false;
+    const current = eventCanvasPoint(event);
+    const elapsed = eventTimeStamp(event) - this.lastToolToggleTap.timeStamp;
+    const distance = Math.hypot(current.x - this.lastToolToggleTap.x, current.y - this.lastToolToggleTap.y);
+    return elapsed >= 0 && elapsed <= TOOL_TOGGLE_DOUBLE_TAP_MS && distance <= TOOL_TOGGLE_DOUBLE_TAP_RADIUS;
+  }
+
+  shouldRecordToolToggleTap(event, finishedPointerMode) {
+    return isStylusLikePointer({ pointerType: this.activePointerEventType || event.pointerType })
+      && ["paint", "erase"].includes(finishedPointerMode)
+      && this.deferStrokeStart
+      && !this.activePointerMoved;
+  }
+
+  toggleBrushEraseTool() {
+    this.setTool(this.tool === "erase" ? "brush" : "erase");
   }
 
   releasePointer(event) {
@@ -969,7 +1028,16 @@ function stylusRequestsEraser(event) {
 }
 
 function pointerStartsDeferredPaint(event) {
-  return event.pointerType === "touch";
+  if (stylusRequestsEraser(event)) return false;
+  return isStylusLikePointer(event);
+}
+
+function isStylusLikePointer(event) {
+  return event.pointerType === "touch" || event.pointerType === "pen";
+}
+
+function eventTimeStamp(event) {
+  return Number.isFinite(event.timeStamp) ? Number(event.timeStamp) : Date.now();
 }
 
 function maskPixelActive(data, index) {

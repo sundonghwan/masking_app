@@ -520,6 +520,47 @@ test("pen eraser button temporarily erases without changing the selected brush t
   }
 });
 
+test("pen double tap toggles brush and eraser without painting the mask", async () => {
+  const restoreDocument = installCanvasDocument();
+  try {
+    const { MaskEditor } = await import("../src/editor/maskEditor.js");
+    const canvas = new TestCanvas();
+    const toolChanges = [];
+    const editor = new MaskEditor(canvas, {
+      onToolChange: (tool) => toolChanges.push(tool),
+    });
+    editor.image = { naturalWidth: 10, naturalHeight: 10 };
+    editor.maskCanvas.width = 10;
+    editor.maskCanvas.height = 10;
+    editor.scale = 1;
+    editor.offsetX = 0;
+    editor.offsetY = 0;
+    editor.setTool("brush");
+
+    canvas.dispatchPointer("pointerdown", { pointerId: 1, pointerType: "pen", offsetX: 5, offsetY: 5, timeStamp: 100 });
+    canvas.dispatchPointer("pointerup", { pointerId: 1, pointerType: "pen", offsetX: 5, offsetY: 5, timeStamp: 120 });
+    canvas.dispatchPointer("pointerdown", { pointerId: 2, pointerType: "pen", offsetX: 6, offsetY: 5, timeStamp: 250 });
+    canvas.dispatchPointer("pointerup", { pointerId: 2, pointerType: "pen", offsetX: 6, offsetY: 5, timeStamp: 270 });
+
+    assert.equal(editor.getState().tool, "erase");
+    assert.equal(editor.getMaskRatio(), 0);
+    assert.equal(editor.getState().canUndo, false);
+    assert.deepEqual(toolChanges.at(-1), "erase");
+
+    canvas.dispatchPointer("pointerdown", { pointerId: 3, pointerType: "pen", offsetX: 5, offsetY: 5, timeStamp: 600 });
+    canvas.dispatchPointer("pointerup", { pointerId: 3, pointerType: "pen", offsetX: 5, offsetY: 5, timeStamp: 620 });
+    canvas.dispatchPointer("pointerdown", { pointerId: 4, pointerType: "pen", offsetX: 5, offsetY: 6, timeStamp: 730 });
+    canvas.dispatchPointer("pointerup", { pointerId: 4, pointerType: "pen", offsetX: 5, offsetY: 6, timeStamp: 750 });
+
+    assert.equal(editor.getState().tool, "brush");
+    assert.equal(editor.getMaskRatio(), 0);
+    assert.equal(editor.getState().canUndo, false);
+    assert.deepEqual(toolChanges.at(-1), "brush");
+  } finally {
+    restoreDocument();
+  }
+});
+
 test("mask move tool drags the current mask without moving the camera", async () => {
   const restoreDocument = installCanvasDocument();
   try {

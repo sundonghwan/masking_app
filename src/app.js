@@ -287,6 +287,7 @@ const editor = new MaskEditor(els.editorCanvas, {
   onChange: handleEditorChange,
   onViewportChange: updateStatusbar,
   onPointerMove: updatePointerStatus,
+  onToolChange: updateToolButtons,
 });
 
 void init();
@@ -3227,6 +3228,10 @@ function updatePointerStatus(point) {
 
 function setTool(tool) {
   editor.setTool(tool);
+  updateToolButtons(tool);
+}
+
+function updateToolButtons(tool) {
   document.querySelectorAll("[data-tool]").forEach((button) => {
     button.classList.toggle("active", button.dataset.tool === tool);
   });

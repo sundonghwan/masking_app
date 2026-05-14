@@ -354,13 +354,14 @@ Canvas controls:
 | Input | Action |
 | --- | --- |
 | Apple Pencil / one finger | Use the selected mask tool |
+| Apple Pencil / one finger quick double tap on canvas | Toggle `브러시` and `지우개` |
 | Two-finger drag | Move the image viewport |
 | Two-finger pinch | Zoom in or out around the gesture center |
 | Supported pen eraser/barrel button | Temporarily erase without changing the selected tool |
 
 Two-finger gestures do not paint mask pixels. If the browser does not expose a
-hardware eraser or double-tap signal for the stylus, switch to the `지우개`
-tool with `E` or the tool button.
+hardware eraser signal for the stylus, use the canvas double tap, `E`, or the
+tool button to switch to `지우개`.
 
 ## Magic Tool
 

@@ -1989,3 +1989,19 @@ chains in `harness/tasks/`; keep this file short.
 [CMD] scripts/harness/smoke-web.sh status=passed
 [CMD] git diff --check status=passed
 [REVIEW] finding=none-blocking scope=cross-device-sync-refresh note=manual-server-pull-with-local-only-warning-no-real-time-merge-claim
+[START] task=pencil-double-tap-tool-toggle subsystem=frontend,editor,input-ux
+[PLAN] scope=canvas-level-pen-touch-double-tap-brush-eraser-toggle risks=browser-does-not-expose-native-apple-pencil-doubletap,tap-dot-behavior,tool-ui-sync
+[IMPACT] status=validated chain=MaskEditor.bindCanvasEvents->shouldToggleToolFromTap->toggleBrushEraseTool
+[IMPACT] status=validated chain=MaskEditor.setTool->onToolChange->updateToolButtons
+[TEST] red=passed name=pen-double-tap-toggles-brush-and-eraser-without-painting-the-mask
+[CODE] updated=src/editor/maskEditor.js,src/app.js note=canvas-double-tap-fallback-and-tool-button-sync
+[DOC] updated=docs/USER_MANUAL.md note=ipad-canvas-double-tap-brush-eraser-toggle
+[CMD] node --test tests/maskEditor.test.js status=passed tests=21
+[CMD] node --check src/editor/maskEditor.js status=passed
+[CMD] node --check src/app.js status=passed
+[CMD] scripts/harness/lint-all.sh status=passed
+[CMD] scripts/harness/typecheck-all.sh status=passed
+[CMD] scripts/harness/test-target.sh status=passed tests=352
+[CMD] scripts/harness/smoke-web.sh status=passed
+[CMD] git diff --check status=passed
+[REVIEW] finding=remaining-risk scope=pencil-double-tap-tool-toggle note=app-level-doubletap-fallback-not-native-apple-pencil-hardware-event
